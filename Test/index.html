@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Floating Label Input</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #fff;
+    }
+
+    .input-container {
+      position: relative;
+      width: 300px;
+      margin: 20px 0;
+    }
+
+    .input-field, .floating-label {
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+
+    .input-field {
+      width: 100%;
+      padding: 10px;
+      color: #333;
+      background-color: transparent;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      outline: none;
+    }
+
+    .input-field:focus {
+      border-color: #007bff;
+    }
+
+    .floating-label {
+      position: absolute;
+      top: 50%;
+      left: 10px;
+      transform: translateY(-50%);
+      color: #aaa;
+      pointer-events: none;
+    }
+
+    .input-field:focus ~ .floating-label,
+    .input-field:not(:placeholder-shown) ~ .floating-label {
+      top: 0;
+      font-size: 0.8rem;
+      color: #007bff;
+      background: #fff;
+      padding: 0 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="input-container">
+    <input type="text" id="username" class="input-field" placeholder=" " required />
+    <label for="username" class="floating-label">Username</label>
+  </div>
+</body>
+</html>
