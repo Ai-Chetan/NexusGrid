@@ -11,7 +11,35 @@
 </head>
 <body>
   <div class="main-container">
-    <div class="forms-container">
+    <header>
+      <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <a class="navbar-brand" href="#">
+          <img src="images/logo.png" alt="Logo" class="logo">
+          MyWebsite
+        </a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav"
+          aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav ml-auto">
+            <li class="nav-item active">
+              <a class="nav-link" href="#">Home</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#">About</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#">Contact</a>
+            </li>
+            <li class="nav-item">
+              <a class="btn btn-primary" href="#">Login</a>
+            </li>
+          </ul>
+        </div>
+      </nav>
+    </header>
+    <div class="forms-container mt-5">
       <div class="signin-signup">
         <!-- Sign In Form -->
         <form action="#" class="sign-in-form text-center">
@@ -51,8 +79,8 @@
         </form>
       </div>
     </div>
-    <div class="panels-container">
-      <div class="panel left-panel">
+    <div class="panels-container mt-5">
+      <div class="panel left-panel mt-5">
         <div class="content">
           <h3>First time?</h3>
           <p>Join now to access real-time system monitoring, resource requests, and issue management!</p>
@@ -60,7 +88,7 @@
         </div>
         <img src="/Images/login_page_img_1.png" class="image" alt="Login illustration">
       </div>
-      <div class="panel right-panel">
+      <div class="panel right-panel mt-5">
         <div class="content">
           <h3>Already registered?</h3>
           <p>Log in to continue monitoring and managing your systems.</p>

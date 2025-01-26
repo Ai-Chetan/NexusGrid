@@ -10,7 +10,30 @@ body,
 input {
   font-family: "Poppins", sans-serif;
 }
+/*  */.logo {
+  width: 30px;
+  margin-right: 10px;
+}
 
+.navbar {
+  padding: 15px;
+}
+
+.navbar-nav .nav-link {
+  color: #fff;
+  margin: 0 10px;
+}
+
+.navbar-nav .btn {
+  color: #fff;
+  background-color: #1cbbb4;
+  border: none;
+}
+
+.navbar-nav .btn:hover {
+  background-color: #17a2b8;
+}
+/*  */
 .input-container {
   position: relative;
   width: 280px;
@@ -54,6 +77,7 @@ input {
   color: #007bff;
   background: white;
   padding: 0 5px;
+  border-radius: 5px;
 }
 
 .main-container {
