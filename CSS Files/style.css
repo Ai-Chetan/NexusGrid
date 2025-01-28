@@ -10,30 +10,7 @@ body,
 input {
   font-family: "Poppins", sans-serif;
 }
-/*  */.logo {
-  width: 30px;
-  margin-right: 10px;
-}
 
-.navbar {
-  padding: 15px;
-}
-
-.navbar-nav .nav-link {
-  color: #fff;
-  margin: 0 10px;
-}
-
-.navbar-nav .btn {
-  color: #fff;
-  background-color: #1cbbb4;
-  border: none;
-}
-
-.navbar-nav .btn:hover {
-  background-color: #17a2b8;
-}
-/*  */
 .input-container {
   position: relative;
   width: 280px;
@@ -98,7 +75,7 @@ input {
 
 .signin-signup {
   position: absolute;
-  top: 50%;
+  top: 40%;
   transform: translate(-50%, -50%);
   left: 75%;
   width: 50%;
@@ -177,7 +154,12 @@ form.sign-in-form {
 }
 
 .btns:hover {
-  background-color: #4d84e2;
+  background-color: #005eff;
+  transform: scale(1.1);
+}
+.btns:active {
+  background-color: #005eff;
+  transform: scale(0.9);
 }
 
 .panels-container {
@@ -260,7 +242,14 @@ form.sign-in-form {
 .right-panel .content {
   transform: translateX(800px);
 }
-
+.eye-icon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  display: none;
+}
 /* ANIMATION */
 
 .main-container.sign-up-mode:before {

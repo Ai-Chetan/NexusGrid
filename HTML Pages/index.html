@@ -11,34 +11,6 @@
 </head>
 <body>
   <div class="main-container">
-    <header>
-      <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <a class="navbar-brand" href="#">
-          <img src="images/logo.png" alt="Logo" class="logo">
-          MyWebsite
-        </a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav"
-          aria-expanded="false" aria-label="Toggle navigation">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav ml-auto">
-            <li class="nav-item active">
-              <a class="nav-link" href="#">Home</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="#">About</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="#">Contact</a>
-            </li>
-            <li class="nav-item">
-              <a class="btn btn-primary" href="#">Login</a>
-            </li>
-          </ul>
-        </div>
-      </nav>
-    </header>
     <div class="forms-container mt-5">
       <div class="signin-signup">
         <!-- Sign In Form -->
@@ -51,8 +23,9 @@
             <label for="signin-username" class="floating-label"><i class="fa fa-user"></i> Username</label>
           </div>
           <div class="input-container">
-            <input type="password" id="signin-password" class="input-field" placeholder=" " required>
+            <input type="password" id="signin-password" class="input-field" placeholder=" " required">
             <label for="signin-password" class="floating-label"><i class="fas fa-lock"></i> Password</label>
+            <span id="toggle-password-signin" class="eye-icon"><i id="toggle-icon-signin" class="fas fa-eye text-primary"></i></span>
           </div>
           <button type="submit" class="btns solid">Login <i class="fas fa-sign-in-alt"></i></button>
         </form>
@@ -70,10 +43,12 @@
           <div class="input-container">
             <input type="password" id="signup-password" class="input-field" placeholder=" " required>
             <label for="signup-password" class="floating-label"><i class="fas fa-lock"></i> Password</label>
+            <span id="toggle-password-signup" class="eye-icon"><i id="toggle-icon-signup" class="fas fa-eye text-primary"></i></span>
           </div>
           <div class="input-container">
             <input type="password" id="confirm-password" class="input-field" placeholder=" " required>
             <label for="confirm-password" class="floating-label"><i class="fas fa-lock"></i> Confirm Password</label>
+            <span id="toggle-password-confirm" class="eye-icon"><i id="toggle-icon-confirm" class="fas fa-eye text-primary"></i></span>
           </div>
           <button type="submit" class="btns">Sign Up <i class="fa fa-rocket"></i></button>
         </form>

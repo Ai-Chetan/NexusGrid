@@ -10,12 +10,28 @@ sign_in_btn.addEventListener("click", () => {
   main_container.classList.remove("sign-up-mode");
 });
 
-// Select the required elements
-const toggleButton = document.querySelector(".custom_menu-btn");
-const navMenu = document.querySelector("#navbarSupportedContent");
+/*Password visibility*/
+const passwordInputs = document.querySelectorAll("#signin-password, #signup-password, #confirm-password");
+const togglePasswords = document.querySelectorAll("#toggle-password-signin, #toggle-password-signup, #toggle-password-confirm");
+const toggleIcons = document.querySelectorAll("#toggle-icon-signin, #toggle-icon-signup, #toggle-icon-confirm");
 
-// Toggle the menu visibility and button style
-toggleButton.addEventListener("click", () => {
-  navMenu.classList.toggle("lg_nav-toggle");
-  toggleButton.classList.toggle("menu_btn-style");
+// Show or hide the eye icon based on the input's value
+passwordInputs.forEach((passwordInput, index) => {
+  passwordInput.addEventListener("input", () => {
+    if (passwordInput.value.length > 0) {
+      togglePasswords[index].style.display = "inline";
+    } else {
+      togglePasswords[index].style.display = "none";
+    }
+  });
+});
+
+// Toggle the password visibility and the icon
+togglePasswords.forEach((togglePassword, index) => {
+  togglePassword.addEventListener("click", () => {
+    const isPassword = passwordInputs[index].type === "password";
+    passwordInputs[index].type = isPassword ? "text" : "password";
+    toggleIcons[index].classList.toggle("fa-eye");
+    toggleIcons[index].classList.toggle("fa-eye-slash");
+  });
 });
