@@ -1,19 +1,19 @@
 const sign_in_btn = document.querySelector("#sign-in-btn");
 const sign_up_btn = document.querySelector("#sign-up-btn");
-const main_container = document.querySelector(".main-container");
+const container = document.querySelector(".container");
 
-sign_up_btn.addEventListener("click", () => {
-  main_container.classList.add("sign-up-mode");
+sign_up_btn.addEventListener('click', () => {
+    container.classList.add("sign-up-mode");
 });
 
-sign_in_btn.addEventListener("click", () => {
-  main_container.classList.remove("sign-up-mode");
+sign_in_btn.addEventListener('click', () => {
+    container.classList.remove("sign-up-mode");
 });
 
 /*Password visibility*/
 const passwordInputs = document.querySelectorAll("#signin-password, #signup-password, #confirm-password");
 const togglePasswords = document.querySelectorAll("#toggle-password-signin, #toggle-password-signup, #toggle-password-confirm");
-const toggleIcons = document.querySelectorAll("#toggle-icon-signin, #toggle-icon-signup, #toggle-icon-confirm");
+const toggleIcons = document.querySelectorAll("#toggle-password-signin i, #toggle-password-signup i, #toggle-password-confirm i");
 
 // Show or hide the eye icon based on the input's value
 passwordInputs.forEach((passwordInput, index) => {

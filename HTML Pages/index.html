@@ -4,73 +4,84 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NexusGrid</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
   <link rel="stylesheet" href="/CSS Files/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter&family=Roboto&family=Poppins&family=Montserrat&family=Lato&family=Nunito&family=Open+Sans&family=Playfair+Display&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="/Images/NexusGrid Favicon.png">
 </head>
 <body>
-  <div class="main-container">
-    <div class="forms-container mt-5">
-      <div class="signin-signup">
-        <!-- Sign In Form -->
-        <form action="#" class="sign-in-form text-center">
-          <h4>Welcome Back to <b>NexusGrid</b><br></h4>
-          <h6>Keep Your Systems in Check, Anytime, Anywhere!</h6>
-          <h2 class="title mb-3 mt-5">Sign In <i class="fas fa-sign-in-alt"></i></h2>
-          <div class="input-container">
-            <input type="text" id="signin-username" class="input-field" placeholder=" " required>
-            <label for="signin-username" class="floating-label"><i class="fa fa-user"></i> Username</label>
-          </div>
-          <div class="input-container">
-            <input type="password" id="signin-password" class="input-field" placeholder=" " required">
-            <label for="signin-password" class="floating-label"><i class="fas fa-lock"></i> Password</label>
-            <span id="toggle-password-signin" class="eye-icon"><i id="toggle-icon-signin" class="fas fa-eye text-primary"></i></span>
-          </div>
-          <button type="submit" class="btns solid">Login <i class="fas fa-sign-in-alt"></i></button>
-        </form>
-        <!-- Sign Up Form -->
-        <form action="#" class="sign-up-form text-center">
-          <h2 class="title mb-3">Sign Up <i class="fa fa-user-plus"></i></h2>
-          <div class="input-container">
-            <input type="text" id="signup-username" class="input-field" placeholder=" " required>
-            <label for="signup-username" class="floating-label"><i class="fa fa-user"></i> Username</label>
-          </div>
-          <div class="input-container">
-            <input type="email" id="signup-email" class="input-field" placeholder=" " required>
-            <label for="signup-email" class="floating-label"><i class="fas fa-envelope"></i> Email</label>
-          </div>
-          <div class="input-container">
-            <input type="password" id="signup-password" class="input-field" placeholder=" " required>
-            <label for="signup-password" class="floating-label"><i class="fas fa-lock"></i> Password</label>
-            <span id="toggle-password-signup" class="eye-icon"><i id="toggle-icon-signup" class="fas fa-eye text-primary"></i></span>
-          </div>
-          <div class="input-container">
-            <input type="password" id="confirm-password" class="input-field" placeholder=" " required>
-            <label for="confirm-password" class="floating-label"><i class="fas fa-lock"></i> Confirm Password</label>
-            <span id="toggle-password-confirm" class="eye-icon"><i id="toggle-icon-confirm" class="fas fa-eye text-primary"></i></span>
-          </div>
-          <button type="submit" class="btns">Sign Up <i class="fa fa-rocket"></i></button>
-        </form>
-      </div>
+  <div class="container">
+    <div class="forms-container">
+        <div class="signin-signup">
+            <!-- Sign In Form -->
+            <form action="#" class="sign-in-form">
+              <h1 class="heading">Welcome Back to <b>NexusGrid</b>!</h1>
+              <p>Keep Your Systems in Check, Anytime, Anywhere.</p>
+              <h2 class="title">Sign In <i class="fas fa-sign-in-alt"></i></h2>
+              
+              <div class="input-container">
+                  <input type="text" id="signin-username" name="username" class="input-field" placeholder=" " required>
+                  <label for="signin-username" class="floating-label"><i class="fa fa-user"></i> Username</label>
+              </div>
+              
+              <div class="input-container">
+                  <input type="password" id="signin-password" name="password" class="input-field" placeholder=" " required>
+                  <label for="signin-password" class="floating-label"><i class="fas fa-lock"></i> Password</label>
+                  <span class="eye-icon" id="toggle-password-signin"><i class="fa-solid fa-eye"></i></span>
+              </div>
+
+              <button type="submit" class="btn solid">Login <i class="fas fa-sign-in-alt"></i></button>
+            </form>
+
+            <!-- Sign Up Form -->
+            <form action="#" class="sign-up-form">
+                <h2 class="title">Sign Up <i class="fa fa-user-plus"></i></h2>
+
+                <div class="input-container">
+                    <input type="text" id="signup-username" name="username" class="input-field" placeholder=" " required>
+                    <label for="signup-username" class="floating-label"><i class="fa fa-user"></i> Username</label>
+                </div>
+
+                <div class="input-container">
+                    <input type="email" id="signup-email" name="email" class="input-field" placeholder=" " required>
+                    <label for="signup-email" class="floating-label"><i class="fas fa-envelope"></i> Email</label>
+                </div>
+
+                <div class="input-container">
+                    <input type="password" id="signup-password" name="password" class="input-field" placeholder=" " required>
+                    <label for="signup-password" class="floating-label"><i class="fas fa-lock"></i> Password</label>
+                    <span class="eye-icon" id="toggle-password-signup"><i class="fas fa-eye"></i></span>
+                </div>
+
+                <div class="input-container">
+                    <input type="password" id="confirm-password" name="confirm-password" class="input-field" placeholder=" " required>
+                    <label for="confirm-password" class="floating-label"><i class="fas fa-lock"></i> Confirm Password</label>
+                    <span class="eye-icon" id="toggle-password-confirm"><i class="fas fa-eye"></i></span>
+                </div>
+
+                <button type="submit" class="btn solid">Sign Up <i class="fa fa-rocket"></i></button>
+            </form>
+        </div>
     </div>
-    <div class="panels-container mt-5">
-      <div class="panel left-panel mt-5">
-        <div class="content">
-          <h3>First time?</h3>
-          <p>Join now to access real-time system monitoring, resource requests, and issue management!</p>
-          <button class="btns transparent" id="sign-up-btn">Sign up <i class="fa fa-user-plus"></i></button>
+
+    <div class="panels-container">
+        <div class="panel left-panel">
+            <div class="content">
+                <h3>First time?</h3>
+                <p>Join now to access real-time system monitoring, resource requests, and issue management!</p>
+                <button class="btn transparent" id="sign-up-btn">Sign up <i class="fa fa-user-plus"></i></button>
+            </div>
+            <img src="/Images/login_page_img_1.png" class="image" alt="Login illustration">
         </div>
-        <img src="/Images/login_page_img_1.png" class="image" alt="Login illustration">
-      </div>
-      <div class="panel right-panel mt-5">
-        <div class="content">
-          <h3>Already registered?</h3>
-          <p>Log in to continue monitoring and managing your systems.</p>
-          <button class="btns transparent" id="sign-in-btn">Sign in <i class="fas fa-sign-in-alt"></i></button>
+
+        <div class="panel right-panel">
+            <div class="content">
+                <h3>Already registered?</h3>
+                <p>Log in to continue monitoring and managing your systems.</p>
+                <button class="btn transparent" id="sign-in-btn">Sign in <i class="fas fa-sign-in-alt"></i></button>
+            </div>
+            <img src="/Images/login_page_img_2.png" class="image" alt="Register illustration">
         </div>
-        <img src="/Images/login_page_img_2.png" class="image" alt="Register illustration">
-      </div>
     </div>
   </div>
   <script src="/JS Files/app.js"></script>
