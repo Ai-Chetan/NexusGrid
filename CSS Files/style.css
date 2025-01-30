@@ -50,6 +50,7 @@ body, input{
     grid-template-columns: 1fr;
     z-index: 5;
     transition: 1s 0.7s ease-in-out;
+    text-align: center;
 }
 
 form{
@@ -69,6 +70,7 @@ form.sign-in-form{
 }
 
 form.sign-up-form{
+    text-align: center;
     z-index: 1;
     opacity: 0;
 }
@@ -94,8 +96,8 @@ width: 280px;
 }
 
 .input-field, .floating-label {
-font-size: 1rem;
-transition: all 0.3s ease;
+    font-size: 1rem;
+    transition: all 0.3s ease;
 }
 
 .input-field:focus {
@@ -160,12 +162,12 @@ border-radius: 5px;
     outline: none;
     border-radius: 49px;
     cursor: pointer;
-    background-color: #5995fd;
+    background-color: #007bff;
     color: #fff;
     text-transform: uppercase;
     margin: 10px 0;
-font-weight: bold;
-transition: .5s;
+    font-weight: bold;
+    transition: .5s;
 }
 
 .btn:hover {
@@ -175,36 +177,6 @@ transform: scale(1.1);
 .btn:active {
 background-color: #005eff;
 transform: scale(0.9);
-}
-
-.social-text{
-    padding: .7rem 0;
-    font-size: 1rem;
-}
-
-.social-media{
-    display: flex;
-    justify-content: center;
-}
-
-.social-icon{
-    height: 46px;
-    width: 46px;
-    border: 1px solid #333;
-    margin: 0 0.45rem;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    text-decoration: none;
-    color: #333;
-    font-size: 1.1rem;
-    border-radius: 50%;
-    transition: 0.3s;
-}
-
-.social-icon:hover{
-    color: #4481eb;
-    border-color: #4481eb;
 }
 
 .panels-container{
@@ -265,7 +237,7 @@ transform: scale(0.9);
 }
 
 .image{
-    width: 100%;
+    width: 80%;
     transition: 1.1s .4s ease-in-out;
 }
 
@@ -346,7 +318,6 @@ transform: scale(0.9);
     }
 
     .panels-container{
-        z-index: 10;
         grid-template-columns: 1fr;
         grid-template-rows: 1fr 2fr 1fr;
     }
@@ -435,40 +406,4 @@ transform: scale(0.9);
         bottom: 28%;
         left: 50%;
     }
-}
-
-@media (max-width: 870px){
-  .panels-container{
-      z-index: 1;  /* Lower z-index for panels-container */
-  }
-
-  .panel {
-      z-index: 11; /* Ensure panels are above forms-container */
-  }
-
-  .forms-container {
-      z-index: 5;  /* Ensure forms-container stays above */
-  }
-
-  .signin-signup {
-      z-index: 10; /* Ensure signin-signup is above panels */
-  }
-}
-
-@media (max-width: 570px){
-  .panels-container{
-      z-index: 1;  /* Lower z-index for panels-container */
-  }
-
-  .panel {
-    z-index: 11; /* Ensure panels are above forms-container */
-}
-
-  .forms-container {
-      z-index: 5;  /* Ensure forms-container stays above */
-  }
-
-  .signin-signup {
-      z-index: 10; /* Ensure signin-signup is above panels */
-  }
 }
