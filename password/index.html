@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Toggle</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body,
+        input {
+            font-family: "Poppins", sans-serif;
+        }
+
+        .input-container {
+            position: relative;
+            width: 280px;
+            margin: 50px auto;
+        }
+
+        .input-field, .floating-label {
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 18px 40px 10px 15px; /* More padding on top to center text */
+            height: 55px;
+            border-radius: 24px;
+            color: #333;
+            background-color: transparent;
+            border: 1px solid #007BFF;
+            outline: none;
+        }
+
+        .input-field:focus {
+            border-color: #007bff;
+        }
+
+        .floating-label {
+            position: absolute;
+            top: 50%;
+            left: 15px;
+            transform: translateY(-50%);
+            color: #007bffb9;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        /* Move label slightly higher when input is focused or has text */
+        .input-field:focus ~ .floating-label,
+        .input-field:not(:placeholder-shown) ~ .floating-label {
+            top: 5px; /* Moved slightly higher */
+            font-size: 0.8rem;
+            color: #007bff;
+            background: white;
+            padding: 0 5px;
+        }
+
+        .pass-icon {
+            position: absolute;
+            top: 50%;
+            right: 15px;
+            width: 24px;
+            height: 24px;
+            transform: translateY(-50%);
+            cursor: pointer;
+            display: none; /* Initially hidden */
+        }
+    </style>
+    <script>
+        var isPasswordVisible = false;
+
+        function togglePassword() {
+            var passwordField = document.getElementById('password');
+            var icon = document.getElementById('pass-icon');
+
+            if (isPasswordVisible) {
+                passwordField.type = 'password';
+                icon.src = 'eye-close.png';
+                isPasswordVisible = false;
+            } else {
+                passwordField.type = 'text';
+                icon.src = 'eye-open.png';
+                isPasswordVisible = true;
+            }
+        }
+
+        function showIcon() {
+            var passwordField = document.getElementById('password');
+            var icon = document.getElementById('pass-icon');
+
+            if (passwordField.value.length > 0) {
+                icon.style.display = 'inline';
+            } else {
+                icon.style.display = 'none';
+            }
+        }
+    </script>
+</head>
+<body>
+    <form>
+        <div class="input-container">
+            <input type="password" id="password" class="input-field" oninput="showIcon()" placeholder=" ">
+            <label for="password" class="floating-label">Password</label>
+            <img src="eye-close.png" onclick="togglePassword()" class="pass-icon" id="pass-icon">
+        </div>
+    </form>
+</body>
+</html>
