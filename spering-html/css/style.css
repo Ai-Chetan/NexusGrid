@@ -106,9 +106,10 @@ body {
 
 .custom_nav-container.navbar-expand-lg .navbar-nav .nav-item .nav-link {
   padding: 10px 15px;
-  color: #ffffff;
+  color: #000000;
   text-align: center;
 }
+
 
 a,
 a:hover,
@@ -160,7 +161,7 @@ a:focus {
 
 .navbar-brand span {
   font-weight: bold;
-  color: #ffffff;
+  color: #000000;
   font-size: 24px;
 }
 
@@ -179,6 +180,10 @@ a:focus {
   background-size: 30px;
   width: 32px;
   height: 32px;
+ 
+}
+.custom_menu-btn button span {
+  background-color: #000000;
 }
 
 .lg_toggl-btn {
@@ -188,6 +193,7 @@ a:focus {
   width: 56px;
   height: 40px;
   cursor: pointer;
+  
 }
 
 .lg_toggl-btn:focus {
@@ -196,6 +202,7 @@ a:focus {
 
 .login_btn-container {
   padding-top: 30px;
+
 }
 
 .login_btn-container a {
