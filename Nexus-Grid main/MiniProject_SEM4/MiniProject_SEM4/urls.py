@@ -15,8 +15,13 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path,include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('', include('NexusGrid.urls')),
+    path('Login', include('NexusGrid.urls')),
+    path('Admin_Dashboard', include('NexusGrid.urls')),
+    path('Supervisor_Dashboard', include('NexusGrid.urls')),
+    path('User_Dashboard', include('NexusGrid.urls'))
 ]

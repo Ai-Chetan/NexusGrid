@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexusGrid</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <link rel="stylesheet" href="static/NexusGrid/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter&family=Roboto&family=Poppins&family=Montserrat&family=Lato&family=Nunito&family=Open+Sans&family=Playfair+Display&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/x-icon" href="static/NexusGrid/images/NexusGrid Favicon.ico">
+  <link rel="icon" href="static/NexusGrid/images/NexusGrid Favicon.png" type="image/png">
+</head>
+<body>
+	
+<div class="container">
+	<div class="navbar-container">
+		<nav class="navbar">
+			<div class="logo-container">
+				<img class="logo-image" src="static/NexusGrid/images/black-logo-removebg-preview.png" alt="">
+				<h1>NexusGrid</h1>
+			</div>
+			<div class="menu-icon" onclick="toggleMenu()">&#9776;</div>
+		</nav>
+			<div class="nav-links" id="navLinks">
+				<a href="#">Home</a>
+				<a href="#">What We Deliver?</a>
+				<a href="#">Why Choose NexuGrid?</a>
+				<a href="#">Contact Us</a>
+			</div>
+	</div>
+    <div class="forms-container">
+        <div class="signin-signup">
+            <!-- Sign In Form -->
+            <form action="#" class="sign-in-form">
+
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="signin"> 
+              <h1 class="heading">Welcome Back to <b>NexusGrid</b>!</h1>
+              <p>Keep Your Systems in Check, Anytime, Anywhere.</p>
+              <h2 class="title">Sign In <i class="fas fa-sign-in-alt"></i></h2>
+              
+              <div class="input-container">
+                  <input type="text" id="signin-username" name="username" class="input-field" placeholder=" " required>
+                  <label for="signin-username" class="floating-label"><i class="fa fa-user"></i> Username</label>
+              </div>
+              
+              <div class="input-container">
+                  <input type="password" id="signin-password" name="password" class="input-field" placeholder=" " required>
+                  <label for="signin-password" class="floating-label"><i class="fas fa-lock"></i> Password</label>
+                  <span class="eye-icon" id="toggle-password-signin"><i class="fa-solid fa-eye-slash"></i></span>
+              </div>
+
+              <button type="submit" class="btn solid">Login <i class="fas fa-sign-in-alt"></i></button>
+            </form>
+
+            <!-- Sign Up Form -->
+            <form action="#" class="sign-up-form">
+                
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="signup">
+                <h2 class="title">Sign Up <i class="fa fa-user-plus"></i></h2>
+
+                <div class="input-container">
+                    <input type="text" id="signup-username" name="username" class="input-field" placeholder=" " required>
+                    <label for="signup-username" class="floating-label"><i class="fa fa-user"></i> Username</label>
+                </div>
+                
+                <div style="display: flex;">
+
+                    <div class="email-box">
+                        <input type="email" id="signup-email" name="email" class="input-field" placeholder=" " required>
+                        <label for="signup-email" class="floating-label"><i class="fas fa-envelope"></i> Email</label>
+                    </div>
+
+                    <div class="otp-box">
+                        <input type="email" id="email-otp" name="otp" class="input-field" placeholder=" " required>
+                        <label for="email-otp" class="floating-label"><i class="fa-solid fa-key"></i> OTP</label>
+                    </div>
+
+                </div>
+
+                <div class="input-container">
+                    <select id="signup-role" name="role" class="input-field" required>
+                        <option value="" disabled selected>Select a role</option>
+                        <option value="admin">Administrator (Manages System and Configurations)</option>
+                        <option value="supervisor">Supervisor (Oversees Operations and Resources)</option>
+                        <option value="user">Standard User (For Employees, Students, and General Access)</option>
+                    </select>
+                    <label for="signup-role" class="floating-label"><i class="fa-solid fa-users"></i> Roles</label>
+                </div>                
+
+                <div class="input-container">
+                    <input type="password" id="signup-password" name="password" class="input-field" placeholder=" " required>
+                    <label for="signup-password" class="floating-label"><i class="fas fa-lock"></i> Password</label>
+                    <span class="eye-icon" id="toggle-password-signup"><i class="fas fa-eye-slash"></i></span>
+                </div>
+
+                <div class="input-container">
+                    <input type="password" id="confirm-password" name="confirm-password" class="input-field" placeholder=" " required>
+                    <label for="confirm-password" class="floating-label"><i class="fas fa-lock"></i> Confirm Password</label>
+                    <span class="eye-icon" id="toggle-password-confirm"><i class="fas fa-eye-slash"></i></span>
+                </div>
+
+                <button type="submit" class="btn solid">Sign Up <i class="fa fa-rocket"></i></button>
+            </form>
+        </div>
+    </div>
+
+    <div class="panels-container">
+        <div class="panel left-panel">
+            <div class="content">
+                <h3>First time?</h3>
+                <p>Join now to access real-time system monitoring, resource requests, and issue management!</p>
+                <button class="btn transparent" id="sign-up-btn">Sign up <i class="fa fa-user-plus"></i></button>
+            </div>
+            <img src="static/NexusGrid/images/login_page_img_1.png" class="image" alt="Login illustration">
+        </div>
+
+        <div class="panel right-panel">
+            <div class="content">
+                <h3>Already registered?</h3>
+                <p>Log in to continue monitoring and managing your systems.</p>
+                <button class="btn transparent" id="sign-in-btn">Sign in <i class="fas fa-sign-in-alt"></i></button>
+            </div>
+            <img src="static/NexusGrid/images/login_page_img_2.png" class="image" alt="Register illustration">
+        </div>
+    </div>
+  </div>
+  <script src="static/NexusGrid/js/app.js"></script>
+</body>
+</html>
