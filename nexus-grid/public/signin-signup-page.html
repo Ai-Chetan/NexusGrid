@@ -1,0 +1,141 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="NexusGrid - Intelligent System Monitoring & Management for Seamless Workspace Operations.">
+    <title>Nexus Grid</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="icon" href="/images/white-logo.png" type="image/png">
+    <link href="/src/styles/sigin-signup-page.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <!-- Brand Logo -->
+            <a class="navbar-brand" href="#section-home">
+                <img src="/images/Logo+Text Light.png" alt="Nexus Grid" class="logo">
+            </a>
+    
+            <!-- Hamburger Button for Small Screens -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+    
+            <!-- Collapsible Navbar -->
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <div class="navbar-nav ms-auto">
+                    <a class="nav-link text-white" href="landing-page.html#section-home">Home</a>
+                    <a class="nav-link text-white" href="landing-page.html#section-what-we-deliver">What We Deliver</a>
+                    <a class="nav-link text-white" href="landing-page.html#section-why-choose-nexusgrid">Why Choose NexusGrid</a>
+                    <a class="nav-link text-white" href="landing-page.html#section-contact-us">Contact Us</a>
+                    <a class="nav-link text-white" href="landing-page.html#section-about-us">About Us</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <div class="main-container">
+        <div class="forms-container">
+            <div class="signin-signup">
+                <!-- Sign In Form -->
+                <form action="#" class="sign-in-form" id="signin-form">
+                    <h1 class="heading">Welcome Back to <b>NexusGrid</b>!</h1>
+                    <p>Keep Your Systems in Check, Anytime, Anywhere.</p>
+                    <h2 class="title">Sign In <i class="fas fa-sign-in-alt"></i></h2>
+                
+                    <div class="input-container">
+                        <input type="text" id="signin-username" name="username" class="input-field" placeholder=" " required>
+                        <label for="signin-username" class="floating-label"><i class="fa fa-user"></i> Username</label>
+                    </div>
+                
+                    <div class="input-container">
+                        <input type="password" id="signin-password" name="password" class="input-field" placeholder=" " required>
+                        <label for="signin-password" class="floating-label"><i class="fas fa-lock"></i> Password</label>
+                        <span class="eye-icon" id="toggle-password-signin"><i class="fa-solid fa-eye-slash"></i></span>
+                    </div>
+                
+                    <button type="submit" class="btns solid">Login <i class="fas fa-sign-in-alt"></i></button>
+                </form>
+    
+                <!-- Sign Up Form -->
+                <form action="#" class="sign-up-form">
+                    <h2 class="title">Sign Up <i class="fa fa-user-plus"></i></h2>
+                
+                    <!-- Step 1: Email Input -->
+                    <div class="input-container">
+                        <input type="email" id="signup-email" name="email" class="input-field" placeholder=" " required>
+                        <label for="signup-email" class="floating-label"><i class="fas fa-envelope"></i> Email</label>
+                    </div>
+                    <button type="button" class="btns solid" id="get-otp-btn">Get OTP</button>
+                
+                    <!-- Step 2: OTP Verification (Initially Hidden) -->
+                    <div class="input-container" id="otp-section" style="display: none;">
+                        <input type="text" id="email-otp" name="otp" class="input-field" placeholder=" " required 
+                               oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                        <label for="email-otp" class="floating-label"><i class="fa-solid fa-key"></i> OTP</label>
+                    </div>
+                    <button type="button" class="btns solid" id="validate-otp-btn" style="display: none;">Validate OTP</button>
+                
+                    <!-- Step 3: Username, Role, and Password (Initially Hidden) -->
+                    <div id="user-details" style="display: none;">
+                        <div class="input-container">
+                            <input type="text" id="signup-username" name="username" class="input-field" placeholder=" " required>
+                            <label for="signup-username" class="floating-label"><i class="fa fa-user"></i> Username</label>
+                        </div>
+                
+                        <div class="input-container">
+                            <select id="signup-role" name="role" class="input-field" required>
+                                <option value="" disabled selected>Select a role</option>
+                                <option value="admin">Administrator</option>
+                                <option value="supervisor">Supervisor</option>
+                                <option value="user">Standard User</option>
+                            </select>
+                            <label for="signup-role" class="floating-label"><i class="fa-solid fa-users"></i> Roles</label>
+                        </div>
+                
+                        <div class="input-container">
+                            <input type="password" id="signup-password" name="password" class="input-field" placeholder=" " required>
+                            <label for="signup-password" class="floating-label"><i class="fas fa-lock"></i> Password</label>
+                            <span class="eye-icon" id="toggle-password-signup"><i class="fas fa-eye-slash"></i></span>
+                        </div>
+                
+                        <div class="input-container">
+                            <input type="password" id="confirm-password" name="confirm-password" class="input-field" placeholder=" " required>
+                            <label for="confirm-password" class="floating-label"><i class="fas fa-lock"></i> Confirm Password</label>
+                            <span class="eye-icon" id="toggle-password-confirm"><i class="fas fa-eye-slash"></i></span>
+                        </div>
+                        <!-- Final Submit Button -->
+                        <button type="submit" class="btns solid" id="signup-btn" disabled>Sign Up <i class="fa fa-rocket"></i></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    
+        <div class="panels-container">
+            <div class="panel left-panel">
+                <div class="content">
+                    <h3>First time?</h3>
+                    <p>Join now to access real-time system monitoring, resource requests, and issue management!</p>
+                    <button class="btns transparent" id="sign-up-btn">Sign up <i class="fa fa-user-plus"></i></button>
+                </div>
+                <img src="/images/login_page_img_1.png" class="image" alt="Login illustration">
+            </div>
+    
+            <div class="panel right-panel">
+                <div class="content">
+                    <h3>Already registered?</h3>
+                    <p>Log in to continue monitoring and managing your systems.</p>
+                    <button class="btns transparent" id="sign-in-btn">Sign in <i class="fas fa-sign-in-alt"></i></button>
+                </div>
+                <img src="/images/login_page_img_2.png" class="image" alt="Register illustration">
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/src/scripts/app.js"></script>
+</body>
+</html>

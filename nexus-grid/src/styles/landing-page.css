@@ -1,0 +1,291 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f8f9fa;
+    overflow-x: hidden;
+}
+section {
+    scroll-margin-top: 10vh;
+}
+.navbar {
+    background-color: #16213e;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.15);
+    padding: 1rem 0;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+    top: 0;
+    border-radius: 0 0 20px 20px;
+}
+
+.logo {
+    height: 40px;
+    transition: transform 0.3s;
+}
+
+.logo:hover {
+    transform: scale(1.1);
+}
+
+.login-btn {
+    text-align: center;
+    color: white;
+    background: #007bff;
+    border-radius: 5px;
+    width: 200px;
+    margin-left: 10px;
+    transition: all 0.3s;
+}
+.login-btn:hover, .login-btn:active {
+    background-color: #005eff;
+}
+
+.login-btn:hover { transform: scale(1.1); }
+.login-btn:active { transform: scale(0.9); }
+
+.hero {
+    height: 100vh;
+    background-image: url("https://img.freepik.com/free-vector/gradient-blue-background_23-2149347096.jpg?t=st=1739099608~exp=1739103208~hmac=761ffe0cf23e51150b678ac7643897f66b7e1104e90e44c5550dbd341b3c6a95&w=826");
+    background-size: cover;
+    /* background: linear-gradient(90deg, #4481eb, #04befe); */
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    padding-top: 10vh;
+}
+
+.floating-icons {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.floating-icons .icon {
+    position: absolute;
+    font-size: 40px;
+    color: rgba(255, 255, 255, 0.8);
+    animation: float 3s ease-in-out infinite;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.floating-icons .icon:nth-child(1) { top: 12%; left: 15%; animation-delay: 0s; }
+.floating-icons .icon:nth-child(2) { top: 12%; left: 30%; animation-delay: 0.5s; }
+.floating-icons .icon:nth-child(3) { top: 20%; right: 20%; animation-delay: 1s; }
+.floating-icons .icon:nth-child(4) { top: 28%; left: 12%; animation-delay: 1.5s; }
+.floating-icons .icon:nth-child(5) { top: 28%; right: 30%; animation-delay: 2s; }
+.floating-icons .icon:nth-child(6) { top: 40%; left: 25%; animation-delay: 2.5s; }
+.floating-icons .icon:nth-child(7) { top: 40%; right: 15%; animation-delay: 3s; }
+.floating-icons .icon:nth-child(8) { top: 55%; left: 12%; animation-delay: 3.5s; }
+.floating-icons .icon:nth-child(9) { top: 55%; right: 30%; animation-delay: 4s; }
+.floating-icons .icon:nth-child(10) { top: 65%; left: 20%; animation-delay: 4.5s; }
+.floating-icons .icon:nth-child(11) { top: 65%; right: 18%; animation-delay: 5s; }
+.floating-icons .icon:nth-child(12) { top: 75%; left: 30%; animation-delay: 5.5s; }
+.floating-icons .icon:nth-child(13) { top: 75%; right: 15%; animation-delay: 6s; }
+.floating-icons .icon:nth-child(14) { top: 85%; left: 15%; animation-delay: 6.5s; }
+.floating-icons .icon:nth-child(15) { top: 85%; right: 30%; animation-delay: 7s; }
+.floating-icons .icon:nth-child(16) { top: 90%; left: 25%; animation-delay: 7.5s; }
+
+.icon:hover {
+    transform: scale(1.2);
+    color: white;
+}
+
+.hero h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    position: relative;
+    animation: slideIn 1s ease-out;
+}
+
+.subtitle {
+    font-size: 1.2rem;
+    opacity: 0.9;
+    position: relative;
+    animation: fadeIn 1s ease-out 0.5s both;
+}
+
+
+.what-we-deliver {
+    background: linear-gradient(90deg, #4481eb, #2885d3);
+    height: 90vh;
+}
+
+.delivery-card {
+    background: #ffffff;
+    border-radius: 20px;
+    min-height: 400px;
+}
+
+.carousel-img {
+    width: 300px;
+}
+
+.why-choose {
+    background: #f8f9fa;
+    padding: 80px 0;
+}
+
+.feature-card {
+    background: linear-gradient(to bottom, #4481eb, #2885d3);
+    border-radius: 10px;
+    padding: 25px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    height: 100%;
+    transition: all 0.3s;
+    animation: fadeIn 0.5s ease-out;
+}
+
+.feature-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+.feature-card i {
+    color: #ffffff;
+    font-size: 24px;
+    margin-bottom: 15px;
+}
+
+.contact {
+    background: #1a1a2e;
+    color: white;
+    padding: 80px 0;
+}
+
+.contact-info {
+    padding: 20px;
+}
+
+.contact-details {
+    margin-top: 30px;
+}
+
+.contact-details p {
+    margin: 15px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.contact-form {
+    background: linear-gradient(90deg, #4481eb, #2885d3);
+    padding: 30px;
+    border-radius: 10px;
+    animation: slideUp 0.5s ease-out;
+}
+
+.about {
+    background: #f8f9fa;
+}
+
+.about-content {
+    padding: 20px;
+}
+
+.about-content h3 {
+    color: #4481eb;
+    margin-bottom: 15px;
+}
+
+.about-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    text-align: center;
+    padding: 20px;
+}
+
+.stat-item {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s;
+}
+
+.stat-item:hover {
+    transform: translateY(-5px);
+}
+
+.stat-item i {
+    font-size: 30px;
+    color: #4481eb;
+    margin-bottom: 10px;
+}
+
+.stat-item h4 {
+    font-size: 24px;
+    color: #1a1a2e;
+    margin: 10px 0;
+}
+
+.footer {
+    background: #16213e;
+    color: white;
+    padding: 20px 0;
+}
+
+.social-icons a {
+    color: white;
+    margin: 0 10px;
+    font-size: 20px;
+    text-decoration: none;
+    transition: all 0.3s;
+}
+
+.social-icons a:hover {
+    color: #04befe;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(-100px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .icon-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .hero h1 {
+        font-size: 2.5rem;
+    }
+
+    .delivery-card {
+        flex-direction: column;
+    }
+}
