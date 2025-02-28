@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="NexusGrid - Intelligent System Monitoring & Management for Seamless Workspace Operations.">
+    <title>Nexus Grid</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="icon" href="/images/white-logo.png" type="image/png">
+    <link href="/styles/dashboard.css" rel="stylesheet">
+</head>
+<body>
+
+    <div class="sidebar d-flex flex-column">
+        <a href="#"><i class="fas fa-chart-pie"></i><span class="d-none d-md-inline"> Dashboard</span></a>
+        <a href="#"><i class="fas fa-network-wired"></i><span class="d-none d-md-inline"> System Layout</span></a>
+        <a href="#"><i class="fas fa-exclamation-triangle"></i><span class="d-none d-md-inline"> Fault Reports</span></a>
+        <a href="#"><i class="fas fa-box"></i><span class="d-none d-md-inline"> Resource Requests</span></a>
+        <a href="#"><i class="fas fa-qrcode"></i><span class="d-none d-md-inline"> Scan System QR</span></a>
+        <a href="#"><i class="fas fa-user"></i><span class="d-none d-md-inline"> User Privileges</span></a>
+        <a href="#"><i class="fas fa-sign-out-alt"></i><span class="d-none d-md-inline"> Logout</span></a>
+    </div>
+
+    <div class="content">
+        <h2>System Overview</h2>
+        <div class="row">
+            <div class="col-md-3"><div class="card p-3">Active Systems: <span class="text-success">36/50</span></div></div>
+            <div class="col-md-3"><div class="card p-3">Critical Systems: <span class="text-danger">02</span></div></div>
+            <div class="col-md-3"><div class="card p-3">Fault Reports: <span class="text-warning">04</span></div></div>
+            <div class="col-md-3"><div class="card p-3">Resource Requests: <span class="text-info">02</span></div></div>
+        </div>
+        
+        <h2 class="mt-4">Recent History</h2>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card p-3 bg-light">Resource Request: <span class="text-primary">Keyboard</span></div>
+            </div>
+            <div class="col-md-6">
+                <div class="card p-3 bg-light">Fault Report Resolved: <span class="text-success">Power Saving</span></div>
+            </div>
+            <div class="col-md-6 mt-2">
+                <div class="card p-3 bg-light">Fault Report: <span class="text-warning">Power Saving</span></div>
+            </div>
+            <div class="col-md-6 mt-2">
+                <div class="card p-3 bg-light">Critical System Alert</div>
+            </div>
+        </div>
+
+        <h2 class="mt-4">Performance & Fault Trends</h2>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card p-3" id="fault-trend-plot">Fault Report Trend (Plotly Graph Placeholder)</div>
+            </div>
+            <div class="col-md-6">
+                <div class="card p-3" id="reported-faults-plot">Reported Faults (Plotly Graph Placeholder)</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -11,36 +11,6 @@ sign_in_btn.addEventListener('click', () => {
     container.classList.remove("sign-up-mode");
 });
 
-/* Validate Fields before Submit and prompt to Dashboard */
-document.addEventListener("DOMContentLoaded", function () {
-  // Form and elements
-  const form = document.getElementById("signin-form");
-  const usernameInput = document.getElementById("signin-username");
-  const passwordInput = document.getElementById("signin-password");
-  const togglePasswordButton = document.getElementById("toggle-password-signin");
-
-  // Handle form submission
-  form.addEventListener("submit", function (event) {
-      event.preventDefault(); // Prevent the form from submitting normally
-
-      const username = usernameInput.value;
-      const password = passwordInput.value;
-
-      window.location.href = "/dashboard"; // This redirects to the /dashboard route (React app)
-  });
-
-  // Toggle password visibility
-  togglePasswordButton.addEventListener("click", function () {
-      if (passwordInput.type === "password") {
-          passwordInput.type = "text";
-          togglePasswordButton.innerHTML = '<i class="fa-solid fa-eye"></i>'; // Change icon to show
-      } else {
-          passwordInput.type = "password";
-          togglePasswordButton.innerHTML = '<i class="fa-solid fa-eye-slash"></i>'; // Change icon to hide
-      }
-  });
-});
-
 /*Password visibility*/
 const passwordInputs = document.querySelectorAll("#signin-password, #signup-password, #confirm-password");
 const togglePasswords = document.querySelectorAll("#toggle-password-signin, #toggle-password-signup, #toggle-password-confirm");

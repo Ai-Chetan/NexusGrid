@@ -1,0 +1,75 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+body {
+  display: flex;
+  background-color: #f0f4ff;
+}
+.sidebar {
+  width: 60px;
+  height: calc(100vh - 40px);
+  background-color: #007bff;
+  position: fixed;
+  top: 20px;
+  left: 10px;
+  border-radius: 10px;
+  transition: width 0.3s;
+  overflow: hidden;
+  white-space: nowrap;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0;
+}
+.sidebar:hover {
+  width: 200px;
+}
+.sidebar a {
+  display: flex;
+  align-items: center;
+  color: white;
+  padding: 12px;
+  text-decoration: none;
+  transition: background 0.3s;
+  width: 100%;
+  justify-content: center;
+}
+.sidebar:hover a {
+  justify-content: flex-start;
+  padding-left: 20px;
+}
+.sidebar a:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+}
+.sidebar i {
+  margin-right: 0;
+  transition: margin-right 0.3s;
+  font-size: 24px; 
+}
+.sidebar:hover i {
+  margin-right: 10px;
+}
+.sidebar span {
+  opacity: 0;
+  transition: opacity 0.3s;
+  white-space: nowrap; /* Prevent text wrapping */
+  position: absolute; /* Prevents affecting layout */
+  left: 70px;
+}
+
+.sidebar:hover span {
+  opacity: 1;
+  position: relative;
+  left: 0;
+}
+.content {
+  margin-left: 80px;
+  padding: 20px;
+  width: calc(100% - 80px);
+  transition: margin-left 0.3s, width 0.3s;
+}
+.sidebar:hover ~ .content {
+  margin-left: 220px;
+  width: calc(100% - 220px);
+}
