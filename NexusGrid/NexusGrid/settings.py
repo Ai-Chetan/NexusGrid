@@ -42,7 +42,16 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
    # 'NexusGrid.apps.NexusgridConfig',
     #'login.apps.LoginConfig',
-    'login_manager'
+
+    # Custom Apps:
+    'login_manager',
+    'dashboard',
+    'monitoring',
+    'faults',
+    'resources',
+    'notifications',
+    'reports',
+    'automation',
 ]
 
 MIDDLEWARE = [
