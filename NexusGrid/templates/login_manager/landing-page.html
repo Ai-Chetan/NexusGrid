@@ -1,8 +1,5 @@
-{% extends "login_manager/base.html" %}  <!-- This should be the first tag -->
-
-{% load static %}  <!-- Move the load static tag here -->
-
-{% block title %}{% endblock title %}
+{% extends "login_manager/base.html" %}
+{% load static %}
 {% block main_content %}
 <head>
     <link href= "{% static 'login_manager/css/landing-page.css' %}"  rel="stylesheet" type="text/css">
@@ -198,7 +195,6 @@
                         <p>Automated power management to reduce energy consumption and optimize usage.</p>
                     </div>
                 </div>
-                <!-- More feature cards -->
             </div>
         </div>
     </section>

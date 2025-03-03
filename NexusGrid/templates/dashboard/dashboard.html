@@ -1,0 +1,163 @@
+{% extends "dashboard/sidebar.html" %}
+{% load static %}
+
+{% block title %}| Dashboard{% endblock title %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.18.2/plotly.min.js"></script>
+{% endblock head %}
+
+{% block main_content %}
+    <div class="content">
+        <div class="row">
+            <!-- Left Column: Two System Overview Containers -->
+            <div class="col-md-8">
+                <h2 class="overview-title mt-2"><i class="fas fa-search"></i> System Overview</h2>
+                <div class="row overview-section">
+                    <!-- System Overview - Set 1 -->
+                    <div class="col-md-4">
+                        <div class="overview-container">
+                            <div class="overview-card active">
+                                <i class="fas fa-desktop text-success"></i>
+                                <div class="overview-details">
+                                    <h5>Active Systems</h5>
+                                    <span class="count text-success">36 / 50</span>
+                                    <div class="progress">
+                                        <div class="progress-bar bg-success"></div>
+                                    </div>
+                                </div>
+                            </div>
+            
+                            <div class="overview-card critical mt-2">
+                                <i class="fas fa-exclamation-circle text-danger"></i>
+                                <div class="overview-details">
+                                    <h5>Critical Systems</h5>
+                                    <span class="count text-danger">02</span>
+                                    <div class="progress">
+                                        <div class="progress-bar bg-danger"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+            
+                    <!-- System Overview - Set 2 -->
+                    <div class="col-md-4">
+                        <div class="overview-container">
+                            <div class="overview-card fault">
+                                <i class="fas fa-exclamation-triangle text-warning"></i>
+                                <div class="overview-details">
+                                    <h5>Fault Reports</h5>
+                                    <span class="count text-warning">04</span>
+                                    <div class="progress">
+                                        <div class="progress-bar bg-warning"></div>
+                                    </div>
+                                </div>
+                            </div>
+            
+                            <div class="overview-card resource mt-2">
+                                <i class="fas fa-box text-info"></i>
+                                <div class="overview-details">
+                                    <h5>Resource Requests</h5>
+                                    <span class="count text-info">02</span>
+                                    <div class="progress">
+                                        <div class="progress-bar bg-info"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+            
+                    <!-- System Overview - Set 3 (Newly Added) -->
+                    <div class="col-md-4">
+                        <div class="overview-container">
+                            <div class="overview-card maintenance">
+                                <i class="fas fa-tools text-primary"></i>
+                                <div class="overview-details">
+                                    <h5>Maintenance</h5>
+                                    <span class="count text-primary">03</span>
+                                    <div class="progress">
+                                        <div class="progress-bar bg-primary"></div>
+                                    </div>
+                                </div>
+                            </div>
+            
+                            <div class="overview-card utilization mt-2">
+                                <i class="fas fa-microchip text-secondary"></i>
+                                <div class="overview-details">
+                                    <h5>System Utilization</h5>
+                                    <span class="count text-secondary">75%</span>
+                                    <div class="progress">
+                                        <div class="progress-bar"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        
+            <!-- Right Column: Recent History -->
+            <div class="col-md-4">
+                <h2 class="overview-title mt-2"><i class="fas fa-history"></i> Recent History</h2>
+                <div class="history-container">
+                    <div class="history-card">
+                        <i class="fas fa-box text-primary"></i>
+                        <div class="text-container">
+                            <h6>Resource Request <span class="time">5 mins ago</span></h6>
+                            <span class="text-primary">Keyboard</span>
+                        </div>
+                    </div>
+                    
+                    <div class="history-card">
+                        <i class="fas fa-check-circle text-success"></i>
+                        <div class="text-container">
+                            <h6>Fault Resolved <span class="time">10 mins ago</span></h6>
+                            <span class="text-success">Power Saving Issue</span>
+                        </div>
+                    </div>
+                    
+                    <div class="history-card">
+                        <i class="fas fa-exclamation-triangle text-warning"></i>
+                        <div class="text-container">
+                            <h6>New Fault Report <span class="time">15 mins ago</span></h6>
+                            <span class="text-warning">Power Saving</span>
+                        </div>
+                    </div>
+                    
+                    <div class="history-card">
+                        <i class="fas fa-exclamation-circle text-danger"></i>
+                        <div class="text-container">
+                            <h6>Critical System Alert <span class="time">20 mins ago</span></h6>
+                            <span class="text-danger">High Temperature</span>
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <a class="text-dark" href="#">View More <i class="fas fa-arrow-right"></i></a>
+                    </div>
+                </div>
+            </div>   
+                    
+            <h2 class="overview-title mt-5"><i class="fas fa-chart-line"></i> Performance & Fault Trends</h2>
+            <div class="row">
+                <div class="col-md-6">
+                    <div id="performanceChart" class="graph-box"></div>
+                </div>
+                <div class="col-md-6">
+                    <div id="faultTrendChart" class="graph-box"></div>
+                </div>
+                <div class="col-md-6">
+                    <div id="faultDistributionChart" class="graph-box"></div>
+                </div>
+                <div class="col-md-6">
+                    <div id="resourceRequestChart" class="graph-box"></div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
+    <script src="{% static 'dashboard/js/dashboard.js' %}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock main_content %}
