@@ -67,7 +67,7 @@
                         <input type="email" id="signup-email" name="email" class="input-field" placeholder=" " required>
                         <label for="signup-email" class="floating-label"><i class="fas fa-envelope"></i> Email</label>
                     </div>
-                    <button type="button" class="btns solid" id="get-otp-btn">Get OTP</button>
+                    <button type="button" class="btns solid" id="get-otp-btn" name="get_otp">Get OTP</button>
                 
                     <!-- Step 2: OTP Verification (Initially Hidden) -->
                     <div class="input-container" id="otp-section" style="display: none;">
@@ -75,7 +75,7 @@
                                oninput="this.value = this.value.replace(/[^0-9]/g, '')">
                         <label for="email-otp" class="floating-label"><i class="fa-solid fa-key"></i> OTP</label>
                     </div>
-                    <button type="button" class="btns solid" id="validate-otp-btn" style="display: none;">Validate OTP</button>
+                    <button type="button" class="btns solid" id="validate-otp-btn" style="display: none;" name="validate_otp" >Validate OTP</button>
                 
                     <!-- Step 3: Username, Role, and Password (Initially Hidden) -->
                     <div id="user-details" style="display: none;">
@@ -107,7 +107,7 @@
                         </div>
                 
                         <!-- Final Submit Button -->
-                        <button type="submit" class="btns solid" id="signup-btn" disabled>Sign Up <i class="fa fa-rocket"></i></button>
+                        <button type="submit" class="btns solid" id="signup-btn" disabled name="signup">Sign Up <i class="fa fa-rocket"></i></button>
                     </div>
                 </form>
             </div>
