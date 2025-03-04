@@ -3,7 +3,7 @@ from django.http import JsonResponse
 from django.core.mail import send_mail
 from django.conf import settings
 import random
-
+from .models import User
 
 def landing_page(request):
     return render(request, 'login_manager/landing-page.html')
@@ -17,7 +17,7 @@ def login_page(request):
         elif "validate_otp" in request.POST:
             return validate_otp(request,request.session['otp'])
         elif "signup" in request.POST:
-            return signup(request,email)
+            signup_page(request,email)
 
     return render(request, 'login_manager/signin-signup-page.html')
 
@@ -55,15 +55,19 @@ def validate_otp(request,mailed_otp):
         else:
             return render(request,'login_manager/signin-signup-page.html',{'error':'Invalid OTP'})
         
-def signup(request, email):
+def signup_page(request ,email):
     username=request.POST.get('username')
     role=request.POST.get('role')
     password=request.POST.get('password')
     confirm_password=request.POST.get('confirm-password')
     if password==confirm_password:
-        if role == "Administrator":
-            return
-        elif role == "Supervisor":
-            return
-        elif role == "User":
-            return
+        user=User.object.create(
+            username=username,
+            password=password,
+            email=email,
+            role=role
+        )
+        user.save()
+        return JsonResponse({'status':'success','message':'User created successfully!'})
+    else:
+        return JsonResponse({'status':'Failed','message':'Password does not match'})

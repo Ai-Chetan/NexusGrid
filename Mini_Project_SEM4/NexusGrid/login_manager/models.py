@@ -10,6 +10,7 @@ class User(models.Model):
     user_id = models.AutoField(primary_key=True)
     username = models.CharField(max_length=50, unique=True)
     password = models.CharField(max_length=255)
+    email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     assigned_lab = models.ForeignKey('Lab', on_delete=models.SET_NULL, null=True, blank=True)
 
