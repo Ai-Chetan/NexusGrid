@@ -207,7 +207,7 @@ border-radius: 5px;
     outline: none;
     border-radius: 49px;
     cursor: pointer;
-    background-color: #2885d3;
+    background-color: #2886d3e5;
     color: #fff;
     text-transform: uppercase;
     margin: 10px 0;
@@ -297,6 +297,39 @@ border-radius: 5px;
     display: none;
     color: #2885d3;
   }
+/* Social Media Login */
+.social-text {
+    font-size: 0.7rem;
+  }
+  
+  .social-media {
+    display: flex;
+    justify-content: center;
+  }
+  
+  .social-icon {
+    height: 46px;
+    width: 46px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 0.75rem;
+    color: #333;
+    border-radius: 50%;
+    border: 1px solid #333;
+    text-decoration: none;
+    font-size: 1.1rem;
+    transition: 0.3s;
+  }
+  
+  .social-icon:hover {
+    color: #2885d3;  
+    border-color: #4481eb;
+  }
+  .hidden {
+    display: none !important;
+}
+
 /* ANIMATION */
 
 .main-container.sign-up-mode:before{

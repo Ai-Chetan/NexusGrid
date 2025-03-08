@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     # Custom Apps:
     'login_manager',
     'dashboard',
+    'system_layout',
     'monitoring',
     'faults',
     'resources',

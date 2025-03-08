@@ -38,47 +38,53 @@ togglePasswords.forEach((togglePassword, index) => {
 });
 
 /*Sign Up Form Flow*/
-document.getElementById("get-otp-btn").addEventListener("click", function (event) {
-  event.preventDefault(); // Prevent form submission
+document.addEventListener("DOMContentLoaded", function () {
+  document.getElementById("get-otp-btn").addEventListener("click", function (event) {
+      event.preventDefault(); // Prevent form submission
 
-  let emailInput = document.getElementById("signup-email").value.trim();
-  let emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/; // Improved email regex
+      let emailInput = document.getElementById("signup-email")?.value.trim();
+      let emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/; // Email validation
 
-  if (emailInput === "") {
-      alert("Please enter your email before requesting an OTP.");
-      return;
-  }
+      if (!emailInput) {
+          alert("Please enter your email before requesting an OTP.");
+          return;
+      }
 
-  if (!emailPattern.test(emailInput)) {
-      alert("Invalid email format! Please enter a valid email.");
-      return;
-  }
+      if (!emailPattern.test(emailInput)) {
+          alert("Invalid email format! Please enter a valid email.");
+          return;
+      }
 
-  // Show OTP input & validation button
-  document.getElementById("otp-section").style.display = "block";
-  document.getElementById("validate-otp-btn").style.display = "inline-block";
+      // Show OTP input & validation button
+      document.getElementById("otp-section").style.display = "block";
+      document.getElementById("validate-otp-btn").style.display = "inline-block";
 
-  // Hide "Get OTP" button after clicking it
-  this.style.display = "none";
-});
-
-document.getElementById("validate-otp-btn").addEventListener("click", function () {
-  let otpInput = document.getElementById("email-otp").value.trim();
-  let signUpBtn = document.querySelector(".sign-up-form button[type='submit']"); // Select sign-up button
-
-  if (/^\d{6}$/.test(otpInput)) {  
-      alert("OTP Validated!");
-
-      // Show remaining form fields
-      document.getElementById("user-details").style.display = "block";
-
-      // ✅ Enable the Sign-Up button
-      signUpBtn.disabled = false;
-
-      // Hide OTP input & validation button after validation
-      document.getElementById("otp-section").style.display = "none";
+      // Hide "Get OTP" button after clicking it
       this.style.display = "none";
-  } else {
-      alert("Invalid OTP! Please enter a 6-digit OTP.");
-  }
+
+      // Hide social login elements
+      document.querySelectorAll(".social-text").forEach(el => el.classList.add("hidden"));
+      document.querySelectorAll(".social-section").forEach(el => el.classList.add("hidden"));
+  });
+
+  document.getElementById("validate-otp-btn").addEventListener("click", function () {
+      let otpInput = document.getElementById("email-otp")?.value.trim();
+      let signUpBtn = document.querySelector(".sign-up-form button[type='submit']");
+
+      if (/^\d{6}$/.test(otpInput)) {
+          alert("OTP Validated!");
+
+          // Show remaining form fields
+          document.getElementById("user-details").style.display = "block";
+
+          // ✅ Enable the Sign-Up button
+          if (signUpBtn) signUpBtn.disabled = false;
+
+          // Hide OTP input & validation button after validation
+          document.getElementById("otp-section").style.display = "none";
+          this.style.display = "none";
+      } else {
+          alert("Invalid OTP! Please enter a 6-digit OTP.");
+      }
+  });
 });
