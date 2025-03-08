@@ -2,7 +2,8 @@ from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('',include('login_manager.urls')),
-    path('login/',include('login_manager.urls'))
+    path('admin/', admin.site.urls),  # Admin Panel
+    path('', include('login_manager.urls')),  # Login Manager (handles login & root page)
+    path('dashboard/', include('dashboard.urls')),  # Dashboard app
+    path('accounts/', include('allauth.urls')),  # Allauth
 ]

@@ -1,73 +1,25 @@
-from django.shortcuts import render, redirect
-from django.http import JsonResponse
-from django.core.mail import send_mail
-from django.conf import settings
-import random
-from .models import User
+from django.shortcuts import render,redirect
+from django.contrib.auth import authenticate, login
+from django.contrib import messages
 
+# Create your views here.
 def landing_page(request):
-    return render(request, 'login_manager/landing-page.html')
-
-def login_page(request):
-    if request.method == 'POST':
-        print(request.POST)
-        if "get_otp" in request.POST:
-            email = request.POST.get('email')  # Get email from form input
-            return get_otp(request, email)  # Return the response from get_otp()
-        elif "validate_otp" in request.POST:
-            return validate_otp(request,request.session['otp'])
-        elif "signup" in request.POST:
-            signup_page(request,email)
-
     return render(request, 'login_manager/signin-signup-page.html')
 
-def get_otp(request, email):
-    otp = random.randint(1000, 9999)
-    request.session['otp'] = otp  # Store OTP in session
+def login_page(request):
+    return render(request,'login_manager/landing-page.html' )
 
-    print(f"Sending email to: {email}")
-    print(f"OTP: {otp}")
+def user_login(request):
+    if request.method == "POST":
+        username = request.POST.get("username")
+        password = request.POST.get("password")
 
-    try:
-        response = send_mail(
-            'Your OTP for Verification',
-            f'Your OTP is {otp}. Please do not share it with anyone.',
-            settings.EMAIL_HOST_USER,
-            [email],
-            fail_silently=False,
-        )
-        
-        if response == 1:
-            print("✅ Email sent successfully")
-            return JsonResponse({'status': 'success', 'message': 'OTP sent successfully!'})
+        user = authenticate(request, username=username, password=password)
+
+        if user is not None:
+            login(request, user)
+            return redirect("dashboard")  # Redirect to dashboard after login
         else:
-            print("❌ Email sending failed")
-            return JsonResponse({'status': 'error', 'message': 'Email sending failed!'})
+            messages.error(request, "Invalid username or password")
 
-    except Exception as e:
-        print(f"🚨 Error sending email: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)})
-
-def validate_otp(request,mailed_otp):
-        entered_otp=request.POST.get('otp')
-        if mailed_otp==entered_otp:
-            return JsonResponse({'status':'success','message':'OTP verified successfully!'})
-        else:
-            return render(request,'login_manager/signin-signup-page.html',{'error':'Invalid OTP'})
-        
-def signup_page(request ,email):
-    username=request.POST.get('username')
-    role=request.POST.get('role')
-    password=request.POST.get('password')
-    confirm_password=request.POST.get('confirm-password')
-    if password==confirm_password:
-        user=User.object.create(
-            username=username,
-            password=password,
-            email=email,
-            role=role
-        )
-        user.save()
-        return JsonResponse({'status':'success','message':'User created successfully!'})
-    else:
-        return JsonResponse({'status':'Failed','message':'Password does not match'})
+    return render(request, "login_manager/login.html")

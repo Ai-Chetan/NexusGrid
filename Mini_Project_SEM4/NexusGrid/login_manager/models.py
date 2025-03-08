@@ -10,11 +10,10 @@ class User(models.Model):
     user_id = models.AutoField(primary_key=True)
     username = models.CharField(max_length=50, unique=True)
     password = models.CharField(max_length=255)
-    email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     assigned_lab = models.ForeignKey('Lab', on_delete=models.SET_NULL, null=True, blank=True)
 
-    def __str__(self):
+    def _str_(self):
         return f"{self.username} ({self.role})"
 
 
@@ -23,7 +22,7 @@ class Lab(models.Model):
     building_name = models.CharField(max_length=100)
     capacity = models.PositiveIntegerField()
 
-    def __str__(self):
+    def _str_(self):
         return self.lab_name
 
 
@@ -46,7 +45,7 @@ class System(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Operational')
     fault_type = models.CharField(max_length=20, choices=FAULT_TYPE_CHOICES, default='None')
 
-    def __str__(self):
+    def _str_(self):
         return f"{self.system_name} ({self.lab.lab_name})"
 
 
@@ -64,7 +63,7 @@ class FaultReport(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
+    def _str_(self):
         return f"Report {self.id} - {self.system.system_name}"
 
 
@@ -85,7 +84,7 @@ class ResourceRequest(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
+    def _str_(self):
         return f"Request {self.id} - {self.resource_type}"
 
 
@@ -95,7 +94,7 @@ class RepairLog(models.Model):
     repair_notes = models.TextField()
     repair_date = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
+    def _str_(self):
         return f"Repair Log {self.id} - {self.fault_report.system.system_name}"
 
 
@@ -105,7 +104,7 @@ class Notification(models.Model):
     is_read = models.BooleanField(default=False)
     sent_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
+    def _str_(self):
         return f"Notification {self.id} for {self.user.username}"
 
 
@@ -117,7 +116,7 @@ class PerformanceMetric(models.Model):
     network_speed = models.FloatField()
     recorded_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
+    def _str_(self):
         return f"Performance Metrics for {self.system.system_name}"
 
 
@@ -126,6 +125,5 @@ class EnergyConsumption(models.Model):
     power_usage = models.FloatField()
     recorded_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
+    def _str_(self):
         return f"Energy Consumption for {self.system.system_name}"
-
