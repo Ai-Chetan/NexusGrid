@@ -1,134 +1,158 @@
-const gridContainer = document.getElementById("gridContainer");
-const addBlockButton = document.getElementById("addBlock");
-const gridSize = 50;
+document.addEventListener("DOMContentLoaded", function () {
+    let newX = 0, newY = 0, startX = 0, startY = 0;
+    let selectedBlock = null; // Track selected block
 
-function makeDraggable(block) {
-    let offsetX = 0, offsetY = 0, startX = 0, startY = 0;
+    const layout = document.getElementById("layout");
+    const addBlockBtn = document.getElementById("addBlock");
+    const removeBlockBtn = document.getElementById("removeBlock");
+    const saveBtn = document.getElementById("saveBlocks");
+    const resetBtn = document.getElementById("resetBlocks");
 
-    block.addEventListener("mousedown", (e) => {
-        if (e.target.classList.contains("remove-btn")) return;
+    function createCard(x = 50, y = 50, id = null, imgSrc = IMAGE_SRC) {
+        const card = document.createElement("img");
+        card.classList.add("card");
+        card.src = imgSrc; 
+        card.style.top = `${y}px`;
+        card.style.left = `${x}px`;
+        card.style.width = "50px";
+        card.style.height = "50px";
+        card.style.objectFit = "cover";
+        card.setAttribute("draggable", false);
+        if (id) card.setAttribute("data-id", id);
+        layout.appendChild(card);
+        makeDraggable(card);
+    
+        card.addEventListener("click", function (event) {
+            event.stopPropagation();
+            if (selectedBlock) selectedBlock.classList.remove("selected");
+            if (selectedBlock !== card) {
+                selectedBlock = card;
+                card.classList.add("selected");
+            } else {
+                selectedBlock = null;
+            }
+        });
+    }
 
-        startX = e.clientX;
-        startY = e.clientY;
-        offsetX = block.offsetLeft;
-        offsetY = block.offsetTop;
+    function makeDraggable(card) {
+        card.addEventListener("mousedown", function (e) {
+            startX = e.clientX;
+            startY = e.clientY;
 
-        document.addEventListener("mousemove", moveBlock);
-        document.addEventListener("mouseup", stopMoving);
+            function mouseMove(e) {
+                newX = startX - e.clientX;
+                newY = startY - e.clientY;
+                startX = e.clientX;
+                startY = e.clientY;
+
+                let newTop = card.offsetTop - newY;
+                let newLeft = card.offsetLeft - newX;
+
+                let maxLeft = layout.offsetWidth - card.offsetWidth;
+                let maxTop = layout.offsetHeight - card.offsetHeight;
+
+                card.style.top = `${Math.max(0, Math.min(newTop, maxTop))}px`;
+                card.style.left = `${Math.max(0, Math.min(newLeft, maxLeft))}px`;
+            }
+
+            function mouseUp() {
+                document.removeEventListener("mousemove", mouseMove);
+                document.removeEventListener("mouseup", mouseUp);
+            }
+
+            document.addEventListener("mousemove", mouseMove);
+            document.addEventListener("mouseup", mouseUp);
+        });
+    }
+
+    addBlockBtn.addEventListener("click", function () {
+        createCard();
     });
 
-    function moveBlock(e) {
-        let x = offsetX + (e.clientX - startX);
-        let y = offsetY + (e.clientY - startY);
+    removeBlockBtn.addEventListener("click", function () {
+        const selectedBlocks = document.querySelectorAll(".card.selected");
+        selectedBlocks.forEach(card => removeBlock(card));
+    });
 
-        x = Math.round(x / gridSize) * gridSize;
-        y = Math.round(y / gridSize) * gridSize;
-
-        block.style.left = `${x}px`;
-        block.style.top = `${y}px`;
-    }
-
-    function stopMoving(e) {
-        document.removeEventListener("mousemove", moveBlock);
-        document.removeEventListener("mouseup", stopMoving);
-
-        fetch(`/update_block/${block.dataset.id}/?x=${block.style.left.replace("px", "")}&y=${block.style.top.replace("px", "")}`)
-            .then(response => response.json());
-    }
-}
-
-document.querySelectorAll(".block").forEach(makeDraggable);
-
-addBlockButton.addEventListener("click", () => {
-    fetch('/add_block/', { method: 'POST' })
-        .then(response => response.json())
-        .then(block => {
-            const newBlock = document.createElement("div");
-            newBlock.classList.add("block");
-            newBlock.dataset.id = block.id;
-            newBlock.style.left = "0px";
-            newBlock.style.top = "0px";
-            newBlock.innerHTML = `${block.id} <div class="remove-btn" onclick="removeBlock(${block.id})">×</div>`;
-
-            gridContainer.appendChild(newBlock);
-            makeDraggable(newBlock);const gridContainer = document.getElementById("gridContainer");
-            const addBlockButton = document.getElementById("addBlock");
-            const gridSize = 50;
-            
-            function makeDraggable(block) {
-                let offsetX = 0, offsetY = 0, startX = 0, startY = 0;
-            
-                block.addEventListener("mousedown", (e) => {
-                    if (e.target.classList.contains("remove-btn")) return;
-            
-                    startX = e.clientX;
-                    startY = e.clientY;
-                    offsetX = block.offsetLeft;
-                    offsetY = block.offsetTop;
-            
-                    document.addEventListener("mousemove", moveBlock);
-                    document.addEventListener("mouseup", stopMoving);
-                });
-            
-                function moveBlock(e) {
-                    let x = offsetX + (e.clientX - startX);
-                    let y = offsetY + (e.clientY - startY);
-            
-                    x = Math.round(x / gridSize) * gridSize;
-                    y = Math.round(y / gridSize) * gridSize;
-            
-                    block.style.left = `${x}px`;
-                    block.style.top = `${y}px`;
-                }
-            
-                function stopMoving() {
-                    document.removeEventListener("mousemove", moveBlock);
-                    document.removeEventListener("mouseup", stopMoving);
-            
-                    fetch(`/update_block/${block.dataset.id}/?x=${parseInt(block.style.left)}&y=${parseInt(block.style.top)}`)
-                        .then(response => response.json())
-                        .catch(error => console.error("Error updating block position:", error));
-                }
+    removeBlockBtn.addEventListener("click", function () {
+        const selectedBlocks = document.querySelectorAll(".card.selected");
+        
+        if (selectedBlocks.length === 0) {
+            console.warn("No block selected for removal.");
+            return;
+        }
+    
+        selectedBlocks.forEach(card => {
+            const blockId = card.getAttribute("data-id");
+    
+            if (blockId) {
+                fetch(`/remove_block/${blockId}/`, {
+                    method: "DELETE",
+                    headers: { "X-CSRFToken": getCSRFToken() }
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error("Failed to delete block from server");
+                    return response.json();
+                })
+                .then(() => {
+                    card.remove();
+                })
+                .catch(error => console.error("Error removing block:", error));
+            } else {
+                card.remove(); // Remove block from UI if it has no ID
             }
-            
-            document.querySelectorAll(".block").forEach(makeDraggable);
-            
-            // Event listener for adding blocks
-            addBlockButton.addEventListener("click", () => {
-                fetch('/add_block/', { method: 'POST' })
-                    .then(response => response.json())
-                    .then(block => {
-                        const newBlock = document.createElement("div");
-                        newBlock.classList.add("block");
-                        newBlock.dataset.id = block.id;
-                        newBlock.style.left = "0px";
-                        newBlock.style.top = "0px";
-                        newBlock.innerHTML = `${block.id} <div class="remove-btn" data-id="${block.id}">×</div>`;
-            
-                        gridContainer.appendChild(newBlock);
-                        makeDraggable(newBlock);
-                    })
-                    .catch(error => console.error("Error adding block:", error));
-            });
-            
-            // Event delegation for removing blocks
-            gridContainer.addEventListener("click", (e) => {
-                if (e.target.classList.contains("remove-btn")) {
-                    let blockId = e.target.dataset.id;
-                    fetch(`/remove_block/${blockId}/`, { method: 'POST' })
-                        .then(() => {
-                            document.querySelector(`.block[data-id='${blockId}']`).remove();
-                        })
-                        .catch(error => console.error("Error removing block:", error));
-                }
-            });
-            
         });
-});
+    
+        selectedBlock = null; // Reset selection after removal
+    });
+    
 
-function removeBlock(blockId) {
-    fetch(`/remove_block/${blockId}/`, { method: 'POST' })
-        .then(() => {
-            document.querySelector(`.block[data-id='${blockId}']`).remove();
+    saveBtn.addEventListener("click", function () {
+        const blocks = document.querySelectorAll(".card");
+        let data = [];
+    
+        blocks.forEach(block => {
+            data.push({
+                id: block.getAttribute("data-id") || null,
+                x: block.offsetLeft,
+                y: block.offsetTop
+            });
         });
-}
+    
+        fetch("/layout/save_blocks/", {  // Use correct URL
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": getCSRFToken() },
+            body: JSON.stringify({ blocks: data })
+        })
+        .then(response => response.json())
+        .then(data => console.log("Saved:", data))
+        .catch(error => console.error("Error saving blocks:", error));
+    });
+    
+
+    resetBtn.addEventListener("click", function () {
+        fetch("/layout/save_blocks/", {  // Use correct URL
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": getCSRFToken() },
+            body: JSON.stringify({ blocks: [] }) // Clear all blocks
+        }).then(() => location.reload())
+        .catch(error => console.error("Error resetting blocks:", error));
+    });
+    
+
+    function loadBlocks() {
+        fetch("/layout/get_blocks/") // Use correct URL
+            .then(response => response.json())
+            .then(data => {
+                data.blocks.forEach(block => createCard(block.x, block.y, block.id));
+            })
+            .catch(error => console.error("Error fetching blocks:", error));
+    }
+
+    function getCSRFToken() {
+        let csrf = document.cookie.split('; ').find(row => row.startsWith('csrftoken='));
+        return csrf ? csrf.split('=')[1] : "";
+    }
+
+    loadBlocks();
+});

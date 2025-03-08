@@ -61,10 +61,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
       // Hide "Get OTP" button after clicking it
       this.style.display = "none";
-
-      // Hide social login elements
-      document.querySelectorAll(".social-text").forEach(el => el.classList.add("hidden"));
-      document.querySelectorAll(".social-section").forEach(el => el.classList.add("hidden"));
   });
 
   document.getElementById("validate-otp-btn").addEventListener("click", function () {

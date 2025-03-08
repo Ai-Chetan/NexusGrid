@@ -326,10 +326,6 @@ border-radius: 5px;
     color: #2885d3;  
     border-color: #4481eb;
   }
-  .hidden {
-    display: none !important;
-}
-
 /* ANIMATION */
 
 .main-container.sign-up-mode:before{
