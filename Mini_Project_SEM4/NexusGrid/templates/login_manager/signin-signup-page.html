@@ -1,7 +1,6 @@
 {% extends "login_manager/base.html" %}
 {% load static %}
-{% load socialaccount %}
-{% providers_media_js %}
+{% load account socialaccount %}
 
 {% block title %}| Login{% endblock title %}
 
@@ -14,7 +13,7 @@
                 <!-- Sign In Form -->
                 <form action="{% url 'dashboard' %}" class="sign-in-form" method="POST">
                     {% csrf_token %}
-                    <h1 class="heading">Welcome Back to <b>NexusGrid</b>!</h1>
+                    <h1 class="heading mt-5">Welcome Back to <b>NexusGrid</b>!</h1>
                     <p>Keep Your Systems in Check, Anytime, Anywhere.</p>
                     <h2 class="title">Sign In <i class="fas fa-sign-in-alt"></i></h2>
                     
@@ -36,6 +35,22 @@
                     {% endif %}
     
                     <button type="submit" class="btns solid">Login <i class="fas fa-sign-in-alt"></i></button>
+
+                    <p class="social-text text-center">OR<br/><b>Sign In with Social Platforms</b></p>
+                    <div class="social-media">
+                        <a href="{% provider_login_url 'google' %}" class="social-icon">
+                            <i class="fab fa-google"></i>
+                        </a>
+                        <a href="{% provider_login_url 'facebook' %}" class="social-icon">
+                            <i class="fab fa-facebook-f"></i>
+                        </a>
+                        <a href="{% provider_login_url 'twitter' %}" class="social-icon">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        <a href="{% provider_login_url 'linkedin_oauth2' %}" class="social-icon">
+                            <i class="fab fa-linkedin-in"></i>
+                        </a>
+                    </div>
                 </form>
     
                 <!-- Sign Up Form -->
@@ -83,6 +98,21 @@
                         </div>
     
                         <button type="submit" class="btns solid" disabled>Sign Up <i class="fa fa-rocket"></i></button>
+                    </div>
+                    <p class="social-text text-center">OR<br/><b>Sign Up with Social Platforms</b></p>
+                    <div class="social-media">
+                        <a href="{% provider_login_url 'google' %}" class="social-icon">
+                            <i class="fab fa-google"></i>
+                        </a>
+                        <a href="{% provider_login_url 'facebook' %}" class="social-icon">
+                            <i class="fab fa-facebook-f"></i>
+                        </a>
+                        <a href="{% provider_login_url 'twitter' %}" class="social-icon">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        <a href="{% provider_login_url 'linkedin_oauth2' %}" class="social-icon">
+                            <i class="fab fa-linkedin-in"></i>
+                        </a>
                     </div>
                 </form>
             </div>

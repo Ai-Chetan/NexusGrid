@@ -1,8 +1,6 @@
 from pathlib import Path
 import os
 
-
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -27,6 +25,7 @@ INSTALLED_APPS = [
     # Custom Apps:
     'login_manager',
     'dashboard',
+    'system_layout',
     'monitoring',
     'faults',
     'resources',
@@ -43,6 +42,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.google',
     'allauth.socialaccount.providers.facebook',
     'allauth.socialaccount.providers.twitter',
+    'allauth.socialaccount.providers.linkedin_oauth2',
 ]
 
 MIDDLEWARE = [
