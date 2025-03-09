@@ -2,10 +2,11 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path("", views.system_layout, name="system_layout"),
-    path("add_block/", views.add_block, name="add_block"),
-    path("update_block/<int:block_id>/", views.update_block, name="update_block"),
-    path("remove_block/<int:block_id>/", views.remove_block, name="remove_block"),
-    path("get_blocks/", views.get_blocks, name="get_blocks"),
-    path("save_blocks/", views.save_blocks, name="save_blocks"),
+    path("", views.layout_view, name="system_layout"),
+    path("add_layout_item/", views.add_layout_item, name="add_layout_item"),
+    path("update_layout_item/<int:item_id>/", views.update_layout_item, name="update_layout_item"),
+    path("delete_layout_item/<int:item_id>/", views.delete_layout_item, name="delete_layout_item"),
+    path("get_layout_items/", views.get_layout_items, name="get_layout_items"),
+    path("save_layout/", views.save_layout, name="save_layout"),
+    path('<int:id>/', views.item_detail, name='item_detail'),
 ]
