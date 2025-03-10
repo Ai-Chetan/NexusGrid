@@ -1,3 +1,11 @@
+// Global variables for layout management
+let items = [];
+let nextItemId = 1;
+let isEditMode = false;
+let selectedItem = null;
+let hasUnsavedChanges = false;
+let pendingAction = null;
+
 document.addEventListener("DOMContentLoaded", function() {
     // DOM Elements
     const layout = document.getElementById("layout");
@@ -16,13 +24,6 @@ document.addEventListener("DOMContentLoaded", function() {
     const confirmModal = new bootstrap.Modal(document.getElementById("confirmModal"));
     const confirmButton = document.getElementById("confirmButton");
     const saveNameButton = document.getElementById("saveNameButton");
-    
-    // Application state
-    let selectedItem = null;
-    let items = [];
-    let isEditMode = false;
-    let hasUnsavedChanges = false;
-    let pendingAction = null;
     
     // Item type configurations
     const itemTypeIcons = {
@@ -43,9 +44,6 @@ document.addEventListener("DOMContentLoaded", function() {
         'printer': 'Printer', 'ups': 'UPS', 'rack': 'Server Rack'
     };
     
-    // Initialize the layout
-    loadLayoutItems();
-    
     // Set up event listeners
     backButton.addEventListener("click", navigateBack);
     editLayoutButton.addEventListener("click", enterEditMode);
@@ -57,16 +55,8 @@ document.addEventListener("DOMContentLoaded", function() {
     saveNameButton.addEventListener("click", saveItemName);
     window.addEventListener("beforeunload", handlePageLeave);
     
-    // Load layout items from the server
-    function loadLayoutItems() {
-        fetch(`/layout/get_layout_items/`)
-            .then(response => response.json())
-            .then(data => {
-                items = data.items;
-                renderItems();
-            })
-            .catch(error => console.error("Error loading layout items:", error));
-    }
+    // Initialize the layout
+    initializeLayout();
     
     // Render items on the layout
     function renderItems() {
@@ -102,7 +92,7 @@ document.addEventListener("DOMContentLoaded", function() {
             if (isEditMode) {
                 selectItem(itemElement);
             } else if (["building", "floor", "room"].includes(item.item_type)) {
-                window.location.href = `/${item.id}/`;
+                window.location.href = `/layout/${item.id}/`;
             }
         });
         
@@ -175,11 +165,12 @@ document.addEventListener("DOMContentLoaded", function() {
             document.removeEventListener("mouseup", dragEnd);
             document.removeEventListener("touchend", dragEnd);
             
+            // Update the item's position in our local items array
             updateItemPosition(element);
         }
     }
     
-    // Update item position in the database
+    // Update item position in the items array
     function updateItemPosition(element) {
         const id = parseInt(element.dataset.id);
         const x = parseInt(element.style.left);
@@ -189,15 +180,6 @@ document.addEventListener("DOMContentLoaded", function() {
         if (item) {
             item.x_position = x;
             item.y_position = y;
-            
-            fetch(`/layout/update_layout_item/${id}/`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": CSRF_TOKEN
-                },
-                body: JSON.stringify({ x_position: x, y_position: y })
-            }).catch(error => console.error("Error updating position:", error));
         }
     }
     
@@ -222,7 +204,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (breadcrumb.length > 1) {
             window.location.href = breadcrumb[breadcrumb.length - 1].href;
         } else {
-            window.location.href = "/";
+            window.location.href = "/layout/";
         }
     }
     
@@ -238,10 +220,7 @@ document.addEventListener("DOMContentLoaded", function() {
     
     function exitEditMode() {
         if (hasUnsavedChanges) {
-            confirmAction("You have unsaved changes", "Are you sure you want to exit without saving?", () => {
-                performExitEditMode();
-                loadLayoutItems();
-            });
+            confirmAction("You have unsaved changes", "Are you sure you want to exit without saving?", performExitEditMode);
         } else {
             performExitEditMode();
         }
@@ -269,27 +248,17 @@ document.addEventListener("DOMContentLoaded", function() {
         const centerX = Math.round(layout.clientWidth / 2) - 45;
         const centerY = Math.round(layout.clientHeight / 2) - 50;
         
-        fetch('/layout/add_layout_item/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': CSRF_TOKEN
-            },
-            body: JSON.stringify({
-                name: `New ${itemTypeNames[itemType]}`,
-                item_type: itemType,
-                x_position: centerX,
-                y_position: centerY,
-                parent_id: PARENT_ID
-            })
-        })/*
-        .then(response => response.json())
-        .then(data => {
-            items.push(data);
-            createItemElement(data);
-            hasUnsavedChanges = true;
-        })
-        .catch(error => console.error('Error adding item:', error));*/
+        const newItem = {
+            id: nextItemId++,
+            name: `New ${itemTypeNames[itemType]}`,
+            item_type: itemType,
+            x_position: centerX,
+            y_position: centerY
+        };
+        
+        items.push(newItem);
+        createItemElement(newItem);
+        hasUnsavedChanges = true;
     }
     
     function removeSelectedItem() {
@@ -300,18 +269,10 @@ document.addEventListener("DOMContentLoaded", function() {
         
         const itemId = parseInt(selectedItem.dataset.id);
         
-        fetch(`/layout/delete_layout_item/${itemId}/`, {
-            method: 'DELETE',
-            headers: { 'X-CSRFToken': CSRF_TOKEN }
-        })
-        .then(response => response.json())
-        .then(() => {
-            selectedItem.remove();
-            items = items.filter(item => item.id !== itemId);
-            selectedItem = null;
-            hasUnsavedChanges = true;
-        })
-        .catch(error => console.error('Error removing item:', error));
+        selectedItem.remove();
+        items = items.filter(item => item.id !== itemId);
+        selectedItem = null;
+        hasUnsavedChanges = true;
     }
     
     // Rename operations
@@ -327,26 +288,14 @@ document.addEventListener("DOMContentLoaded", function() {
         
         if (!newName) return;
         
-        fetch(`/layout/update_layout_item/${itemId}/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': CSRF_TOKEN
-            },
-            body: JSON.stringify({ name: newName })
-        })
-        .then(response => response.json())
-        .then(() => {
-            const item = items.find(item => item.id === itemId);
-            if (item) item.name = newName;
-            
-            const element = document.querySelector(`.layout-item[data-id="${itemId}"]`);
-            if (element) element.querySelector('.item-label').textContent = newName;
-            
-            renameModal.hide();
-            hasUnsavedChanges = true;
-        })
-        .catch(error => console.error('Error updating name:', error));
+        const item = items.find(item => item.id === itemId);
+        if (item) item.name = newName;
+        
+        const element = document.querySelector(`.layout-item[data-id="${itemId}"]`);
+        if (element) element.querySelector('.item-label').textContent = newName;
+        
+        renameModal.hide();
+        hasUnsavedChanges = true;
     }
     
     // Layout operations
@@ -355,53 +304,56 @@ document.addEventListener("DOMContentLoaded", function() {
     }
     
     function resetLayout() {
-        fetch('/layout/save_layout/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': CSRF_TOKEN
-            },
-            body: JSON.stringify({
-                reset: true,
-                parent_id: PARENT_ID,
-                items: []
-            })
-        })
-        .then(response => response.json())
-        .then(() => {
-            items = [];
-            layout.innerHTML = '';
-            selectedItem = null;
-            hasUnsavedChanges = false;
-        })
-        .catch(error => console.error('Error resetting layout:', error));
+        items = [];
+        layout.innerHTML = '';
+        selectedItem = null;
+        hasUnsavedChanges = false;
     }
     
+    // Save the layout
     function saveLayout() {
-        const updatedItems = Array.from(document.querySelectorAll('.layout-item')).map(element => ({
-            id: parseInt(element.dataset.id),
-            x_position: parseInt(element.style.left),
-            y_position: parseInt(element.style.top)
-        }));
+        // Get CSRF token with robust fallbacks
+        const csrfToken = CSRF_TOKEN || getCsrfToken();
         
-        fetch('/layout/save_layout/', {
+        if (!csrfToken) {
+            console.error("CSRF token not found. Cannot save layout.");
+            alert("Security token missing. Please refresh the page and try again.");
+            return;
+        }
+        
+        // Prepare data for saving
+        const layoutData = {
+            layout_id: PARENT_ID === "null" ? "root" : PARENT_ID,
+            items: items
+        };
+        
+        fetch('/layout/save/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': CSRF_TOKEN
+                'X-CSRFToken': csrfToken
             },
-            body: JSON.stringify({
-                parent_id: PARENT_ID,
-                items: updatedItems
-            })
+            body: JSON.stringify(layoutData),
+            credentials: 'same-origin'
         })
-        .then(response => response.json())
-        .then(() => {
+        .then(response => {
+            if (!response.ok) {
+                if (response.status === 403) {
+                    throw new Error("Permission denied. CSRF verification may have failed.");
+                }
+                throw new Error(`Failed to save layout: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
             hasUnsavedChanges = false;
             performExitEditMode();
             alert('Layout saved successfully');
         })
-        .catch(error => console.error('Error saving layout:', error));
+        .catch(error => {
+            console.error("Error saving layout:", error);
+            alert(`Failed to save layout: ${error.message}`);
+        });
     }
     
     // Utility functions
@@ -428,3 +380,82 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 });
+
+// Initialize layout by loading data from database
+function initializeLayout() {
+    // First try to load layout data from the database
+    getLayoutItems()
+        .then(layoutData => {
+            if (layoutData && layoutData.length > 0) {
+                // If we have data, use it
+                items = layoutData;
+                
+                // Find highest ID to set nextItemId correctly
+                const maxId = Math.max(...items.map(item => item.id));
+                nextItemId = maxId + 1;
+                
+                renderItems();
+            } else {
+                // If no data, initialize with empty layout
+                items = [];
+                nextItemId = 1;
+            }
+        })
+        .catch(error => {
+            console.error("Error loading layout:", error);
+            // If loading fails, initialize with empty layout
+            items = [];
+            nextItemId = 1;
+        });
+}
+
+// Function to get layout items from the database
+function getLayoutItems() {
+    const parentId = PARENT_ID === "null" ? "root" : PARENT_ID;
+    
+    return fetch(`/layout/get_layout_items/?parent_id=${parentId}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Failed to load layout data: ${response.statusText}`);
+        }
+        return response.json();
+    });
+}
+
+// Enhanced helper function to get CSRF token from various sources
+function getCsrfToken() {
+    // 1. Try to get from cookie (most common source)
+    const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('csrftoken='))
+        ?.split('=')[1];
+    
+    if (cookieValue) return cookieValue;
+    
+    // 2. Try to get from the input field that Django typically includes
+    const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (csrfInput) return csrfInput.value;
+    
+    // 3. Try to get from meta tag
+    const metaTag = document.querySelector('meta[name="csrf-token"]');
+    if (metaTag) return metaTag.getAttribute('content');
+    
+    // 4. Check if we have a global CSRF_TOKEN variable defined
+    if (typeof CSRF_TOKEN !== 'undefined' && CSRF_TOKEN) return CSRF_TOKEN;
+    
+    console.error("CSRF token not found");
+    return null;
+}
+
+// Render items on the layout
+function renderItems() {
+    if (!layout) return;
+    
+    layout.innerHTML = "";
+    items.forEach(createItemElement);
+}

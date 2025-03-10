@@ -1,3 +1,12 @@
+// Global variables for layout management
+let items = [];
+let nextItemId = 1;
+let isEditMode = false;
+let selectedItem = null;
+let hasUnsavedChanges = false;
+let pendingAction = null;
+let layoutData = { layout_id: "root", items: [] }; // Ensure it's initialized globally
+
 document.addEventListener("DOMContentLoaded", function() {
     // DOM Elements
     const layout = document.getElementById("layout");
@@ -16,14 +25,6 @@ document.addEventListener("DOMContentLoaded", function() {
     const confirmModal = new bootstrap.Modal(document.getElementById("confirmModal"));
     const confirmButton = document.getElementById("confirmButton");
     const saveNameButton = document.getElementById("saveNameButton");
-    
-    // Application state
-    let selectedItem = null;
-    let items = [];
-    let isEditMode = false;
-    let hasUnsavedChanges = false;
-    let pendingAction = null;
-    let nextItemId = 1;
     
     // Item type configurations
     const itemTypeIcons = {
@@ -54,6 +55,9 @@ document.addEventListener("DOMContentLoaded", function() {
     saveLayoutButton.addEventListener("click", saveLayout);
     saveNameButton.addEventListener("click", saveItemName);
     window.addEventListener("beforeunload", handlePageLeave);
+    
+    // Initialize the layout
+    initializeLayout();
     
     // Render items on the layout
     function renderItems() {
@@ -89,7 +93,6 @@ document.addEventListener("DOMContentLoaded", function() {
             if (isEditMode) {
                 selectItem(itemElement);
             } else if (["building", "floor", "room"].includes(item.item_type)) {
-                // Changed URL format from /{id}/ to /layout/{id}/
                 window.location.href = `/layout/${item.id}/`;
             }
         });
@@ -202,7 +205,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (breadcrumb.length > 1) {
             window.location.href = breadcrumb[breadcrumb.length - 1].href;
         } else {
-            window.location.href = "/";
+            window.location.href = "/layout/";
         }
     }
     
@@ -245,7 +248,7 @@ document.addEventListener("DOMContentLoaded", function() {
     function addNewItem(itemType) {
         const centerX = Math.round(layout.clientWidth / 2) - 45;
         const centerY = Math.round(layout.clientHeight / 2) - 50;
-        
+    
         const newItem = {
             id: nextItemId++,
             name: `New ${itemTypeNames[itemType]}`,
@@ -253,8 +256,10 @@ document.addEventListener("DOMContentLoaded", function() {
             x_position: centerX,
             y_position: centerY
         };
-        
+    
         items.push(newItem);
+        layoutData.items = items; // Ensure layoutData is updated
+    
         createItemElement(newItem);
         hasUnsavedChanges = true;
     }
@@ -308,12 +313,44 @@ document.addEventListener("DOMContentLoaded", function() {
         hasUnsavedChanges = false;
     }
     
+    // Save the layout
     function saveLayout() {
-        // In a real application, you'd save to the server here
-        // Now we just mark changes as saved
-        hasUnsavedChanges = false;
-        performExitEditMode();
-        alert('Layout saved successfully');
+        console.log("Save button clicked!");
+    
+        const layoutData = {
+            layout_id: currentLayoutId,  // Ensure this is correctly set
+            items: layoutItems.map(item => {
+                return item.id ? item : { ...item, id: undefined }; // Remove ID for new items
+            })
+        };    
+        if (!layoutData || !layoutData.items || layoutData.items.length === 0) {
+            console.error("Error: layoutData is empty or not initialized.");
+            alert("No items to save! Please add some items first.");
+            return;
+        }
+    
+        console.log("Saving layout with data:", layoutData);
+    
+        fetch('/layout/save/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify(layoutData),
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log("Save successful:", data);
+            hasUnsavedChanges = false;
+            performExitEditMode();
+            alert('Layout saved successfully');
+        })
+        .catch(error => {
+            console.error("Error saving layout:", error);
+            alert(`Failed to save layout: ${error.message}`);
+        });
     }
     
     // Utility functions
@@ -343,39 +380,35 @@ document.addEventListener("DOMContentLoaded", function() {
 
 // Initialize layout by loading data from database
 function initializeLayout() {
-    // First try to load layout data from the database
     getLayoutItems()
-        .then(layoutData => {
-            if (layoutData && layoutData.length > 0) {
-                // If we have data, use it
-                items = layoutData;
-                
-                // Find highest ID to set nextItemId correctly
-                const maxId = Math.max(...items.map(item => item.id));
+        .then(data => {
+            if (data && data.length > 0) {
+                items = data;
+                layoutData.items = items; // Ensure layoutData is updated
+
+                const maxId = Math.max(...items.map(item => item.id), 0);
                 nextItemId = maxId + 1;
-                
+
                 renderItems();
             } else {
-                // If no data, initialize with empty layout
                 items = [];
+                layoutData.items = items; // Ensure layoutData is still updated
                 nextItemId = 1;
             }
         })
         .catch(error => {
             console.error("Error loading layout:", error);
-            // If loading fails, initialize with empty layout
             items = [];
+            layoutData.items = items;
             nextItemId = 1;
         });
 }
 
 // Function to get layout items from the database
 function getLayoutItems() {
-    // Get the current path to determine which layout to load
-    const pathParts = window.location.pathname.split('/');
-    const layoutId = pathParts.includes('layout') ? pathParts[pathParts.indexOf('layout') + 1] : null;
+    const parentId = PARENT_ID === "null" ? "root" : PARENT_ID || "root";
     
-    return fetch(`/api/layout/${layoutId || 'root'}`, {
+    return fetch(`/layout/get_layout_items/?parent_id=${parentId}`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -389,49 +422,9 @@ function getLayoutItems() {
     });
 }
 
-// Function to save layout to the database
-function saveLayout() {
-    // Get CSRF token from cookie or meta tag
-    const csrfToken = getCsrfToken();
-    
-    // Get the current path to determine which layout to save
-    const pathParts = window.location.pathname.split('/');
-    const layoutId = pathParts.includes('layout') ? pathParts[pathParts.indexOf('layout') + 1] : null;
-    
-    // Prepare data for saving
-    const layoutData = {
-        layout_id: layoutId || 'root',
-        items: items
-    };
-    
-    fetch('/api/layout/save', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken
-        },
-        body: JSON.stringify(layoutData)
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`Failed to save layout: ${response.statusText}`);
-        }
-        return response.json();
-    })
-    .then(data => {
-        hasUnsavedChanges = false;
-        performExitEditMode();
-        alert('Layout saved successfully');
-    })
-    .catch(error => {
-        console.error("Error saving layout:", error);
-        alert(`Failed to save layout: ${error.message}`);
-    });
-}
-
-// Helper function to get CSRF token from cookie or meta tag
+// Enhanced helper function to get CSRF token from various sources
 function getCsrfToken() {
-    // First try to get from cookie
+    // 1. Try to get from cookie (most common source)
     const cookieValue = document.cookie
         .split('; ')
         .find(row => row.startsWith('csrftoken='))
@@ -439,9 +432,25 @@ function getCsrfToken() {
     
     if (cookieValue) return cookieValue;
     
-    // If not in cookie, try to get from meta tag
-    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    // 2. Try to get from the input field that Django typically includes
+    const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (csrfInput) return csrfInput.value;
+    
+    // 3. Try to get from meta tag
+    const metaTag = document.querySelector('meta[name="csrf-token"]');
+    if (metaTag) return metaTag.getAttribute('content');
+    
+    // 4. Check if we have a global CSRF_TOKEN variable defined
+    if (typeof CSRF_TOKEN !== 'undefined' && CSRF_TOKEN) return CSRF_TOKEN;
+    
+    console.error("CSRF token not found");
+    return null;
 }
 
-// Call the initialization function when the page loads
-initializeLayout();
+// Render items on the layout
+function renderItems() {
+    if (!layout) return;
+    
+    layout.innerHTML = "";
+    items.forEach(createItemElement);
+}
