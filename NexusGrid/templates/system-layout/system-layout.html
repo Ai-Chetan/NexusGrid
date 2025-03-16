@@ -9,13 +9,13 @@
 {% endblock head %}
 
 {% block main_content %}
-<div class="layout-container pl-5">
-    <div class="layout-header">
+<div class="layout-container ps-5">
+    <div class="layout-header ps-5">
         <h1 class="layout-title">
             {% if parent %}
                 <!-- Show navigation breadcrumb -->
                 <div class="breadcrumb-container">
-                    <a href="{% url 'layout:root' %}">Root</a>
+                    <a class="current-location" href="{% url 'layout:root' %}">Root</a>
                     {% for item in breadcrumb %}
                         {% if forloop.last %}
                             <span class="breadcrumb-separator">›</span>
@@ -26,8 +26,14 @@
                         {% endif %}
                     {% endfor %}
                 </div>
+                <div class="current-view-info">
+                    <span>Viewing: <strong>{{ parent.name }}</strong> ({{ parent.get_item_type_display }})</span>
+                </div>
             {% else %}
-                <span class="current-location">Main Layout</span>
+                <span class="current-location">System Layout</span>
+                <div class="current-view-info">
+                    <span>Viewing: <strong>System Layout Level</strong></span>
+                </div>
             {% endif %}
         </h1>
         
@@ -73,7 +79,7 @@
     </div>
     
     <!-- Modal for renaming items -->
-    <div class="modal fade" id="renameModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="renameModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
@@ -96,7 +102,7 @@
     </div>
     
     <!-- Confirmation modal for reset/unsaved changes -->
-    <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="confirmModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
@@ -121,6 +127,7 @@
     const PARENT_ID = "{% if parent_id %}{{ parent_id }}{% else %}null{% endif %}";
     const CSRF_TOKEN = "{{ csrf_token }}";
     const STATIC_URL = "{% static '' %}";
+    const PARENT_TYPE = "{% if parent %}{{ parent.item_type }}{% else %}null{% endif %}";
 </script>
 <script src="{% static 'system_layout/js/system-layout.js' %}"></script>
 {% endblock scripts %}
