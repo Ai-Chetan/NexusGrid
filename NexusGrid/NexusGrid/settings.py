@@ -122,3 +122,14 @@ LOGIN_URL = '/accounts/login/'  # Redirect users to this URL if they are not log
 LOGUOT_REDIRECT_URL = 'login'  # Required for allauth
 LOGIN_REDIRECT_URL = 'dashboard'  # Required for allauth
 
+# Email Backend
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
+# SMTP Configuration
+EMAIL_HOST = 'smtp.gmail.com'  # Use your email provider's SMTP server
+EMAIL_PORT = 587  # Port (587 for TLS, 465 for SSL)
+EMAIL_USE_TLS = True  # Use TLS (use EMAIL_USE_SSL = True for SSL)
+EMAIL_HOST_USER = 'nexusgrid.assist@gmail.com'  # Your email address
+EMAIL_HOST_PASSWORD = 'pvju ulzx csfd yphy'  # Your email/app password
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER  # Default sender email
+
