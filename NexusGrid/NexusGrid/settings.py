@@ -118,7 +118,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 SITE_ID=1 # Required for allauth
 
-LOGIN_URL = 'login'  # Redirect users to this URL if they are not logged in
+LOGIN_URL = '/accounts/login/'  # Redirect users to this URL if they are not logged in
 LOGUOT_REDIRECT_URL = 'login'  # Required for allauth
 LOGIN_REDIRECT_URL = 'dashboard'  # Required for allauth
 

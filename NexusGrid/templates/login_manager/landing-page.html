@@ -7,7 +7,7 @@
 <body>
     <!-- Navigation Bar -->
     {% block navbar_button %}
-    <a class="nav-link login-btn text-white" href="login">Sign In / Sign Up <i class="fas fa-sign-in-alt"></i></a>
+    <a class="nav-link login-btn text-white" href="{% url "login" %}">Sign In / Sign Up <i class="fas fa-sign-in-alt"></i></a>
     {% endblock navbar_button %}
 
     <!-- Hero Section -->

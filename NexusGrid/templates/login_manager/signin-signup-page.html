@@ -38,7 +38,7 @@
 
                     <p class="social-text text-center">OR<br/><b>Sign In with Social Platforms</b></p>
                     <div class="social-media">
-                        <a href="{% provider_login_url 'google' %}" class="social-icon">
+                        <a href="{%  provider_login_url 'google' process='login' %}" class="social-icon">
                             <i class="fab fa-google"></i>
                         </a>
                         <a href="{% provider_login_url 'facebook' %}" class="social-icon">
@@ -54,7 +54,8 @@
                 </form>
     
                 <!-- Sign Up Form -->
-                <form action="/login" method="GET" class="sign-up-form">
+                <form action="#" method="POST" class="sign-up-form">
+                    {% csrf_token %}
                     <h2 class="title">Sign Up <i class="fa fa-user-plus"></i></h2>
                     
                     <div class="input-container">

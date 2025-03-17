@@ -8,15 +8,16 @@ def landing_page(request):
     return render(request, 'login_manager/landing-page.html')
 
 def login_page(request):
-    if request.method=='POST':
-        email = request.POST.get('email')
-        action=request.POST.get('action') 
-        if action=='get_otp':
-            print('get_otp')  
-        elif action=='validate_otp':
-            print('validate_otp')
-        elif action=='signup':
-            print('signup')    
+    # print("Hello")
+    # if request.method=='POST':
+    #     email = request.POST.get('email')
+    #     action=request.POST.get('action') 
+    #     if action=='get_otp':
+    #         print('get_otp')  
+    #     elif action=='validate_otp':
+    #         print('validate_otp')
+    #     elif action=='signup':
+    #         print('signup')    
     return render(request,'login_manager/signin-signup-page.html' )
 
 def user_login(request):
