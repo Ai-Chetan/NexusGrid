@@ -73,7 +73,14 @@ body {
 .progress-bar {
   height: 100%;
 }
-
+.functional {
+  border: 1px solid black;
+  border-left: 5px solid #797979;
+}
+.functional .progress-bar {
+  background-color: #797979;
+  width: 98%;
+}
 /* Active Systems */
 .active {
   border: 1px solid black;
@@ -81,7 +88,7 @@ body {
 }
 .active .progress-bar {
   background-color: #28a745;
-  width: 72%;
+  width: 50%;
 }
 
 /* Critical Systems */
@@ -211,6 +218,25 @@ body {
   color: #666;
   white-space: nowrap;
 }
+
+.workspace-card {
+  height: 120px;
+  width: 49%;
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease-in-out;
+}
+
+.workspace-card:hover {
+  transform: translateY(-5px);
+}
+
+.icon-large {
+  font-size: 52px;
+  margin-right: 30px;
+}
+
 .graph-box {
   width: 100%; /* Ensure it starts at full width */
   height: 300px; /* Adjust height as needed */

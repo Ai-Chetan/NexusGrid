@@ -148,18 +148,18 @@
 }
 
 .layout-item.selected {
-  outline: 3px solid #007bff;
+  outline: 1px solid #007bff;
   z-index: 10;
 }
 
 .layout-item .item-name {
+  font-size: 0.6rem !important;
   font-weight: bold;
   margin-bottom: 5px;
-  word-break: break-word;
 }
 
 .layout-item .item-type {
-  font-size: 0.8rem;
+  font-size: 0.5rem;
   color: #6c757d;
 }
 

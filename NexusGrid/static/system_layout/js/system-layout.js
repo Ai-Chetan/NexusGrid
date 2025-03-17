@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', function() {
         'router': { icon: 'fa-wifi', sizeX: 1, sizeY: 1 },
         'printer': { icon: 'fa-print', sizeX: 1, sizeY: 1 },
         'ups': { icon: 'fa-plug', sizeX: 1, sizeY: 1 },
-        'rack': { icon: 'fa-hdd', sizeX: 1, sizeY: 2 }
+        'rack': { icon: 'fa-hdd', sizeX: 1, sizeY: 1 }
     };
     
     // Initialize
@@ -185,9 +185,14 @@ document.addEventListener('DOMContentLoaded', function() {
             showConfirmation(
                 'Reset Layout',
                 'Are you sure you want to reset the layout? Your changes will be lost.',
-                function() {
-                    fetchLayoutItems();
-                    hasChanges = false;
+                async function() {
+                    try {
+                        await fetchLayoutItems(); // Wait for the reset
+                        hasChanges = false;
+                        console.log("Layout reset successfully.");
+                    } catch (error) {
+                        console.error("Error resetting layout:", error);
+                    }
                 }
             );
         });

@@ -18,13 +18,13 @@
                     <!-- System Overview - Set 1 -->
                     <div class="col-md-4">
                         <div class="overview-container">
-                            <div class="overview-card active">
-                                <i class="fas fa-desktop text-success"></i>
+                            <div class="overview-card functional">
+                                <i class="fas fa-desktop text-secondary"></i>
                                 <div class="overview-details">
-                                    <h5>Active Systems</h5>
-                                    <span class="count text-success">36 / 50</span>
+                                    <h5>Functional Systems</h5>
+                                    <span class="count text-secondary">48 / 50</span>
                                     <div class="progress">
-                                        <div class="progress-bar bg-success"></div>
+                                        <div class="progress-bar bg-secondary"></div>
                                     </div>
                                 </div>
                             </div>
@@ -33,7 +33,7 @@
                                 <i class="fas fa-exclamation-circle text-danger"></i>
                                 <div class="overview-details">
                                     <h5>Critical Systems</h5>
-                                    <span class="count text-danger">02</span>
+                                    <span class="count text-danger">01</span>
                                     <div class="progress">
                                         <div class="progress-bar bg-danger"></div>
                                     </div>
@@ -45,24 +45,26 @@
                     <!-- System Overview - Set 2 -->
                     <div class="col-md-4">
                         <div class="overview-container">
-                            <div class="overview-card fault">
-                                <i class="fas fa-exclamation-triangle text-warning"></i>
+                            <div class="overview-card active">
+                                <i class="fas fa-desktop text-success"></i>
                                 <div class="overview-details">
-                                    <h5>Fault Reports</h5>
-                                    <span class="count text-warning">04</span>
+                                    <h5>Active Systems</h5>
+                                    <span class="count text-success">22 / 50</span>
                                     <div class="progress">
-                                        <div class="progress-bar bg-warning"></div>
+                                        <div class="progress-bar bg-success"></div>
                                     </div>
                                 </div>
                             </div>
             
-                            <div class="overview-card resource mt-2">
-                                <i class="fas fa-box text-info"></i>
-                                <div class="overview-details">
-                                    <h5>Resource Requests</h5>
-                                    <span class="count text-info">02</span>
-                                    <div class="progress">
-                                        <div class="progress-bar bg-info"></div>
+                            <div class="overview-container">
+                                <div class="overview-card fault  mt-2">
+                                    <i class="fas fa-exclamation-triangle text-warning"></i>
+                                    <div class="overview-details">
+                                        <h5>Fault Reports</h5>
+                                        <span class="count text-warning">01</span>
+                                        <div class="progress">
+                                            <div class="progress-bar bg-warning"></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -71,26 +73,23 @@
             
                     <!-- System Overview - Set 3 (Newly Added) -->
                     <div class="col-md-4">
-                        <div class="overview-container">
-                            <div class="overview-card maintenance">
-                                <i class="fas fa-tools text-primary"></i>
-                                <div class="overview-details">
-                                    <h5>Maintenance</h5>
-                                    <span class="count text-primary">03</span>
-                                    <div class="progress">
-                                        <div class="progress-bar bg-primary"></div>
-                                    </div>
+                        <div class="overview-card utilization">
+                            <i class="fas fa-microchip text-secondary"></i>
+                            <div class="overview-details">
+                                <h5>System Utilization</h5>
+                                <span class="count text-secondary">75%</span>
+                                <div class="progress">
+                                    <div class="progress-bar"></div>
                                 </div>
                             </div>
-            
-                            <div class="overview-card utilization mt-2">
-                                <i class="fas fa-microchip text-secondary"></i>
-                                <div class="overview-details">
-                                    <h5>System Utilization</h5>
-                                    <span class="count text-secondary">75%</span>
-                                    <div class="progress">
-                                        <div class="progress-bar"></div>
-                                    </div>
+                        </div>
+                        <div class="overview-card resource mt-2">
+                            <i class="fas fa-box text-info"></i>
+                            <div class="overview-details">
+                                <h5>Resource Requests</h5>
+                                <span class="count text-info">02</span>
+                                <div class="progress">
+                                    <div class="progress-bar bg-info"></div>
                                 </div>
                             </div>
                         </div>
@@ -139,7 +138,27 @@
                 </div>
             </div>   
                     
-            <h2 class="overview-title mt-5"><i class="fas fa-chart-line"></i> Performance & Fault Trends</h2>
+            <h2 class="overview-title mt-5"><i class="fas fa-laptop"></i> WORKPLACE</h2>
+            <div class="row d-flex flex-row justify-content-between p-4 pt-0">
+                <div class="col-md-6 workspace-card d-flex flex-row align-items-center justify-content-center">
+                    <i class="fas fa-chalkboard icon-large text-secondary"></i>
+                    <div class="text-center">
+                        <h5>IT Lab 4</h5>
+                        <span class="text-muted">Wing A, Floor 3</span>
+                    </div>
+                </div>
+            
+                <div class="col-md-6 workspace-card d-flex flex-row align-items-center justify-content-center">
+                    <i class="fas fa-chalkboard icon-large text-secondary"></i>
+                    <div class="text-center">
+                        <h5>IT Lab 6</h5>
+                        <span class="text-muted">Wing A, Floor 3</span>
+                    </div>
+                </div>
+            </div>
+            
+
+            <h2 class="overview-title mt-3"><i class="fas fa-chart-line"></i> Performance & Fault Trends</h2>
             <div class="row">
                 <div class="col-md-6">
                     <div id="performanceChart" class="graph-box"></div>
