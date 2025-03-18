@@ -5,6 +5,9 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction
 import json
 from .models import LayoutItem
+import psutil
+import platform
+import socket
 
 def layout_view(request, item_id=None):
     if item_id:
@@ -26,6 +29,13 @@ def layout_view(request, item_id=None):
     }
     
     return render(request, 'system-layout/system-layout.html', context)
+
+def system_details(request, item_id=None):
+    if item_id:
+        system_info = get_system_info()
+        return render(request, 'system-layout/system-details.html', {"system_info": system_info})  # ✅ Pass system_info
+    else:
+        return HttpResponse("Invalid request", status=400)  # ✅ Return a proper HTTP response
 
 def get_layout_items(request):
     parent_id = request.GET.get('parent_id')
@@ -136,3 +146,50 @@ def save_layout(request):
         return JsonResponse({'status': 'success'})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    
+def get_system_info():
+    try:
+        info = {
+            "System Information": {
+                "Hostname": socket.gethostname(),
+                "System": platform.system(),
+                "Version": platform.version(),
+                "Release": platform.release(),
+                "Machine": platform.machine(),
+                "Processor": platform.processor(),
+                "Architecture": platform.architecture()[0]
+            },
+            "CPU Information": {
+                "Physical Cores": psutil.cpu_count(logical=False),
+                "Total Cores": psutil.cpu_count(logical=True),
+                "Max Frequency (MHz)": psutil.cpu_freq().max,
+                "Min Frequency (MHz)": psutil.cpu_freq().min,
+                "Current Frequency (MHz)": psutil.cpu_freq().current,
+                "CPU Usage (%)": psutil.cpu_percent(interval=1)
+            },
+            "Memory Information": {
+                "Total Memory (GB)": round(psutil.virtual_memory().total / (1024 ** 3), 2),
+                "Available Memory (GB)": round(psutil.virtual_memory().available / (1024 ** 3), 2),
+                "Used Memory (GB)": round(psutil.virtual_memory().used / (1024 ** 3), 2),
+                "Memory Usage (%)": psutil.virtual_memory().percent
+            },
+            "Disk Information": {
+                "Total Disk Space (GB)": round(psutil.disk_usage('/').total / (1024 ** 3), 2),
+                "Used Disk Space (GB)": round(psutil.disk_usage('/').used / (1024 ** 3), 2),
+                "Free Disk Space (GB)": round(psutil.disk_usage('/').free / (1024 ** 3), 2),
+                "Disk Usage (%)": psutil.disk_usage('/').percent
+            },
+            "Network Information": {
+                "IP Address": socket.gethostbyname(socket.gethostname()),
+                "Bytes Sent": psutil.net_io_counters().bytes_sent,
+                "Bytes Received": psutil.net_io_counters().bytes_recv
+            },
+            "User Information": {
+                "Current Users": len(psutil.users()),
+                "Logged In Users": [user.name for user in psutil.users()]
+            }
+        }
+        return info
+    except Exception as e:
+        print(f"Error fetching system info: {e}")  # ✅ Log the error
+        return {}  # ✅ Return an empty dictionary to avoid errors in the template

@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // State
     let layoutItems = [];
+    let originalLayout = []; // Store original layout for reset functionality
     let selectedItem = null;
     let editMode = false;
     let hasChanges = false;
@@ -72,6 +73,8 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(data => {
                 layoutItems = data.items;
+                // Store server state for reset functionality
+                originalLayout = JSON.parse(JSON.stringify(layoutItems));
                 renderLayout();
             })
             .catch(error => {
@@ -125,13 +128,20 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!itemElement) return;
             
             const itemId = itemElement.dataset.id;
-            
+            const itemType = itemElement.dataset.type;
+
             if (editMode) {
                 // In edit mode, select the item
                 selectItem(itemElement);
             } else {
-                // In view mode, navigate to the item
-                window.location.href = `/layout/${itemId}/`;
+                // In view mode, navigate to the appropriate page based on item type
+                if (itemType === 'computer') {
+                    // For computers, navigate to blank.html
+                    window.location.href = `/layout/details/${itemId}/`;
+                } else {
+                    // For all other items, navigate to the layout page
+                    window.location.href = `/layout/${itemId}/`;
+                }
             }
         });
         
@@ -185,14 +195,11 @@ document.addEventListener('DOMContentLoaded', function() {
             showConfirmation(
                 'Reset Layout',
                 'Are you sure you want to reset the layout? Your changes will be lost.',
-                async function() {
-                    try {
-                        await fetchLayoutItems(); // Wait for the reset
-                        hasChanges = false;
-                        console.log("Layout reset successfully.");
-                    } catch (error) {
-                        console.error("Error resetting layout:", error);
-                    }
+                function() {
+                    // Restore from original server layout
+                    layoutItems = JSON.parse(JSON.stringify(originalLayout));
+                    renderLayout();
+                    hasChanges = false;
                 }
             );
         });
@@ -208,7 +215,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     'You have unsaved changes. Are you sure you want to exit edit mode without saving?',
                     function() {
                         exitEditMode();
-                        fetchLayoutItems();
                     }
                 );
             } else {
@@ -381,6 +387,9 @@ document.addEventListener('DOMContentLoaded', function() {
         editMode = true;
         hasChanges = false;
         
+        // Store the original layout
+        originalLayout = JSON.parse(JSON.stringify(layoutItems));
+        
         // Show edit controls
         layoutControls.style.display = 'none';
         editControls.style.display = 'flex';
@@ -392,6 +401,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Exit edit mode
     function exitEditMode() {
         editMode = false;
+        
+        // If we had changes but didn't save, revert to original layout
+        if (hasChanges) {
+            layoutItems = JSON.parse(JSON.stringify(originalLayout));
+            renderLayout();
+        }
+        
         hasChanges = false;
         
         // Hide edit controls
@@ -520,8 +536,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.status === 'success') {
                 // Add new item to local state
                 layoutItems.push(data.item);
+                // Update original layout to include the new item
+                originalLayout = JSON.parse(JSON.stringify(layoutItems));
                 renderLayout();
-                hasChanges = true;
+                hasChanges = false;
             } else {
                 showError(data.message || 'Error adding item');
             }
@@ -630,6 +648,8 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(data => {
             if (data.status === 'success') {
+                // Update original layout to match current layout
+                originalLayout = JSON.parse(JSON.stringify(layoutItems));
                 hasChanges = false;
                 exitEditMode();
             } else {

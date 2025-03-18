@@ -29,9 +29,7 @@ INSTALLED_APPS = [
     'monitoring',
     'faults',
     'resources',
-    'notifications',
     'reports',
-    'automation',
 
     # allauth
     'allauth',

@@ -18,28 +18,200 @@
 }
 
 .current-view-info {
-  font-size: 1rem;
+  font-size: 1.5rem;
   color: #6c757d;
   margin-top: 5px;
 }
 
 .breadcrumb-container {
+  font-size: 1.8rem; /* Match layout-title */
+  font-weight: bold;
+  margin-bottom: 0.3rem;
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  font-size: 1.2rem;
+  align-items: center;
 }
-
+.breadcrumb-container a {
+  text-decoration: none;
+  color: #007bff; /* Match primary color */
+}
 .breadcrumb-separator {
-  margin: 0 8px;
-  color: #6c757d;
+  margin: 0 10px;
+  font-weight: bold;
+  color: #495057;
 }
 
 .current-location {
   font-weight: bold;
   color: #495057;
 }
+/* System Overview Title */
+.overview-title {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 30px;
+}
 
+/* Overview Cards */
+.overview-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  padding: 15px;
+  border-radius: 10px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  cursor: pointer;
+  border-left: 5px solid transparent;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Card Hover Effects */
+.overview-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* Icons Styling */
+.overview-card i {
+  font-size: 30px;
+  margin-right: 15px;
+  min-width: 40px;
+  text-align: center;
+}
+
+/* Overview Card Details */
+.overview-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.overview-details h5 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.count {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* Progress Bars */
+.progress {
+  height: 6px;
+  border-radius: 5px;
+  background: #e9ecef;
+  margin-top: 5px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+}
+.functional {
+  border: 1px solid black;
+  border-left: 5px solid #797979;
+}
+.functional .progress-bar {
+  background-color: #797979;
+  width: 98%;
+}
+/* Active Systems */
+.active {
+  border: 1px solid black;
+  border-left: 5px solid #28a745;
+}
+.active .progress-bar {
+  background-color: #28a745;
+  width: 50%;
+}
+
+/* Critical Systems */
+.critical {
+  border: 1px solid black;
+  border-left: 5px solid #dc3545;
+}
+.critical .progress-bar {
+  background-color: #dc3545;
+  width: 4%;
+}
+
+/* Fault Reports */
+.fault {
+  border: 1px solid black;
+  border-left: 5px solid #bd6c03;
+}
+.fault .progress-bar {
+  background-color: #bd6c03;
+  width: 8%;
+}
+
+/* Resource Requests */
+.resource {
+  border: 1px solid black;
+  border-left: 5px solid #17a2b8;
+}
+.resource .progress-bar {
+  background-color: #17a2b8;
+  width: 4%;
+}
+/* Maintainence */
+.maintenance {
+  border: 1px solid black;
+  border-left: 5px solid #007bff;
+}
+.maintenance .progress-bar {
+  background-color: #007bff;
+  width: 12%;
+}
+/* utilization */
+.utilization {
+  border: 1px solid black;
+  border-left: 5px solid #4a4c4e;
+}
+.utilization .progress-bar {
+  background-color: #4a4c4e;
+  width: 12%;
+}
+/* Equal Height for System Overview & History */
+.overview-container, .history-container {
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+}
+
+/* Flexbox for Two System Overview Containers */
+.overview-container {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Overview Card Styling */
+.overview-card {
+  display: flex;
+  align-items: center;
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 8px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  cursor: pointer;
+}
+
+.overview-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.15);
+}
+.overview-section {
+  padding: 10px 0px;
+  background-color: white;
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+}
 /* Button Styles */
 .button-container {
   display: flex;
@@ -104,15 +276,20 @@
 
 /* Layout Grid */
 .layout-grid {
+  background-color: white;
+  background-image: linear-gradient(#ebebeb 0.1em, transparent 0.1em), linear-gradient(90deg, #ebebeb 0.1em, transparent 0.1em);
+  background-size: 4em 4em;
+  min-height: 23vh;
   display: grid;
+  margin-left: 40px;
   grid-template-columns: repeat(12, 1fr);
   grid-auto-rows: 100px;
   gap: 15px;
-  padding: 20px;
-  background-color: #f8f9fa;
+  padding: 24px;
   border-radius: 8px;
-  min-height: 600px;
+  border: 1px solid black;
   position: relative;
+  overflow: auto;
 }
 
 /* Layout Items */
@@ -137,18 +314,18 @@
 }
 
 .layout-item.selected {
-  outline: 3px solid #007bff;
+  outline: 1px solid #007bff;
   z-index: 10;
 }
 
 .layout-item .item-name {
+  font-size: 0.6rem !important;
   font-weight: bold;
   margin-bottom: 5px;
-  word-break: break-word;
 }
 
 .layout-item .item-type {
-  font-size: 0.8rem;
+  font-size: 0.5rem;
   color: #6c757d;
 }
 
@@ -211,11 +388,11 @@
   border-radius: 6px;
 }
 
-/* Grid lines for edit mode */
-.layout-grid.edit-mode {
-  background-image: linear-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px),
-                   linear-gradient(90deg, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
-  background-size: 100% 100px, 8.33% 100%;
+.info-card {
+  margin-left: 40px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+  padding: 10px 0px;
 }
 
 /* Responsive adjustments */
