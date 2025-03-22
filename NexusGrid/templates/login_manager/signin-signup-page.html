@@ -54,37 +54,20 @@
                 </form>
     
                 <!-- Sign Up Form -->
-                <form action="/login" method="GET" class="sign-up-form">
+                <form action="#" method="POST" class="sign-up-form">
                     <h2 class="title">Sign Up <i class="fa fa-user-plus"></i></h2>
-                    
-                    <div class="input-container">
-                        <input type="email" id="signup-email" name="email" class="input-field" placeholder=" " required>
-                        <label for="signup-email" class="floating-label"><i class="fas fa-envelope"></i> Email</label>
-                    </div>
-                    <button type="button" class="btns solid" id="get-otp-btn">Get OTP</button>
-                    
-                    <div class="input-container" id="otp-section" style="display: none;">
-                        <input type="text" id="email-otp" name="otp" class="input-field" placeholder=" " required>
-                        <label for="email-otp" class="floating-label"><i class="fa-solid fa-key"></i> OTP</label>
-                    </div>
-                    <button type="button" class="btns solid" id="validate-otp-btn" style="display: none;">Validate OTP</button>
-    
-                    <div id="user-details" style="display: none;">
+                    {% csrf_token %}
+                    <div id="user-details">
                         <div class="input-container">
                             <input type="text" id="signup-username" name="username" class="input-field" placeholder=" " required>
                             <label for="signup-username" class="floating-label"><i class="fa fa-user"></i> Username</label>
                         </div>
     
                         <div class="input-container">
-                            <select id="signup-role" name="role" class="input-field" required>
-                                <option value="" disabled selected>Select a role</option>
-                                <option value="admin">Administrator</option>
-                                <option value="supervisor">Supervisor</option>
-                                <option value="user">Standard User</option>
-                            </select>
-                            <label for="signup-role" class="floating-label"><i class="fa-solid fa-users"></i> Roles</label>
+                            <input type="email" id="signup-email" name="email" class="input-field" placeholder=" " required>
+                            <label for="signup-email" class="floating-label"><i class="fas fa-envelope"></i> Email</label>
                         </div>
-    
+
                         <div class="input-container">
                             <input type="password" id="signup-password" name="password" class="input-field" placeholder=" " required>
                             <label for="signup-password" class="floating-label"><i class="fas fa-lock"></i> Password</label>
@@ -97,7 +80,7 @@
                             <span class="eye-icon" id="toggle-password-confirm"><i class="fas fa-eye-slash"></i></span>
                         </div>
     
-                        <button type="submit" class="btns solid" disabled>Sign Up <i class="fa fa-rocket"></i></button>
+                        <button type="button" class="btns solid" onclick="getOTP()">Sign Up <i class="fa fa-rocket"></i></button>
                     </div>
                     <p class="social-text text-center">OR<br/><b>Sign Up with Social Platforms</b></p>
                     <div class="social-media">
@@ -115,6 +98,25 @@
                         </a>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <div class="modal fade" id="otpModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Enter OTP</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="text" id="otpInput" class="form-control" placeholder="Enter OTP" maxlength="6">
+                        <small id="otpError" class="text-danger d-none">Invalid OTP, try again.</small>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-success" id="verifyOtpBtn">Verify</button>
+                    </div>
+                </div>
             </div>
         </div>
     

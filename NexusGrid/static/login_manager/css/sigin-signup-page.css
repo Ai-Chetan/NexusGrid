@@ -326,6 +326,15 @@ border-radius: 5px;
     color: #2885d3;  
     border-color: #4481eb;
   }
+
+.modal-content {
+    border-radius: 10px;
+}
+.otp-input {
+    text-align: center;
+    font-size: 18px;
+    letter-spacing: 10px;
+}
 /* ANIMATION */
 
 .main-container.sign-up-mode:before{

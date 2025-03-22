@@ -114,3 +114,11 @@ MEDIA_ROOT = BASE_DIR / "media"  # Ensure this directory exists
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 SITE_ID=1 # Required for allauth
+
+# SMTP Configuration
+EMAIL_HOST = 'smtp.gmail.com'  # Use your email provider's SMTP server
+EMAIL_PORT = 587  # Port (587 for TLS, 465 for SSL)
+EMAIL_USE_TLS = True  # Use TLS (use EMAIL_USE_SSL = True for SSL)
+EMAIL_HOST_USER = 'nexusgrid.assist@gmail.com'  # Your email address
+EMAIL_HOST_PASSWORD = 'pvju ulzx csfd yphy'  # Your email/app password
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER  # Default sender email
