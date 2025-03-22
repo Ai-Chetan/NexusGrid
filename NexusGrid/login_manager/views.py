@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render,redirect
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
 from django.http import JsonResponse
@@ -8,6 +8,9 @@ from django.utils.timezone import now
 from datetime import timedelta
 import random
 import json
+
+from NexusGrid.settings import EMAIL_HOST_USER
+from.models import *
 
 # Create your views here.
 def landing_page(request):
@@ -49,9 +52,9 @@ def get_otp(request):
             request.session["otp_expiry"] = (now() + timedelta(minutes=5)).timestamp()  # Expires in 5 mins
 
             # Send OTP via email
-            subject = "Your OTP Code"
-            message = f"Your OTP code is {otp}. It is valid for 5 minutes."
-            from_email = "your-email@gmail.com"  # Use the email configured in settings
+            subject = ' Account Verification Code – NexusGrid'
+            message = f'Thank you for signing up with [Your Company Name]. To complete your account verification, please use the One-Time Password (OTP) provided below: \nYour OTP: { otp }\nThis OTP is valid for [5 minutes]. Please do not share this code with anyone.\nIf you did not request this verification, please ignore this email or contact our support team immediately.\nBest regards,\nNexusGrid Team',
+            from_email = EMAIL_HOST_USER  # Use the email configured in settings
             recipient_list = [email]
 
             send_mail(subject, message, from_email, recipient_list)
@@ -88,3 +91,22 @@ def verify_otp(request):
             return JsonResponse({"success": False, "message": "Invalid request data"}, status=400)
 
     return JsonResponse({"success": False, "message": "Invalid request method"}, status=405)
+
+def handle_signup(request):
+    username = request.POST.get('username')
+    email = request.POST.get('email')
+    password = request.POST.get('password')
+    confirm_password = request.POST.get('confirm-password')
+   ## role = request.POST.get('role')
+
+    if password != confirm_password:
+        messages.error(request, 'Passwords do not match.')
+        return redirect('login_manager/signin-signup-page.html')
+
+    if User.objects.filter(username=username).exists():
+        messages.error(request, 'Username already taken.')
+        return redirect('login_manager/signin-signup-page.html')
+
+    user = User.objects.create_user(username=username, email=email, password=password, role="default_user")
+    messages.success(request, 'Account created successfully. Please log in.')
+    return redirect('login_manager/signin-signup-page.html')
