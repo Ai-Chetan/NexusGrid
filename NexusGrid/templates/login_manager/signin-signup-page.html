@@ -11,12 +11,12 @@
         <div class="forms-container">
             <div class="signin-signup">
                 <!-- Sign In Form -->
-                <form action="{% url 'dashboard' %}" class="sign-in-form" method="POST">
-                    {% csrf_token %}
+                <form action="/dashboard/" class="sign-in-form" method="POST">
                     <h1 class="heading mt-5">Welcome Back to <b>NexusGrid</b>!</h1>
                     <p>Keep Your Systems in Check, Anytime, Anywhere.</p>
                     <h2 class="title">Sign In <i class="fas fa-sign-in-alt"></i></h2>
                     
+                    {% csrf_token %}
                     <div class="input-container">
                         <input type="text" id="signin-username" name="username" class="input-field" placeholder=" " required>
                         <label for="signin-username" class="floating-label"><i class="fa fa-user"></i> Username</label>
@@ -34,7 +34,7 @@
                         {% endfor %}
                     {% endif %}
     
-                    <button type="submit" class="btns solid">Login <i class="fas fa-sign-in-alt"></i></button>
+                    <button id="login-button" type="submit" class="btns solid">Login <i class="fas fa-sign-in-alt"></i></button>
 
                     <p class="social-text text-center">OR<br/><b>Sign In with Social Platforms</b></p>
                     <div class="social-media">
@@ -54,7 +54,7 @@
                 </form>
     
                 <!-- Sign Up Form -->
-                <form action="#" method="POST" class="sign-up-form">
+                <form action="/login/" method="POST" class="sign-up-form">
                     <h2 class="title">Sign Up <i class="fa fa-user-plus"></i></h2>
                     {% csrf_token %}
                     <div id="user-details">
