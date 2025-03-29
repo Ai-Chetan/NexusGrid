@@ -28,12 +28,7 @@
                         <span class="eye-icon" id="toggle-password-signin"><i class="fa-solid fa-eye-slash"></i></span>
                     </div>
     
-                    {% if messages %}
-                        {% for message in messages %}
-                            <p style="color:red">{{ message }}</p>
-                        {% endfor %}
-                    {% endif %}
-    
+                    <p id="message" style="color: red; font-size: 12px;"></p>
                     <button id="login-button" type="submit" class="btns solid">Login <i class="fas fa-sign-in-alt"></i></button>
 
                     <p class="social-text text-center">OR<br/><b>Sign In with Social Platforms</b></p>
@@ -79,7 +74,7 @@
                             <label for="confirm-password" class="floating-label"><i class="fas fa-lock"></i> Confirm Password</label>
                             <span class="eye-icon" id="toggle-password-confirm"><i class="fas fa-eye-slash"></i></span>
                         </div>
-    
+                        <p id="message-pass" style="color: red; font-size: 12px;"></p>
                         <button type="button" class="btns solid" onclick="getOTP()">Sign Up <i class="fa fa-rocket"></i></button>
                     </div>
                     <p class="social-text text-center">OR<br/><b>Sign Up with Social Platforms</b></p>

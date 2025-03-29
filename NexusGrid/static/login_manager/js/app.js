@@ -96,6 +96,15 @@ document.getElementById("login-button").addEventListener("click", function (even
   const password = document.getElementById("signin-password").value.trim();
   const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
+  // Get or create message element
+  let messageElement = document.getElementById("message");
+  if (!messageElement) {
+      messageElement = document.createElement("p");
+      messageElement.id = "message";
+      messageElement.style.color = "red";
+      document.body.appendChild(messageElement); // Append to body or a specific container
+  }
+
   fetch('/user-login/', {
       method: 'POST',
       headers: {
@@ -107,11 +116,31 @@ document.getElementById("login-button").addEventListener("click", function (even
   .then(response => response.json())
   .then(data => {
       if (data.success) {
-          alert("✅ Login Successful! Redirecting...");
-          window.location.href = data.redirect_url;  // Redirect on success
+          messageElement.style.color = "green";
+          messageElement.textContent = "Login Successful! Redirecting...";
+          setTimeout(() => {
+              window.location.href = data.redirect_url;
+          }, 2000);
       } else {
-          alert(data.message);  // Show error message
+          messageElement.style.color = "red";
+          messageElement.textContent = data.message;
       }
   })
-  .catch(error => console.error("Login request failed:", error));
+  .catch(error => {
+      messageElement.style.color = "red";
+      messageElement.textContent = "Login request failed. Please try again.";
+      console.error("Login request failed:", error);
+  });
+});
+document.getElementById("confirm-password").addEventListener("input", function () {
+  const password = document.getElementById("signup-password").value;
+  const confirmPassword = this.value;
+  const message = document.getElementById("message-pass");
+
+  if (password !== confirmPassword) {
+    message.style.color = "red";
+    message.innerText = "Passwords do not match!";
+  } else {
+    message.innerText = "";
+  }
 });
