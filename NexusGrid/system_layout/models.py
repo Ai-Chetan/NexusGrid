@@ -50,3 +50,5 @@ class LayoutItem(models.Model):
     
     class Meta:
         ordering = ['item_type', 'name']
+
+class Lab()
