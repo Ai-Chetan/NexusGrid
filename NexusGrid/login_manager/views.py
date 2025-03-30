@@ -32,7 +32,17 @@ def user_login(request):
 
             if user is not None:
                 login(request, user)
-                return JsonResponse({"success": True, "redirect_url": "/dashboard/"})
+
+                # Fetch role correctly
+                user_role = getattr(user, "role", None)  # Avoids AttributeError if role does not exist
+                
+                if user_role is None:
+                    return JsonResponse({"success": False, "message": "User role not found"})
+
+                # Correct session storage
+                request.session["user_role"] = user_role
+
+                return JsonResponse({"success": True, "redirect_url": "/dashboard/", "role": user_role})
             else:
                 return JsonResponse({"success": False, "message": "Invalid username or password"})
 

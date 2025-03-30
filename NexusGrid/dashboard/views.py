@@ -9,7 +9,7 @@ from django.urls import reverse
 
 @login_required(login_url="/login/")
 def dashboard_view(request):
-    return render(request, 'dashboard/dashboard.html')
+    return render(request, "dashboard/dashboard.html", {"user_role": request.user.role})
 
 def user_logout(request):
     logout(request)  # Logs out the user

@@ -119,8 +119,9 @@ document.getElementById("login-button").addEventListener("click", function (even
           messageElement.style.color = "green";
           messageElement.textContent = "Login Successful! Redirecting...";
           setTimeout(() => {
+              sessionStorage.setItem("user_role", data.role);
               window.location.href = data.redirect_url;
-          }, 2000);
+          }, 1000);
       } else {
           messageElement.style.color = "red";
           messageElement.textContent = data.message;

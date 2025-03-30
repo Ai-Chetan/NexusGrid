@@ -165,3 +165,7 @@
     transform: scaleX(1);
     width: 100%;
   }
+  /* Roles */
+.role-panel { 
+  display: none; 
+}
