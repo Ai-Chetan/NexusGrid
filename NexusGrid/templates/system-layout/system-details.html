@@ -1,0 +1,52 @@
+{% extends "dashboard/sidebar.html" %}
+{% load static %}
+
+{% block title %}| Layout System{% endblock title %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+<link href="{% static 'system_layout/css/system-layout.css' %}" rel="stylesheet">
+{% endblock head %}
+
+{% block main_content %}
+<div class="container">
+    <h1 class="text-center my-4">Computer System Details</h1>
+
+    {% if system_info %}
+    <div class="row">
+        {% for category, details in system_info.items %}
+        <div class="col-md-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fa fa-desktop"></i> {{ category }}</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        {% for key, value in details.items %}
+                        <li class="list-group-item">
+                            <strong>{{ key }}:</strong> {{ value }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-warning text-center" role="alert">
+        <i class="fa fa-exclamation-circle"></i> No system information available.
+    </div>
+    {% endif %}
+</div>
+{% endblock main_content %}
+
+{% block scripts %}
+<script>
+    const PARENT_ID = "{% if parent_id %}{{ parent_id }}{% else %}null{% endif %}";
+    const CSRF_TOKEN = "{{ csrf_token }}";
+    const STATIC_URL = "{% static '' %}";
+    const PARENT_TYPE = "{% if parent %}{{ parent.item_type }}{% else %}null{% endif %}";
+</script>
+<script src="{% static 'system_layout/js/system-layout.js' %}"></script>
+{% endblock scripts %}

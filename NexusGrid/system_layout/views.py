@@ -1,73 +1,197 @@
 from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse,HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
-from .models import Block
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
 import json
+from .models import LayoutItem
+import psutil
+import platform
+import socket
 
-def system_layout(request):
-    """Render the system layout page with saved blocks."""
-    blocks = Block.objects.all()
-    return render(request, "system-layout/system-layout.html", {"blocks": blocks})
 
-@csrf_exempt
-def add_block(request):
-    """Add a new block with default or provided coordinates."""
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-            x = data.get("x", 0)
-            y = data.get("y", 0)
-            block = Block.objects.create(x=x, y=y)
-            return JsonResponse({"id": block.id, "x": block.x, "y": block.y}, status=201)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON data"}, status=400)
-    
-    return JsonResponse({"error": "Invalid request"}, status=400)
-
-@csrf_exempt
-def update_block(request, block_id):
-    """Update the position of an existing block."""
-    block = get_object_or_404(Block, id=block_id)
-    
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-            x = data.get("x")
-            y = data.get("y")
-
-            if x is not None and y is not None:
-                block.x, block.y = int(x), int(y)
-                block.save()
-                return JsonResponse({"status": "updated", "id": block.id, "x": block.x, "y": block.y})
+@ login_required
+def layout_view(request, item_id=None):
+    if item_id:
+        current_item = get_object_or_404(LayoutItem, id=item_id)
+        parent = current_item
+        
+        # Get ancestors for breadcrumb
+        breadcrumb = [{'id': ancestor.id, 'name': ancestor.name} for ancestor in parent.get_ancestors()]
             
-            return JsonResponse({"error": "Missing x or y"}, status=400)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON data"}, status=400)
-
-    return JsonResponse({"error": "Invalid request"}, status=400)
-
-@csrf_exempt
-def remove_block(request, block_id):
-    """Remove a block by its ID."""
-    if request.method == "DELETE":
-        block = get_object_or_404(Block, id=block_id)
-        block.delete()
-        return JsonResponse({"status": "deleted", "id": block_id})
+    else:
+        current_item = None
+        parent = None
+        breadcrumb = []
+        
+    context = {
+        'parent': parent,
+        'breadcrumb': breadcrumb,
+        'parent_id': parent.id if parent else None,
+    }
     
-    return JsonResponse({"error": "Invalid request"}, status=400)
+    return render(request, 'system-layout/system-layout.html', context)
 
-def get_blocks(request):
-    blocks = list(Block.objects.values())  # Fetch all saved blocks
-    return JsonResponse({"blocks": blocks})  # Ensure correct JSON format
+def system_details(request, item_id=None):
+    if item_id:
+        system_info = get_system_info()
+        return render(request, 'system-layout/system-details.html', {"system_info": system_info})  # ✅ Pass system_info
+    else:
+        return HttpResponse("Invalid request", status=400)  # ✅ Return a proper HTTP response
+
+def get_layout_items(request):
+    parent_id = request.GET.get('parent_id')
+    
+    if parent_id and parent_id != 'null':
+        items = LayoutItem.objects.filter(parent_id=parent_id)
+    else:
+        items = LayoutItem.objects.filter(parent__isnull=True)
+    
+    items_data = [item.to_dict() for item in items]
+    
+    return JsonResponse({'items': items_data})
+
+def get_parent(request):
+    item_id = request.GET.get('item_id')
+    try:
+        item = get_object_or_404(LayoutItem, id=item_id)
+        parent_id = item.parent.id if item.parent else None
+        return JsonResponse({'parent_id': parent_id})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
 
 @csrf_exempt
-def save_blocks(request):
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-            Block.objects.all().delete()  # Clear old blocks
-            for block in data["blocks"]:
-                Block.objects.create(x=block["x"], y=block["y"])
-            return JsonResponse({"status": "success"})
-        except Exception as e:
-            return JsonResponse({"error": str(e)}, status=400)
+def add_layout_item(request):
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        
+        parent_id = data.get('parent_id')
+        parent = None
+        if parent_id and parent_id != 'null':
+            parent = get_object_or_404(LayoutItem, id=parent_id)
+        
+        item = LayoutItem.objects.create(
+            name=data.get('name'),
+            item_type=data.get('item_type'),
+            parent=parent,
+            position_x=data.get('position_x', 0),
+            position_y=data.get('position_y', 0),
+            width=data.get('width', 1),
+            height=data.get('height', 1)
+        )
+        
+        return JsonResponse({
+            'status': 'success',
+            'item': item.to_dict()
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+@csrf_exempt
+def update_layout_item(request, item_id):
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
+    
+    try:
+        item = get_object_or_404(LayoutItem, id=item_id)
+        data = json.loads(request.body)
+        
+        # Update only provided fields
+        for field in ['name', 'position_x', 'position_y']:
+            if field in data:
+                setattr(item, field, data[field])
+            
+        item.save()
+        
+        return JsonResponse({
+            'status': 'success',
+            'item': item.to_dict()
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+@csrf_exempt
+def delete_layout_item(request, item_id):
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
+    
+    try:
+        item = get_object_or_404(LayoutItem, id=item_id)
+        item.delete()
+        
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+@csrf_exempt
+def save_layout(request):
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        items = data.get('items', [])
+        
+        # Use transaction to ensure all updates happen or none
+        with transaction.atomic():
+            for item_data in items:
+                item_id = item_data.get('id')
+                item = get_object_or_404(LayoutItem, id=item_id)
+                
+                item.position_x = item_data.get('position_x', item.position_x)
+                item.position_y = item_data.get('position_y', item.position_y)
+                item.save()
+        
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    
+def get_system_info():
+    try:
+        info = {
+            "System Information": {
+                "Hostname": socket.gethostname(),
+                "System": platform.system(),
+                "Version": platform.version(),
+                "Release": platform.release(),
+                "Machine": platform.machine(),
+                "Processor": platform.processor(),
+                "Architecture": platform.architecture()[0]
+            },
+            "CPU Information": {
+                "Physical Cores": psutil.cpu_count(logical=False),
+                "Total Cores": psutil.cpu_count(logical=True),
+                "Max Frequency (MHz)": psutil.cpu_freq().max,
+                "Min Frequency (MHz)": psutil.cpu_freq().min,
+                "Current Frequency (MHz)": psutil.cpu_freq().current,
+                "CPU Usage (%)": psutil.cpu_percent(interval=1)
+            },
+            "Memory Information": {
+                "Total Memory (GB)": round(psutil.virtual_memory().total / (1024 ** 3), 2),
+                "Available Memory (GB)": round(psutil.virtual_memory().available / (1024 ** 3), 2),
+                "Used Memory (GB)": round(psutil.virtual_memory().used / (1024 ** 3), 2),
+                "Memory Usage (%)": psutil.virtual_memory().percent
+            },
+            "Disk Information": {
+                "Total Disk Space (GB)": round(psutil.disk_usage('/').total / (1024 ** 3), 2),
+                "Used Disk Space (GB)": round(psutil.disk_usage('/').used / (1024 ** 3), 2),
+                "Free Disk Space (GB)": round(psutil.disk_usage('/').free / (1024 ** 3), 2),
+                "Disk Usage (%)": psutil.disk_usage('/').percent
+            },
+            "Network Information": {
+                "IP Address": socket.gethostbyname(socket.gethostname()),
+                "Bytes Sent": psutil.net_io_counters().bytes_sent,
+                "Bytes Received": psutil.net_io_counters().bytes_recv
+            },
+            "User Information": {
+                "Current Users": len(psutil.users()),
+                "Logged In Users": [user.name for user in psutil.users()]
+            }
+        }
+        return info
+    except Exception as e:
+        print(f"Error fetching system info: {e}")  # ✅ Log the error
+        return {}  # ✅ Return an empty dictionary to avoid errors in the template

@@ -1,22 +1,22 @@
 {% extends "login_manager/base.html" %}
 {% load static %}
 {% load account socialaccount %}
-
 {% block title %}| Login{% endblock title %}
 
 {% block main_content %}
     <link rel="stylesheet" href="{% static 'login_manager/css/sigin-signup-page.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 
     <div class="main-container">
         <div class="forms-container">
             <div class="signin-signup">
                 <!-- Sign In Form -->
-                <form action="{% url 'dashboard' %}" class="sign-in-form" method="POST">
-                    {% csrf_token %}
+                <form action="/dashboard/" class="sign-in-form" method="POST">
                     <h1 class="heading mt-5">Welcome Back to <b>NexusGrid</b>!</h1>
                     <p>Keep Your Systems in Check, Anytime, Anywhere.</p>
                     <h2 class="title">Sign In <i class="fas fa-sign-in-alt"></i></h2>
                     
+                    {% csrf_token %}
                     <div class="input-container">
                         <input type="text" id="signin-username" name="username" class="input-field" placeholder=" " required>
                         <label for="signin-username" class="floating-label"><i class="fa fa-user"></i> Username</label>
@@ -34,58 +34,40 @@
                         {% endfor %}
                     {% endif %}
     
-                    <button type="submit" class="btns solid">Login <i class="fas fa-sign-in-alt"></i></button>
+                    <button id="login-button" type="submit" class="btns solid">Login <i class="fas fa-sign-in-alt"></i></button>
 
                     <p class="social-text text-center">OR<br/><b>Sign In with Social Platforms</b></p>
                     <div class="social-media">
-                        <a href="{%  provider_login_url 'google' process='login' %}" class="social-icon">
+                        <a href="#" class="social-icon">
                             <i class="fab fa-google"></i>
                         </a>
-                        <a href="{% provider_login_url 'facebook' %}" class="social-icon">
+                        <a href="#" class="social-icon">
                             <i class="fab fa-facebook-f"></i>
                         </a>
-                        <a href="{% provider_login_url 'twitter' %}" class="social-icon">
+                        <a href="#" class="social-icon">
                             <i class="fab fa-twitter"></i>
                         </a>
-                        <a href="{% provider_login_url 'linkedin_oauth2' %}" class="social-icon">
+                        <a href="#" class="social-icon">
                             <i class="fab fa-linkedin-in"></i>
                         </a>
                     </div>
                 </form>
     
                 <!-- Sign Up Form -->
-                <form action="#" method="POST" class="sign-up-form">
-                    {% csrf_token %}
+                <form action="/login/" method="POST" class="sign-up-form">
                     <h2 class="title">Sign Up <i class="fa fa-user-plus"></i></h2>
-                    
-                    <div class="input-container">
-                        <input type="email" id="signup-email" name="email" class="input-field" placeholder=" " required>
-                        <label for="signup-email" class="floating-label"><i class="fas fa-envelope"></i> Email</label>
-                    </div>
-                    <button type="submit" class="btns solid" id="get-otp-btn" name="action" value="get_otp">Get OTP</button>
-                    
-                    <div class="input-container" id="otp-section" style="display: none;">
-                        <input type="text" id="email-otp" name="otp" class="input-field" placeholder=" " required>
-                        <label for="email-otp" class="floating-label"><i class="fa-solid fa-key" ></i> OTP</label>
-                    </div>
-                    <button type="submit" class="btns solid" id="validate-otp-btn" style="display: none;" name="action" value="validate_otp">Validate OTP</button>
-    
-                    <div id="user-details" style="display: none;">
+                    {% csrf_token %}
+                    <div id="user-details">
                         <div class="input-container">
                             <input type="text" id="signup-username" name="username" class="input-field" placeholder=" " required>
                             <label for="signup-username" class="floating-label"><i class="fa fa-user"></i> Username</label>
                         </div>
     
                         <div class="input-container">
-                            <select id="signup-role" name="role" class="input-field" required>
-                                <option value="" disabled selected>Select a role</option>
-                                <option value="admin">Administrator</option>
-                                <option value="supervisor">Supervisor</option>
-                                <option value="user">Standard User</option>
-                            </select>
-                            <label for="signup-role" class="floating-label"><i class="fa-solid fa-users"></i> Roles</label>
+                            <input type="email" id="signup-email" name="email" class="input-field" placeholder=" " required>
+                            <label for="signup-email" class="floating-label"><i class="fas fa-envelope"></i> Email</label>
                         </div>
-    
+
                         <div class="input-container">
                             <input type="password" id="signup-password" name="password" class="input-field" placeholder=" " required>
                             <label for="signup-password" class="floating-label"><i class="fas fa-lock"></i> Password</label>
@@ -98,24 +80,43 @@
                             <span class="eye-icon" id="toggle-password-confirm"><i class="fas fa-eye-slash"></i></span>
                         </div>
     
-                        <button type="submit" class="btns solid" disabled>Sign Up <i class="fa fa-rocket"></i></button>
+                        <button type="button" class="btns solid" onclick="getOTP()">Sign Up <i class="fa fa-rocket"></i></button>
                     </div>
                     <p class="social-text text-center">OR<br/><b>Sign Up with Social Platforms</b></p>
                     <div class="social-media">
-                        <a href="{% provider_login_url 'google' %}" class="social-icon">
+                        <a href="#" class="social-icon">
                             <i class="fab fa-google"></i>
                         </a>
-                        <a href="{% provider_login_url 'facebook' %}" class="social-icon">
+                        <a href="#" class="social-icon">
                             <i class="fab fa-facebook-f"></i>
                         </a>
-                        <a href="{% provider_login_url 'twitter' %}" class="social-icon">
+                        <a href="#" class="social-icon">
                             <i class="fab fa-twitter"></i>
                         </a>
-                        <a href="{% provider_login_url 'linkedin_oauth2' %}" class="social-icon">
+                        <a href="#" class="social-icon">
                             <i class="fab fa-linkedin-in"></i>
                         </a>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <div class="modal fade" id="otpModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Enter OTP</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="text" id="otpInput" class="form-control" placeholder="Enter OTP" maxlength="6">
+                        <small id="otpError" class="text-danger d-none">Invalid OTP, try again.</small>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-success" id="verifyOtpBtn">Verify</button>
+                    </div>
+                </div>
             </div>
         </div>
     
@@ -124,7 +125,7 @@
                 <div class="content">
                     <h3>First time?</h3>
                     <p>Join now to access real-time system monitoring, resource requests, and issue management!</p>
-                    <button class="btns transparent" id="sign-up-btn" name="action" value="signup">Sign up <i class="fa fa-user-plus"></i></button>
+                    <button class="btns transparent" id="sign-up-btn">Sign up <i class="fa fa-user-plus"></i></button>
                 </div>
                 <img src="{% static 'login_manager/images/login_page_img_1.png' %}" class="image" alt="Login illustration">
             </div>

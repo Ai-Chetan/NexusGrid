@@ -1,28 +1,240 @@
 {% extends "dashboard/sidebar.html" %}
 {% load static %}
 
-{% block title %}| Layout{% endblock title %}
+{% block title %}| Layout System{% endblock title %}
 
 {% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 <link href="{% static 'system_layout/css/system-layout.css' %}" rel="stylesheet">
 {% endblock head %}
 
 {% block main_content %}
-<div class="layout-container">
-    <div class="button-container">
-        <button id="addBlock" class="btn btn-success">Add Block</button>
-        <button id="removeBlock" class="btn btn-danger">Remove Block</button>
-        <button id="resetBlocks" class="btn btn-warning">Reset</button>
-        <button id="saveBlocks" class="btn btn-primary">Save</button>
+<div class="layout-container ps-5">
+    <!-- Assistant -->
+    <div class="layout-header ps-4" style="display:none;">
+        <h1 class="layout-title">
+            {% if parent %}
+                <div class="current-view-info">
+                    <span>Viewing: <strong>{{ parent.name }}</strong> ({{ parent.get_item_type_display }})</span>
+                </div>
+            {% else %}
+                <div class="current-view-info">
+                    <span>Viewing: <strong>System Layout Level</strong></span>
+                </div>
+            {% endif %}
+        </h1>
     </div>
-    <div id="layout"></div>
+
+    <div class="row">
+        <div class="col-md-12 ps-5 mb-4">
+            <h6><i class="fas fa-search"></i> System Overview</h6>
+            <div class="overview-section d-flex flex-wrap justify-content-around">
+                <!-- Functional Systems -->
+                <div class="overview-card functional">
+                    <i class="fas fa-desktop text-secondary"></i>
+                    <div class="overview-details">
+                        <h5>Functional Systems</h5>
+                        <span class="count text-secondary">48 / 50</span>
+                        <div class="progress">
+                            <div class="progress-bar bg-secondary"></div>
+                        </div>
+                    </div>
+                </div>
+    
+                <!-- Active Systems -->
+                <div class="overview-card active">
+                    <i class="fas fa-desktop text-success"></i>
+                    <div class="overview-details">
+                        <h5>Active Systems</h5>
+                        <span class="count text-success">22 / 50</span>
+                        <div class="progress">
+                            <div class="progress-bar bg-success"></div>
+                        </div>
+                    </div>
+                </div>
+    
+                <!-- System Utilization -->
+                <div class="overview-card utilization">
+                    <i class="fas fa-microchip text-secondary"></i>
+                    <div class="overview-details">
+                        <h5>System Utilization</h5>
+                        <span class="count text-secondary">75%</span>
+                        <div class="progress">
+                            <div class="progress-bar"></div>
+                        </div>
+                    </div>
+                </div>
+    
+                <!-- Critical Systems -->
+                <div class="overview-card critical">
+                    <i class="fas fa-exclamation-circle text-danger"></i>
+                    <div class="overview-details">
+                        <h5>Critical Systems</h5>
+                        <span class="count text-danger">01</span>
+                        <div class="progress">
+                            <div class="progress-bar bg-danger"></div>
+                        </div>
+                    </div>
+                </div>
+    
+                <!-- Fault Reports -->
+                <div class="overview-card fault">
+                    <i class="fas fa-exclamation-triangle text-warning"></i>
+                    <div class="overview-details">
+                        <h5>Fault Reports</h5>
+                        <span class="count text-warning">01</span>
+                        <div class="progress">
+                            <div class="progress-bar bg-warning"></div>
+                        </div>
+                    </div>
+                </div>
+    
+                <!-- Resource Requests -->
+                <div class="overview-card resource">
+                    <i class="fas fa-box text-info"></i>
+                    <div class="overview-details">
+                        <h5>Resource Requests</h5>
+                        <span class="count text-info">02</span>
+                        <div class="progress">
+                            <div class="progress-bar bg-info"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+
+    <!-- Admin -->
+    <div class="layout-header ps-5">
+        <h1 class="layout-title">
+            {% if parent %}
+                <div class="breadcrumb-container">
+                    <a class="current-location" href="{% url 'layout:root' %}">System Layout</a>
+                    {% for item in breadcrumb %}
+                        {% if forloop.last %}
+                            <span class="breadcrumb-separator">›</span>
+                            <span class="current-location">{{ item.name }}</span>
+                        {% else %}
+                            <span class="breadcrumb-separator">›</span>
+                            <a href="{% url 'layout:layout_view' item.id %}">{{ item.name }}</a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="current-view-info">
+                    <span>Viewing: <strong>{{ parent.name }}</strong> ({{ parent.get_item_type_display }})</span>
+                </div>
+            {% else %}
+                <span class="current-location">System Layout</span>
+                <div class="current-view-info">
+                    <span>Viewing: <strong>System Layout Level</strong></span>
+                </div>
+            {% endif %}
+        </h1>
+        
+        <div id="layoutControls" class="button-container">
+            <button id="editLayoutButton" class="btns btn-primary">Edit Layout</button>
+            <button id="backButton" class="btns btn-secondary" {% if not parent %}style="display:none;"{% endif %}>
+                <i class="fas fa-arrow-left"></i> Back
+            </button>
+        </div>
+        
+        <div id="editControls" class="button-container" style="display:none;">
+            <div class="dropdown add-dropdown">
+                <button id="addBlockButton" class="btns btn-success dropdown-toggle" data-bs-toggle="dropdown">
+                    Add Item
+                </button>
+                <ul class="dropdown-menu">
+                    {% if not parent %}
+                    <li><a class="dropdown-item" data-type="building" href="#">Add Building</a></li>
+                    {% elif parent.item_type == 'building' %}
+                    <li><a class="dropdown-item" data-type="floor" href="#">Add Floor</a></li>
+                    {% elif parent.item_type == 'floor' %}
+                    <li><a class="dropdown-item" data-type="room" href="#">Add Room</a></li>
+                    {% elif parent.item_type == 'room' %}
+                    <li><a class="dropdown-item" data-type="computer" href="#">Add Computer</a></li>
+                    <li><a class="dropdown-item" data-type="server" href="#">Add Server</a></li>
+                    <li><a class="dropdown-item" data-type="network_switch" href="#">Add Network Switch</a></li>
+                    <li><a class="dropdown-item" data-type="router" href="#">Add Router</a></li>
+                    <li><a class="dropdown-item" data-type="printer" href="#">Add Printer</a></li>
+                    <li><a class="dropdown-item" data-type="ups" href="#">Add UPS</a></li>
+                    <li><a class="dropdown-item" data-type="rack" href="#">Add Server Rack</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+            <button id="removeBlockButton" class="btns btn-danger">Remove</button>
+            <button id="resetLayoutButton" class="btns btn-warning">Reset</button>
+            <button id="saveLayoutButton" class="btns btn-primary">Save</button>
+            <button id="cancelEditButton" class="btns btn-secondary">Cancel</button>
+        </div>
+    </div>
+
+    <h6><i class="fas fa-map ps-5"></i> System Layout</h6>
+    <div id="layout" class="layout-grid">
+        <!-- Layout items will be added here dynamically -->
+    </div>
+
+    {% comment %} <h6><i class="fas fa-file-alt ps-5 mt-4"></i> Information</h6>
+    <div class="info-card ps-5">
+        <ul>
+            <li><i class="fas fa-wifi"></i> WiFi: IT_LAB_5G</li>
+            <li><i class="fas fa-server"></i> Gateway: 192.168.1.1</li>
+            <li><i class="fas fa-database"></i> Database IP: 192.168.1.51</li>
+            <li><i class="fas fa-code"></i> Installed Languages: Python, Java, C++</li>
+            <li><i class="fas fa-hdd"></i> Storage: 512GB SSD + 1TB HDD</li>
+          </ul>
+    </div> {% endcomment %}
+    
+    <!-- Modal for renaming items -->
+    <div class="modal fade" id="renameModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Rename Item</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="itemId">
+                    <div class="mb-3">
+                        <label for="itemName" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="itemName">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveNameButton">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Confirmation modal for reset/unsaved changes -->
+    <div class="modal fade" id="confirmModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmTitle">Confirm Action</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="confirmMessage">
+                    Are you sure you want to continue?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmButton">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock main_content %}
 
 {% block scripts %}
 <script>
-    const IMAGE_SRC = "{% static 'system_layout/images/node.png' %}";
+    const PARENT_ID = "{% if parent_id %}{{ parent_id }}{% else %}null{% endif %}";
+    const CSRF_TOKEN = "{{ csrf_token }}";
+    const STATIC_URL = "{% static '' %}";
+    const PARENT_TYPE = "{% if parent %}{{ parent.item_type }}{% else %}null{% endif %}";
 </script>
 <script src="{% static 'system_layout/js/system-layout.js' %}"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 {% endblock scripts %}

@@ -29,9 +29,7 @@ INSTALLED_APPS = [
     'monitoring',
     'faults',
     'resources',
-    'notifications',
     'reports',
-    'automation',
 
     # allauth
     'allauth',
@@ -42,7 +40,6 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.google',
     'allauth.socialaccount.providers.facebook',
     'allauth.socialaccount.providers.twitter',
-    'allauth.socialaccount.providers.linkedin_oauth2',
 ]
 
 MIDDLEWARE = [
@@ -118,13 +115,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 SITE_ID=1 # Required for allauth
 
-LOGIN_URL = '/accounts/login/'  # Redirect users to this URL if they are not logged in
-LOGUOT_REDIRECT_URL = 'login'  # Required for allauth
-LOGIN_REDIRECT_URL = 'dashboard'  # Required for allauth
-
-# Email Backend
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-
 # SMTP Configuration
 EMAIL_HOST = 'smtp.gmail.com'  # Use your email provider's SMTP server
 EMAIL_PORT = 587  # Port (587 for TLS, 465 for SSL)
@@ -133,3 +123,9 @@ EMAIL_HOST_USER = 'nexusgrid.assist@gmail.com'  # Your email address
 EMAIL_HOST_PASSWORD = 'pvju ulzx csfd yphy'  # Your email/app password
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER  # Default sender email
 
+AUTH_USER_MODEL = 'login_manager.User'  # Custom user model extending django's AbstractUser
+LOGIN_REDIRECT_URL = "dashboard"
+
+# SECURE_BROWSER_XSS_FILTER = True
+# SECURE_CONTENT_TYPE_NOSNIFF = True
+# SESSION_EXPIRE_AT_BROWSER_CLOSE = True

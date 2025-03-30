@@ -37,50 +37,81 @@ togglePasswords.forEach((togglePassword, index) => {
   });
 });
 
-/*Sign Up Form Flow*/
-document.addEventListener("DOMContentLoaded", function () {
-  document.getElementById("get-otp-btn").addEventListener("click", function (event) {
-      event.preventDefault(); // Prevent form submission
+function getOTP() {
+  const email = document.getElementById("signup-email").value;
+  const username = document.getElementById("signup-username").value;
+  const password = document.getElementById("signup-password").value;
+  const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-      let emailInput = document.getElementById("signup-email")?.value.trim();
-      let emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/; // Email validation
-
-      if (!emailInput) {
-          alert("Please enter your email before requesting an OTP.");
-          return;
-      }
-
-      if (!emailPattern.test(emailInput)) {
-          alert("Invalid email format! Please enter a valid email.");
-          return;
-      }
-
-      // Show OTP input & validation button
-      document.getElementById("otp-section").style.display = "block";
-      document.getElementById("validate-otp-btn").style.display = "inline-block";
-
-      // Hide "Get OTP" button after clicking it
-      this.style.display = "none";
-  });
-
-  document.getElementById("validate-otp-btn").addEventListener("click", function () {
-      let otpInput = document.getElementById("email-otp")?.value.trim();
-      let signUpBtn = document.querySelector(".sign-up-form button[type='submit']");
-
-      if (/^\d{6}$/.test(otpInput)) {
-          alert("OTP Validated!");
-
-          // Show remaining form fields
-          document.getElementById("user-details").style.display = "block";
-
-          // ✅ Enable the Sign-Up button
-          if (signUpBtn) signUpBtn.disabled = false;
-
-          // Hide OTP input & validation button after validation
-          document.getElementById("otp-section").style.display = "none";
-          this.style.display = "none";
+  fetch('/get-otp/', {
+      method: 'POST',
+      headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrftoken
+      },
+      body: JSON.stringify({ email: email, username: username, password: password })
+  })
+  .then(response => response.json())
+  .then(data => {
+      if (data.success) {
+          let otpModal = new bootstrap.Modal(document.getElementById("otpModal"));
+          otpModal.show();
+          console.log("OTP sent successfully!");
       } else {
-          alert("Invalid OTP! Please enter a 6-digit OTP.");
+          alert(data.message); // Show error message
       }
-  });
+  })
+  .catch(error => console.error("Request failed:", error));
+}
+
+document.getElementById("verifyOtpBtn").addEventListener("click", function () {
+  const otpInput = document.getElementById("otpInput").value;
+  const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  fetch('/verify-otp/', {
+      method: 'POST',
+      headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrftoken
+      },
+      body: JSON.stringify({ otp: otpInput })
+  })
+  .then(response => response.json())
+  .then(data => {
+      if (data.success) {
+          alert("✅ OTP Verified! Account Created Successfully! Redirecting to Login Page...");
+          window.location.href = "/login/";
+      } else {
+          document.getElementById("otpError").classList.remove("d-none");
+          document.getElementById("otpError").innerText = data.message;
+      }
+  })
+  .catch(error => console.error("Error:", error));
+});
+
+/* Sign In Validation */
+document.getElementById("login-button").addEventListener("click", function (event) {
+  event.preventDefault();
+  const username = document.getElementById("signin-username").value.trim();
+  const password = document.getElementById("signin-password").value.trim();
+  const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  fetch('/user-login/', {
+      method: 'POST',
+      headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrftoken
+      },
+      body: JSON.stringify({ username: username, password: password })
+  })
+  .then(response => response.json())
+  .then(data => {
+      if (data.success) {
+          alert("✅ Login Successful! Redirecting...");
+          window.location.href = data.redirect_url;  // Redirect on success
+      } else {
+          alert(data.message);  // Show error message
+      }
+  })
+  .catch(error => console.error("Login request failed:", error));
 });
