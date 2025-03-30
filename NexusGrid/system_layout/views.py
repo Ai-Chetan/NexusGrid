@@ -9,6 +9,7 @@ import psutil
 import platform
 import socket
 
+@ login_required
 def layout_view(request, item_id=None):
     if item_id:
         current_item = get_object_or_404(LayoutItem, id=item_id)

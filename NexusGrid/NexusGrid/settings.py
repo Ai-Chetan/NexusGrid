@@ -122,3 +122,10 @@ EMAIL_USE_TLS = True  # Use TLS (use EMAIL_USE_SSL = True for SSL)
 EMAIL_HOST_USER = 'nexusgrid.assist@gmail.com'  # Your email address
 EMAIL_HOST_PASSWORD = 'pvju ulzx csfd yphy'  # Your email/app password
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER  # Default sender email
+
+AUTH_USER_MODEL = 'login_manager.User'  # Custom user model extending django's AbstractUser
+LOGIN_REDIRECT_URL = "dashboard"
+
+# SECURE_BROWSER_XSS_FILTER = True
+# SECURE_CONTENT_TYPE_NOSNIFF = True
+# SESSION_EXPIRE_AT_BROWSER_CLOSE = True
