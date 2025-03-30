@@ -1,16 +1,21 @@
 from pathlib import Path
 import os
+import environ
+
+# Initialize environment variables from .env file
+env = environ.Env()
+environ.Env.read_env()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-y+wb+*b+ltq@(jt)b(gqdyt=awrz@dhgsev*a3&ixjg1ds%m_9'
+# SECRET_KEY loaded from environment
+SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env.bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = ['*']  # Change this in production
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1'])
 
 # Application definition
 INSTALLED_APPS = [
@@ -46,6 +51,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -75,11 +81,14 @@ TEMPLATES = [
 WSGI_APPLICATION = 'NexusGrid.wsgi.application'
 
 # Database
-# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': env('DB_NAME'),
+        'USER': env('DB_USER'),
+        'PASSWORD': env('DB_PASSWORD'),
+        'HOST': env('DB_HOST'),
+        'PORT': env('DB_PORT'),
     }
 }
 
@@ -113,19 +122,15 @@ MEDIA_ROOT = BASE_DIR / "media"  # Ensure this directory exists
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-SITE_ID=1 # Required for allauth
+SITE_ID = 1  # Required for allauth
 
 # SMTP Configuration
-EMAIL_HOST = 'smtp.gmail.com'  # Use your email provider's SMTP server
-EMAIL_PORT = 587  # Port (587 for TLS, 465 for SSL)
-EMAIL_USE_TLS = True  # Use TLS (use EMAIL_USE_SSL = True for SSL)
-EMAIL_HOST_USER = 'nexusgrid.assist@gmail.com'  # Your email address
-EMAIL_HOST_PASSWORD = 'pvju ulzx csfd yphy'  # Your email/app password
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER  # Default sender email
+EMAIL_HOST = env('EMAIL_HOST')
+EMAIL_PORT = env.int('EMAIL_PORT')
+EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
+EMAIL_HOST_USER = env('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
 
 AUTH_USER_MODEL = 'login_manager.User'  # Custom user model extending django's AbstractUser
 LOGIN_REDIRECT_URL = "dashboard"
-
-# SECURE_BROWSER_XSS_FILTER = True
-# SECURE_CONTENT_TYPE_NOSNIFF = True
-# SESSION_EXPIRE_AT_BROWSER_CLOSE = True

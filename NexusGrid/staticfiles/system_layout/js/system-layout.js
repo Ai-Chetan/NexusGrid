@@ -129,10 +129,11 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const itemId = itemElement.dataset.id;
             const itemType = itemElement.dataset.type;
-
+        
             if (editMode) {
                 // In edit mode, select the item
                 selectItem(itemElement);
+                console.log('Item selected, remove button state:', removeBlockButton.disabled);
             } else {
                 // In view mode, navigate to the appropriate page based on item type
                 if (itemType === 'computer') {
@@ -367,8 +368,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Select an item in the layout
     function selectItem(itemElement) {
+        console.log('Selecting item:', itemElement.dataset.id);
+        
         // Deselect previous item
         if (selectedItem) {
             selectedItem.classList.remove('selected');
@@ -589,8 +591,25 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Delete an item
+    // Improve the removeBlockButton click handler
+    removeBlockButton.addEventListener('click', function() {
+        if (!selectedItem) {
+            showError('No item selected for deletion');
+            return;
+        }
+        
+        showConfirmation(
+            'Confirm Deletion',
+            'Are you sure you want to remove this item? This action cannot be undone and will remove all child items as well.',
+            function() {
+                deleteItem(selectedItem.dataset.id);
+            }
+        );
+    });
+
     function deleteItem(itemId) {
+        console.log('Deleting item with ID type:', typeof itemId, 'value:', itemId);
+        
         fetch(`/layout/delete_layout_item/${itemId}/`, {
             method: 'POST',
             headers: {
@@ -599,12 +618,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .then(response => {
+            console.log('Delete response status:', response.status);
             if (!response.ok) {
-                throw new Error('Network response was not ok');
+                return response.text().then(text => {
+                    console.error('Error response text:', text);
+                    throw new Error('Network response was not ok');
+                });
             }
             return response.json();
         })
         .then(data => {
+            console.log('Delete response data:', data);
             if (data.status === 'success') {
                 // Remove item from local state
                 layoutItems = layoutItems.filter(item => item.id != itemId);

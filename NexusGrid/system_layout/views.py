@@ -1,63 +1,59 @@
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 import json
-from .models import LayoutItem
 import psutil
 import platform
 import socket
+from .models import LayoutItem
 
-@ login_required
+@login_required 
 def layout_view(request, item_id=None):
     if item_id:
-        current_item = get_object_or_404(LayoutItem, id=item_id)
+        current_item = get_object_or_404(LayoutItem, id=int(item_id))  
         parent = current_item
         
         # Get ancestors for breadcrumb
         breadcrumb = [{'id': ancestor.id, 'name': ancestor.name} for ancestor in parent.get_ancestors()]
-            
     else:
         current_item = None
         parent = None
         breadcrumb = []
-        
+    
     context = {
         'parent': parent,
         'breadcrumb': breadcrumb,
         'parent_id': parent.id if parent else None,
     }
-    
     return render(request, 'system-layout/system-layout.html', context)
+
 
 def system_details(request, item_id=None):
     if item_id:
         system_info = get_system_info()
-        return render(request, 'system-layout/system-details.html', {"system_info": system_info})  # ✅ Pass system_info
-    else:
-        return HttpResponse("Invalid request", status=400)  # ✅ Return a proper HTTP response
+        return render(request, 'system-layout/system-details.html', {"system_info": system_info})
+    return HttpResponse("Invalid request", status=400)
+
 
 def get_layout_items(request):
     parent_id = request.GET.get('parent_id')
+    parent_id = int(parent_id) if parent_id and parent_id.isdigit() else None 
     
-    if parent_id and parent_id != 'null':
-        items = LayoutItem.objects.filter(parent_id=parent_id)
-    else:
-        items = LayoutItem.objects.filter(parent__isnull=True)
+    items = LayoutItem.objects.filter(parent_id=parent_id) if parent_id else LayoutItem.objects.filter(parent__isnull=True)
     
-    items_data = [item.to_dict() for item in items]
-    
-    return JsonResponse({'items': items_data})
+    return JsonResponse({'items': [item.to_dict() for item in items]})
+
 
 def get_parent(request):
     item_id = request.GET.get('item_id')
     try:
-        item = get_object_or_404(LayoutItem, id=item_id)
-        parent_id = item.parent.id if item.parent else None
-        return JsonResponse({'parent_id': parent_id})
+        item = get_object_or_404(LayoutItem, id=int(item_id))
+        return JsonResponse({'parent_id': item.parent.id if item.parent else None})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
 
 @csrf_exempt
 def add_layout_item(request):
@@ -66,11 +62,8 @@ def add_layout_item(request):
     
     try:
         data = json.loads(request.body)
-        
         parent_id = data.get('parent_id')
-        parent = None
-        if parent_id and parent_id != 'null':
-            parent = get_object_or_404(LayoutItem, id=parent_id)
+        parent = get_object_or_404(LayoutItem, id=int(parent_id)) if parent_id and parent_id.isdigit() else None
         
         item = LayoutItem.objects.create(
             name=data.get('name'),
@@ -81,13 +74,10 @@ def add_layout_item(request):
             width=data.get('width', 1),
             height=data.get('height', 1)
         )
-        
-        return JsonResponse({
-            'status': 'success',
-            'item': item.to_dict()
-        })
+        return JsonResponse({'status': 'success', 'item': item.to_dict()})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
 
 @csrf_exempt
 def update_layout_item(request, item_id):
@@ -95,22 +85,18 @@ def update_layout_item(request, item_id):
         return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
     
     try:
-        item = get_object_or_404(LayoutItem, id=item_id)
+        item = get_object_or_404(LayoutItem, id=int(item_id))
         data = json.loads(request.body)
         
-        # Update only provided fields
         for field in ['name', 'position_x', 'position_y']:
             if field in data:
                 setattr(item, field, data[field])
-            
-        item.save()
         
-        return JsonResponse({
-            'status': 'success',
-            'item': item.to_dict()
-        })
+        item.save()
+        return JsonResponse({'status': 'success', 'item': item.to_dict()})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
 
 @csrf_exempt
 def delete_layout_item(request, item_id):
@@ -118,12 +104,12 @@ def delete_layout_item(request, item_id):
         return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
     
     try:
-        item = get_object_or_404(LayoutItem, id=item_id)
+        item = get_object_or_404(LayoutItem, id=int(item_id))
         item.delete()
-        
         return JsonResponse({'status': 'success'})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
 
 @csrf_exempt
 def save_layout(request):
@@ -134,20 +120,18 @@ def save_layout(request):
         data = json.loads(request.body)
         items = data.get('items', [])
         
-        # Use transaction to ensure all updates happen or none
         with transaction.atomic():
             for item_data in items:
-                item_id = item_data.get('id')
+                item_id = int(item_data.get('id'))
                 item = get_object_or_404(LayoutItem, id=item_id)
-                
                 item.position_x = item_data.get('position_x', item.position_x)
                 item.position_y = item_data.get('position_y', item.position_y)
                 item.save()
-        
         return JsonResponse({'status': 'success'})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
-    
+
+
 def get_system_info():
     try:
         info = {
@@ -181,16 +165,10 @@ def get_system_info():
                 "Disk Usage (%)": psutil.disk_usage('/').percent
             },
             "Network Information": {
-                "IP Address": socket.gethostbyname(socket.gethostname()),
-                "Bytes Sent": psutil.net_io_counters().bytes_sent,
-                "Bytes Received": psutil.net_io_counters().bytes_recv
-            },
-            "User Information": {
-                "Current Users": len(psutil.users()),
-                "Logged In Users": [user.name for user in psutil.users()]
+                "IP Address": socket.gethostbyname(socket.gethostname())
             }
         }
         return info
     except Exception as e:
-        print(f"Error fetching system info: {e}")  # ✅ Log the error
-        return {}  # ✅ Return an empty dictionary to avoid errors in the template
+        print(f"Error fetching system info: {e}")
+        return {}
