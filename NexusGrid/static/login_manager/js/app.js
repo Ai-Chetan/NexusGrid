@@ -39,6 +39,8 @@ togglePasswords.forEach((togglePassword, index) => {
 
 function getOTP() {
   const email = document.getElementById("signup-email").value;
+  const username = document.getElementById("signup-username").value;
+  const password = document.getElementById("signup-password").value;
   const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
   fetch('/get-otp/', {
@@ -47,22 +49,21 @@ function getOTP() {
           'Content-Type': 'application/json',
           'X-CSRFToken': csrftoken
       },
-      body: JSON.stringify({ email: email })
+      body: JSON.stringify({ email: email, username: username, password: password })
   })
   .then(response => response.json())
   .then(data => {
       if (data.success) {
-          // ✅ Show modal properly
           let otpModal = new bootstrap.Modal(document.getElementById("otpModal"));
           otpModal.show();
-          
           console.log("OTP sent successfully!");
       } else {
-          console.error("Error:", data.message);
+          alert(data.message); // Show error message
       }
   })
   .catch(error => console.error("Request failed:", error));
 }
+
 document.getElementById("verifyOtpBtn").addEventListener("click", function () {
   const otpInput = document.getElementById("otpInput").value;
   const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -78,14 +79,69 @@ document.getElementById("verifyOtpBtn").addEventListener("click", function () {
   .then(response => response.json())
   .then(data => {
       if (data.success) {
-          alert("✅ OTP Verified!","Account Created Successfully! Redirecting to Login Page...");
+          alert("✅ OTP Verified! Account Created Successfully! Redirecting to Login Page...");
           window.location.href = "/login/";
-          let otpModal = bootstrap.Modal.getInstance(document.getElementById("otpModal"));
-          otpModal.hide();  // Close modal after success
       } else {
-          document.getElementById("otpError").classList.remove("d-none");  // Show error
+          document.getElementById("otpError").classList.remove("d-none");
           document.getElementById("otpError").innerText = data.message;
       }
   })
   .catch(error => console.error("Error:", error));
+});
+
+/* Sign In Validation */
+document.getElementById("login-button").addEventListener("click", function (event) {
+  event.preventDefault();
+  const username = document.getElementById("signin-username").value.trim();
+  const password = document.getElementById("signin-password").value.trim();
+  const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  // Get or create message element
+  let messageElement = document.getElementById("message");
+  if (!messageElement) {
+      messageElement = document.createElement("p");
+      messageElement.id = "message";
+      messageElement.style.color = "red";
+      document.body.appendChild(messageElement); // Append to body or a specific container
+  }
+
+  fetch('/user-login/', {
+      method: 'POST',
+      headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrftoken
+      },
+      body: JSON.stringify({ username: username, password: password })
+  })
+  .then(response => response.json())
+  .then(data => {
+      if (data.success) {
+          messageElement.style.color = "green";
+          messageElement.textContent = "Login Successful! Redirecting...";
+          setTimeout(() => {
+              sessionStorage.setItem("user_role", data.role);
+              window.location.href = data.redirect_url;
+          }, 1000);
+      } else {
+          messageElement.style.color = "red";
+          messageElement.textContent = data.message;
+      }
+  })
+  .catch(error => {
+      messageElement.style.color = "red";
+      messageElement.textContent = "Login request failed. Please try again.";
+      console.error("Login request failed:", error);
+  });
+});
+document.getElementById("confirm-password").addEventListener("input", function () {
+  const password = document.getElementById("signup-password").value;
+  const confirmPassword = this.value;
+  const message = document.getElementById("message-pass");
+
+  if (password !== confirmPassword) {
+    message.style.color = "red";
+    message.innerText = "Passwords do not match!";
+  } else {
+    message.innerText = "";
+  }
 });

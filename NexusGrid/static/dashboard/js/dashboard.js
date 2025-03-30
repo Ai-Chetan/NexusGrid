@@ -72,3 +72,16 @@ document.addEventListener("DOMContentLoaded", function () {
         observer.observe(sidebar);
     }
 });
+
+/* Role specific Dashboard */
+// Get the user role from Django
+const userRole = "{{ user_role }}";
+
+document.addEventListener("DOMContentLoaded", function () {
+    // Hide all role panels
+    document.querySelectorAll(".role-panel").forEach(el => el.style.display = "none");
+
+    // Show the relevant panel using class matching
+    const selectedPanel = document.querySelector(`.${userRole}`);
+    if (selectedPanel) selectedPanel.style.display = "block";
+});
