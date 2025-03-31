@@ -10,83 +10,10 @@
 
 {% block main_content %}
 <div class="layout-container ps-5">
-    <div class="row">
-        <div class="col-md-12 ps-5 mb-4">
-            <h6><i class="fas fa-search"></i> System Overview</h6>
-            <div class="overview-section d-flex flex-wrap justify-content-center">
-                <div class="overview-card functional">
-                    <i class="fas fa-desktop text-secondary"></i>
-                    <div class="overview-details">
-                        <h5>Functional Systems</h5>
-                        <span class="count text-secondary">48 / 50</span>
-                        <div class="progress">
-                            <div class="progress-bar bg-secondary" style="width: 96%;"></div>
-                        </div>
-                    </div>
-                </div>
-    
-                <div class="overview-card active">
-                    <i class="fas fa-desktop text-success"></i>
-                    <div class="overview-details">
-                        <h5>Active Systems</h5>
-                        <span class="count text-success">22 / 50</span>
-                        <div class="progress">
-                            <div class="progress-bar bg-success" style="width: 44%;"></div>
-                        </div>
-                    </div>
-                </div>
-    
-                <div class="overview-card utilization">
-                    <i class="fas fa-microchip text-secondary"></i>
-                    <div class="overview-details">
-                        <h5>System Utilization</h5>
-                        <span class="count text-secondary">75%</span>
-                        <div class="progress">
-                            <div class="progress-bar bg-secondary" style="width: 75%;"></div>
-                        </div>
-                    </div>
-                </div>
-    
-                <div class="overview-card critical">
-                    <i class="fas fa-exclamation-circle text-danger"></i>
-                    <div class="overview-details">
-                        <h5>Critical Systems</h5>
-                        <span class="count text-danger">01</span>
-                        <div class="progress">
-                            <div class="progress-bar bg-danger" style="width: 2%;"></div>
-                        </div>
-                    </div>
-                </div>
-    
-                <div class="overview-card fault">
-                    <i class="fas fa-exclamation-triangle text-warning"></i>
-                    <div class="overview-details">
-                        <h5>Fault Reports</h5>
-                        <span class="count text-warning">01</span>
-                        <div class="progress">
-                            <div class="progress-bar bg-warning" style="width: 2%;"></div>
-                        </div>
-                    </div>
-                </div>
-    
-                <div class="overview-card resource">
-                    <i class="fas fa-box text-info"></i>
-                    <div class="overview-details">
-                        <h5>Resource Requests</h5>
-                        <span class="count text-info">02</span>
-                        <div class="progress">
-                            <div class="progress-bar bg-info" style="width: 4%;"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
     <div class="layout-header ps-5" style="display:block;">
         <h1 class="layout-title">
             {% if parent %}
-                <div class="breadcrumb-container">
+                <div class="breadcrumb-container role-panel" data-role="Administrator">
                     <a class="current-location" href="{% url 'layout:root' %}">System Layout</a>
                     {% for item in breadcrumb %}
                         {% if forloop.last %}
@@ -102,14 +29,14 @@
                     <span>Viewing: <strong>{{ parent.name }}</strong> ({{ parent.get_item_type_display }})</span>
                 </div>
             {% else %}
-                <span class="current-location">System Layout</span>
+                <span class="current-location role-panel" data-role="Administrator">System Layout</span>
                 <div class="current-view-info">
                     <span>Viewing: <strong>System Layout Level</strong></span>
                 </div>
             {% endif %}
         </h1>
         
-        <div id="layoutControls" class="button-container">
+        <div id="layoutControls" class="button-container role-panel" data-role="Administrator">
             <button id="editLayoutButton" class="btns btn-primary">Edit Layout</button>
             <button id="backButton" class="btns btn-secondary" {% if not parent %}style="display:none;"{% endif %}>
                 <i class="fas fa-arrow-left"></i> Back
@@ -145,22 +72,91 @@
             <button id="cancelEditButton" class="btns btn-secondary">Cancel</button>
         </div>
     </div>
+    <div class="col-md-12 ps-5">
+        <h6><i class="fas fa-search"></i> Lab Overview</h6>
+        <div class="overview-section d-flex flex-wrap justify-content-around">
+            <div class="overview-card functional">
+                <i class="fas fa-desktop text-secondary"></i>
+                <div class="overview-details">
+                    <h5>Functional Systems</h5>
+                    <span class="count text-secondary">48 / 50</span>
+                    <div class="progress">
+                        <div class="progress-bar bg-secondary" style="width: 96%;"></div>
+                    </div>
+                </div>
+            </div>
 
+            <div class="overview-card active">
+                <i class="fas fa-desktop text-success"></i>
+                <div class="overview-details">
+                    <h5>Active Systems</h5>
+                    <span class="count text-success">22 / 50</span>
+                    <div class="progress">
+                        <div class="progress-bar bg-success" style="width: 44%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="overview-card utilization">
+                <i class="fas fa-microchip text-secondary"></i>
+                <div class="overview-details">
+                    <h5>System Utilization</h5>
+                    <span class="count text-secondary">75%</span>
+                    <div class="progress">
+                        <div class="progress-bar bg-secondary" style="width: 75%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="overview-card critical">
+                <i class="fas fa-exclamation-circle text-danger"></i>
+                <div class="overview-details">
+                    <h5>Critical Systems</h5>
+                    <span class="count text-danger">01</span>
+                    <div class="progress">
+                        <div class="progress-bar bg-danger" style="width: 2%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="overview-card fault">
+                <i class="fas fa-exclamation-triangle text-warning"></i>
+                <div class="overview-details">
+                    <h5>Fault Reports</h5>
+                    <span class="count text-warning">01</span>
+                    <div class="progress">
+                        <div class="progress-bar bg-warning" style="width: 2%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="overview-card resource">
+                <i class="fas fa-box text-info"></i>
+                <div class="overview-details">
+                    <h5>Resource Requests</h5>
+                    <span class="count text-info">02</span>
+                    <div class="progress">
+                        <div class="progress-bar bg-info" style="width: 4%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+        <div class="info-card ps-5 mt-3 mb-3">
+        <ul>
+            <li><i class="fas fa-wifi"></i> WiFi: IT_LAB_5G</li>
+            <li><i class="fas fa-server"></i> Gateway: 192.168.1.1</li>
+            <li><i class="fas fa-database"></i> Database IP: 192.168.1.51</li>
+            <li><i class="fas fa-code"></i> Installed Languages: Python, Java, C++</li>
+            <li><i class="fas fa-hdd"></i> Storage: 512GB SSD + 1TB HDD</li>
+            <li>Add More...</li>
+          </ul>
+    </div>
     <h6><i class="fas fa-map ps-5"></i> System Layout</h6>
     <div id="layout" class="layout-grid">
         <!-- Layout items will be added here dynamically -->
     </div>
 
-    <h6><i class="fas fa-file-alt ps-5 mt-4"></i> Information</h6>
-    <div class="info-card ps-5">
-        <ul>
-            <li><i class="fas fa-wifi"></i> WiFi: IT_LAB__5G</li>
-            <li><i class="fas fa-server"></i> Gateway: 192.168.1.1</li>
-            <li><i class="fas fa-database"></i> Database IP: 192.168.1.51</li>
-            <li><i class="fas fa-code"></i> Installed Languages: Python, Java, C++</li>
-            <li><i class="fas fa-hdd"></i> Storage: 512GB SSD + 1TB HDD</li>
-          </ul>
-    </div>
     
     <!-- Modal for renaming items -->
     <div class="modal fade" id="renameModal" tabindex="-1">

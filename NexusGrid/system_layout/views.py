@@ -21,14 +21,16 @@ def layout_view(request, item_id=None):
         current_item = None
         parent = None
         breadcrumb = []
-    
+
+    # Merge context dictionaries
     context = {
         'parent': parent,
         'breadcrumb': breadcrumb,
         'parent_id': parent.id if parent else None,
+        'user_role': request.user.role,  # Include user_role in context
     }
+    
     return render(request, 'system-layout/system-layout.html', context)
-
 
 def system_details(request, item_id=None):
     if item_id:
