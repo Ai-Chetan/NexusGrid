@@ -1,4 +1,11 @@
 document.addEventListener("DOMContentLoaded", function () {
+
+    // Ensure Plotly is loaded
+    if (typeof Plotly === "undefined") {
+        console.error("Plotly.js is not loaded.");
+        return;
+    }
+
     // Performance Overview (Bar Chart)
     Plotly.newPlot("performanceChart", [{
         x: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
@@ -30,29 +37,20 @@ document.addEventListener("DOMContentLoaded", function () {
         mode: 'markers',
         marker: { color: 'green', size: 10 }
     }], { title: 'Resource Requests Trend', xaxis: { title: 'Month' }, yaxis: { title: 'Requests' } });
-});
 
-document.addEventListener("DOMContentLoaded", function () {
+    // **Throttle Function to Optimize Resizing**
     function throttle(func, limit) {
-        let lastFunc;
         let lastRan;
         return function () {
             const context = this, args = arguments;
-            if (!lastRan) {
+            if (!lastRan || (Date.now() - lastRan) >= limit) {
                 func.apply(context, args);
                 lastRan = Date.now();
-            } else {
-                clearTimeout(lastFunc);
-                lastFunc = setTimeout(function () {
-                    if ((Date.now() - lastRan) >= limit) {
-                        func.apply(context, args);
-                        lastRan = Date.now();
-                    }
-                }, limit - (Date.now() - lastRan));
             }
         };
     }
 
+    // **Resize Graphs on Window Resize and Sidebar Changes**
     const resizeGraphs = throttle(() => {
         requestAnimationFrame(() => {
             ['performanceChart', 'faultTrendChart', 'faultDistributionChart', 'resourceRequestChart'].forEach(id => {
@@ -65,23 +63,23 @@ document.addEventListener("DOMContentLoaded", function () {
     window.addEventListener('resize', resizeGraphs);
 
     let sidebar = document.querySelector('.sidebar');
-    let content = document.querySelector('.content');
-
-    if (sidebar && content) {
+    if (sidebar) {
         const observer = new ResizeObserver(resizeGraphs);
         observer.observe(sidebar);
     }
-});
 
-/* Role specific Dashboard */
-// Get the user role from Django
-const userRole = "{{ user_role }}";
+    var userRole = document.body.getAttribute("data-user-role")?.trim() || "";
 
-document.addEventListener("DOMContentLoaded", function () {
-    // Hide all role panels
-    document.querySelectorAll(".role-panel").forEach(el => el.style.display = "none");
+    if (!userRole) {
+        console.warn("User role is missing!");
+        return;
+    }
 
-    // Show the relevant panel using class matching
-    const selectedPanel = document.querySelector(`.${userRole}`);
-    if (selectedPanel) selectedPanel.style.display = "block";
+    document.querySelectorAll("[data-role]").forEach(el => {
+        if (el.getAttribute("data-role") === userRole) {
+            el.style.display = el.closest(".sidebar") ? "flex" : "block";
+        } else {
+            el.style.display = "none";
+        }
+    });
 });

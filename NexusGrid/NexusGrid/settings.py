@@ -134,3 +134,5 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
 
 AUTH_USER_MODEL = 'login_manager.User'  # Custom user model extending django's AbstractUser
 LOGIN_REDIRECT_URL = "dashboard"
+
+SITE_ID = 1

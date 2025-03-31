@@ -1,4 +1,10 @@
 document.addEventListener("DOMContentLoaded", function () {
+    // Ensure Plotly is loaded
+    if (typeof Plotly === "undefined") {
+        console.error("Plotly.js is not loaded.");
+        return;
+    }
+
     // Performance Overview (Bar Chart)
     Plotly.newPlot("performanceChart", [{
         x: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
@@ -30,29 +36,20 @@ document.addEventListener("DOMContentLoaded", function () {
         mode: 'markers',
         marker: { color: 'green', size: 10 }
     }], { title: 'Resource Requests Trend', xaxis: { title: 'Month' }, yaxis: { title: 'Requests' } });
-});
 
-document.addEventListener("DOMContentLoaded", function () {
+    // **Throttle Function to Optimize Resizing**
     function throttle(func, limit) {
-        let lastFunc;
         let lastRan;
         return function () {
             const context = this, args = arguments;
-            if (!lastRan) {
+            if (!lastRan || (Date.now() - lastRan) >= limit) {
                 func.apply(context, args);
                 lastRan = Date.now();
-            } else {
-                clearTimeout(lastFunc);
-                lastFunc = setTimeout(function () {
-                    if ((Date.now() - lastRan) >= limit) {
-                        func.apply(context, args);
-                        lastRan = Date.now();
-                    }
-                }, limit - (Date.now() - lastRan));
             }
         };
     }
 
+    // **Resize Graphs on Window Resize and Sidebar Changes**
     const resizeGraphs = throttle(() => {
         requestAnimationFrame(() => {
             ['performanceChart', 'faultTrendChart', 'faultDistributionChart', 'resourceRequestChart'].forEach(id => {
@@ -65,10 +62,27 @@ document.addEventListener("DOMContentLoaded", function () {
     window.addEventListener('resize', resizeGraphs);
 
     let sidebar = document.querySelector('.sidebar');
-    let content = document.querySelector('.content');
-
-    if (sidebar && content) {
+    if (sidebar) {
         const observer = new ResizeObserver(resizeGraphs);
         observer.observe(sidebar);
     }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        if (typeof userRole === "undefined") {
+            var userRole = "{{ user_role }}".trim(); // Remove extra spaces
+        }
+    
+        console.log("User Role:", `"${userRole}"`); // Debugging log to check spaces
+    
+        // Hide all role panels
+        document.querySelectorAll(".role-panel").forEach(el => el.style.display = "none");
+    
+        // Find and show the correct panel
+        document.querySelectorAll(".role-panel").forEach(el => {
+            if (el.getAttribute("data-role").trim() === userRole) {
+                el.style.display = "block";
+                console.log("Displaying panel:", el);
+            }
+        });
+    });
 });

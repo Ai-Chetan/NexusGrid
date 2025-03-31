@@ -9,7 +9,7 @@ import platform
 import socket
 from .models import LayoutItem
 
-@login_required 
+@login_required(login_url="/login/")
 def layout_view(request, item_id=None):
     if item_id:
         current_item = get_object_or_404(LayoutItem, id=int(item_id))  

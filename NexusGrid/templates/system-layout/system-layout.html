@@ -10,93 +10,72 @@
 
 {% block main_content %}
 <div class="layout-container ps-5">
-    <!-- Assistant -->
-    <div class="layout-header ps-4" style="display:block;">
-        <h1 class="layout-title">
-            {% if parent %}
-                <div class="current-view-info">
-                    <span>Viewing: <strong>{{ parent.name }}</strong> ({{ parent.get_item_type_display }})</span>
-                </div>
-            {% else %}
-                <div class="current-view-info">
-                    <span>Viewing: <strong>System Layout Level</strong></span>
-                </div>
-            {% endif %}
-        </h1>
-    </div>
-
     <div class="row">
         <div class="col-md-12 ps-5 mb-4">
             <h6><i class="fas fa-search"></i> System Overview</h6>
-            <div class="overview-section d-flex flex-wrap justify-content-around">
-                <!-- Functional Systems -->
+            <div class="overview-section d-flex flex-wrap justify-content-center">
                 <div class="overview-card functional">
                     <i class="fas fa-desktop text-secondary"></i>
                     <div class="overview-details">
                         <h5>Functional Systems</h5>
                         <span class="count text-secondary">48 / 50</span>
                         <div class="progress">
-                            <div class="progress-bar bg-secondary"></div>
+                            <div class="progress-bar bg-secondary" style="width: 96%;"></div>
                         </div>
                     </div>
                 </div>
     
-                <!-- Active Systems -->
                 <div class="overview-card active">
                     <i class="fas fa-desktop text-success"></i>
                     <div class="overview-details">
                         <h5>Active Systems</h5>
                         <span class="count text-success">22 / 50</span>
                         <div class="progress">
-                            <div class="progress-bar bg-success"></div>
+                            <div class="progress-bar bg-success" style="width: 44%;"></div>
                         </div>
                     </div>
                 </div>
     
-                <!-- System Utilization -->
                 <div class="overview-card utilization">
                     <i class="fas fa-microchip text-secondary"></i>
                     <div class="overview-details">
                         <h5>System Utilization</h5>
                         <span class="count text-secondary">75%</span>
                         <div class="progress">
-                            <div class="progress-bar"></div>
+                            <div class="progress-bar bg-secondary" style="width: 75%;"></div>
                         </div>
                     </div>
                 </div>
     
-                <!-- Critical Systems -->
                 <div class="overview-card critical">
                     <i class="fas fa-exclamation-circle text-danger"></i>
                     <div class="overview-details">
                         <h5>Critical Systems</h5>
                         <span class="count text-danger">01</span>
                         <div class="progress">
-                            <div class="progress-bar bg-danger"></div>
+                            <div class="progress-bar bg-danger" style="width: 2%;"></div>
                         </div>
                     </div>
                 </div>
     
-                <!-- Fault Reports -->
                 <div class="overview-card fault">
                     <i class="fas fa-exclamation-triangle text-warning"></i>
                     <div class="overview-details">
                         <h5>Fault Reports</h5>
                         <span class="count text-warning">01</span>
                         <div class="progress">
-                            <div class="progress-bar bg-warning"></div>
+                            <div class="progress-bar bg-warning" style="width: 2%;"></div>
                         </div>
                     </div>
                 </div>
     
-                <!-- Resource Requests -->
                 <div class="overview-card resource">
                     <i class="fas fa-box text-info"></i>
                     <div class="overview-details">
                         <h5>Resource Requests</h5>
                         <span class="count text-info">02</span>
                         <div class="progress">
-                            <div class="progress-bar bg-info"></div>
+                            <div class="progress-bar bg-info" style="width: 4%;"></div>
                         </div>
                     </div>
                 </div>
@@ -104,8 +83,6 @@
         </div>
     </div>
     
-
-    <!-- Admin -->
     <div class="layout-header ps-5" style="display:block;">
         <h1 class="layout-title">
             {% if parent %}

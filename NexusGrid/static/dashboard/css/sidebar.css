@@ -1,171 +1,170 @@
-
 .sidebar {
-    width: 60px;
-    background: linear-gradient(-45deg, #011252, #2885d3);
-    position: fixed;
-    top: 80px;
-    bottom: 80px;
-    left: 10px;
-    border-radius: 10px;
-    transition: width 0.3s;
-    overflow: hidden;
-    white-space: nowrap;
-    z-index: 1000;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 10px 0;
-  }
-  .sidebar:hover {
-    width: 200px;
-  }
-  .sidebar a {
-    display: flex;
-    align-items: center;
-    color: white;
-    padding: 12px;
-    text-decoration: none;
-    transition: background 0.3s;
-    width: 100%;
-    justify-content: center;
-  }
-  .sidebar:hover a {
-    justify-content: flex-start;
-    padding-left: 20px;
-  }
-  .sidebar a:hover {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 5px;
-  }
-  .sidebar i {
-    margin-right: 0;
-    transition: margin-right 0.3s;
-    font-size: 24px; 
-  }
-  .sidebar:hover i {
-    margin-right: 10px;
-  }
-  .sidebar span {
-    opacity: 0;
-    transition: opacity 0.3s;
-    white-space: nowrap; /* Prevent text wrapping */
-    position: absolute; /* Prevents affecting layout */
-    left: 70px;
-  }
-  
-  .sidebar:hover span {
-    opacity: 1;
-    position: relative;
-    left: 0;
-  }
-  /* Logo container (centered) */
-  .logo-container {
-    text-align: center;
-    margin-bottom: 15px;
-    width: 100%;
-  }
-  
-  /* Small logo (visible when collapsed) */
-  .logo-small {
-    height: 30px;
-    display: block;
-    margin: 0 auto;
-    transition: opacity 0.3s;
-  }
-  
-  /* Full logo (hidden when collapsed) */
-  .logo-full {
-    height: 30px;
-    display: none;
-    transition: opacity 0.3s;
-  }
-  /* Toggle logos on hover */
-  .sidebar:hover .logo-small {
-    display: none;
-  }
-  
-  .sidebar:hover .logo-full {
-    display: block;
-    margin: 0 auto;
-  }
-  
-  .user-profile {
-    display: flex;
-    align-items: center;
-    color: white;
-    width: 100%;
-    justify-content: flex-start;
-    padding-left: 10px;
-  }
-  
-  .pfp-container {
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .pfp-container i {
-    font-size: 30px;
-  }
-  .user-pfp {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    object-fit: cover;
-  }
-  
-  .user-icon {
-    display: none; /* Fallback icon, appears when image fails */
-    color: white;
-    margin-left: 10px;
-  }
-  
-  .user-info {
-    display: none;
-    display: flex;
-    flex-direction: column; /* Ensures name & role stack */
-    margin-left: 10px;
-  }
-  
-  .user-name {
-    display: none;
-    font-size: 16px;
-    font-weight: bold;
-    margin-bottom: 2px; /* Adds slight spacing */
-  }
-  
-  .user-role {
-    font-size: 14px;
-    color: #d1d1d1;
-  }
-  .sidebar:hover .user-name, .sidebar:hover .user-role {
-    display: flex;
-    flex-direction: column;
-  }
-  .content {
-    margin-left: 80px;
-    padding: 20px;
-    width: calc(100% - 80px);
-    transition: margin-left 0.3s, width 0.3s;
-  }
-  .sidebar:hover ~ .content {
-    margin-left: 220px;
-    width: calc(100% - 220px);
-  }
-  
+  width: 60px;
+  background: linear-gradient(-45deg, #011252, #2885d3);
+  position: fixed;
+  top: 80px;
+  bottom: 80px;
+  left: 10px;
+  border-radius: 10px;
+  transition: width 0.3s;
+  overflow: hidden;
+  white-space: nowrap;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0;
+}
+.sidebar:hover {
+  width: 200px;
+}
+.sidebar a {
+  display: flex;
+  align-items: center;
+  color: white;
+  padding: 12px;
+  text-decoration: none;
+  transition: background 0.3s;
+  width: 100%;
+  justify-content: center;
+}
+.sidebar:hover a {
+  justify-content: flex-start;
+  padding-left: 20px;
+}
+.sidebar a:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+}
+.sidebar i {
+  margin-right: 0;
+  transition: margin-right 0.3s;
+  font-size: 24px; 
+}
+.sidebar:hover i {
+  margin-right: 10px;
+}
+.sidebar span {
+  opacity: 0;
+  transition: opacity 0.3s;
+  white-space: nowrap; /* Prevent text wrapping */
+  position: absolute; /* Prevents affecting layout */
+  left: 70px;
+}
+
+.sidebar:hover span {
+  opacity: 1;
+  position: relative;
+  left: 0;
+}
+/* Logo container (centered) */
+.logo-container {
+  text-align: center;
+  margin-bottom: 15px;
+  width: 100%;
+}
+
+/* Small logo (visible when collapsed) */
+.logo-small {
+  height: 30px;
+  display: block;
+  margin: 0 auto;
+  transition: opacity 0.3s;
+}
+
+/* Full logo (hidden when collapsed) */
+.logo-full {
+  height: 30px;
+  display: none;
+  transition: opacity 0.3s;
+}
+/* Toggle logos on hover */
+.sidebar:hover .logo-small {
+  display: none;
+}
+
+.sidebar:hover .logo-full {
+  display: block;
+  margin: 0 auto;
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  color: white;
+  width: 100%;
+  justify-content: flex-start;
+  padding-left: 10px;
+}
+
+.pfp-container {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pfp-container i {
+  font-size: 30px;
+}
+.user-pfp {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-icon {
+  display: none; /* Fallback icon, appears when image fails */
+  color: white;
+  margin-left: 10px;
+}
+
+.user-info {
+  display: none;
+  display: flex;
+  flex-direction: column; /* Ensures name & role stack */
+  margin-left: 10px;
+}
+
+.user-name {
+  display: none;
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 2px; /* Adds slight spacing */
+}
+
+.user-role {
+  font-size: 14px;
+  color: #d1d1d1;
+}
+.sidebar:hover .user-name, .sidebar:hover .user-role {
+  display: flex;
+  flex-direction: column;
+}
+.content {
+  margin-left: 80px;
+  padding: 20px;
+  width: calc(100% - 80px);
+  transition: margin-left 0.3s, width 0.3s;
+}
+.sidebar:hover ~ .content {
+  margin-left: 220px;
+  width: calc(100% - 220px);
+}
+
 /* Adjust when sidebar expands */
 .sidebar:hover ~ .content .graph-box {
-    transform: scaleX(0.95); /* Slight shrink for a smooth effect */
-    width: 100%;
-  }
-  
-  /* Restore full width when sidebar collapses */
-  .sidebar ~ .content .graph-box {
-    transform: scaleX(1);
-    width: 100%;
-  }
-  /* Roles */
-.role-panel { 
+  transform: scaleX(0.95); /* Slight shrink for a smooth effect */
+  width: 100%;
+}
+
+/* Restore full width when sidebar collapses */
+.sidebar ~ .content .graph-box {
+  transform: scaleX(1);
+  width: 100%;
+}
+/* Roles */
+.role-panel {
   display: none; 
 }

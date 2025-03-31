@@ -254,6 +254,6 @@ body {
 }
 
 /* Roles */
-.role-panel { 
-  display: none; 
+.role-panel {
+  display: none; /* Hide all role panels by default */ 
 }

@@ -9,7 +9,7 @@ class User(AbstractUser):
             ('Administrator', 'Administrator'),
             ('Lab Incharge', 'Lab Incharge'),
             ('Lab Assistant', 'Lab Assistant'),
-            ('Student', 'Student'),
+            ('Students', 'Students'),
             ('No Roles', 'No Roles')
         ],
         db_column="role",
