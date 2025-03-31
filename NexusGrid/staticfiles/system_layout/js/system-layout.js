@@ -41,7 +41,19 @@ document.addEventListener('DOMContentLoaded', function() {
         'ups': { icon: 'fa-plug', sizeX: 1, sizeY: 1 },
         'rack': { icon: 'fa-hdd', sizeX: 1, sizeY: 1 }
     };
-    
+
+   // Get the user's role from the body attribute
+    var userRole = document.body.getAttribute("data-user-role")?.trim();
+
+    if (userRole) {
+        document.querySelectorAll("[data-role]").forEach(el => {
+            el.style.display = (el.getAttribute("data-role") === userRole) ? 
+                (el.closest(".sidebar") ? "flex" : "block") : "none";
+        });
+    } else {
+        console.warn("User role is missing!");
+    }
+
     // Initialize
     init();
     

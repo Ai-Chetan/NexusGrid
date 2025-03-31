@@ -1,0 +1,349 @@
+{% extends "dashboard/sidebar.html" %}
+{% load static %}
+
+{% block title %}| Resource Requests{% endblock title %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+<link href="{% static 'resources/css/resources.css' %}" rel="stylesheet">
+{% endblock head %}
+
+{% block main_content %}
+<div class="container">
+    <!-- Search Container -->
+    <div class="mb-4">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="input-group mt-4">
+                    <span class="input-group-text bg-primary text-white">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input type="text" id="searchInput" class="form-control form-control-lg" placeholder="Search for Resource Requests by hostname, location or title...">
+                    <button class="btn btn-primary" type="button" id="searchButton">Search</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section mb-4">
+        <div class="row">
+            <div class="col-md-4 mb-2">
+                <label for="timeFilter" class="form-label"><i class="fas fa-clock me-2"></i>Time Range:</label>
+                <select class="form-select" id="timeFilter">
+                    <option value="all">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                    <option value="custom">Custom Range</option>
+                </select>
+            </div>
+            <div class="col-md-4 mb-2">
+                <label for="statusFilter" class="form-label"><i class="fas fa-filter me-2"></i>Status:</label>
+                <select class="form-select" id="statusFilter">
+                    <option value="all">All Statuses</option>
+                    <option value="unaddressed">Unaddressed</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="ignored">Ignored</option>
+                </select>
+            </div>
+            <div class="col-md-4 mb-2">
+                <label for="sortBy" class="form-label"><i class="fas fa-sort me-2"></i>Sort By:</label>
+                <select class="form-select" id="sortBy">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="priority">Priority</option>
+                </select>
+            </div>
+            <!-- Custom date range inputs (initially hidden) -->
+            <div class="row mt-2 custom-date-range" style="display: none;">
+                <div class="col-md-6">
+                    <label for="startDate" class="form-label">Start Date:</label>
+                    <input type="date" class="form-control" id="startDate">
+                </div>
+                <div class="col-md-6">
+                    <label for="endDate" class="form-label">End Date:</label>
+                    <input type="date" class="form-control" id="endDate">
+                </div>
+            </div>
+        </div>
+        <div class="row mt-3">
+            <div class="col-12">
+                <button class="btn btn-primary" id="applyFilters">
+                    <i class="fas fa-check me-2"></i>Apply Filters
+                </button>
+                <button class="btn btn-outline-secondary ms-2" id="resetFilters">
+                    <i class="fas fa-undo me-2"></i>Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Stats -->
+    <div class="d-flex justify-content-between mb-3">
+        <h4 id="resultsCount">Showing all resource requests</h4>
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#newFaultModal">
+            <i class="fas fa-plus me-2"></i>New Resource Request
+        </button>
+    </div>
+
+    <!-- No Results Message -->
+    <div id="noResultsMessage">
+        <i class="fas fa-search fa-3x text-muted mb-3"></i>
+        <h4>No resource requests found</h4>
+        <p class="text-muted">Try adjusting your search criteria or filters</p>
+    </div>
+
+    <!-- resource requests Container -->
+    <div id="faultReportsContainer">
+        <!-- resource Card 1 -->
+        <div class="fault-card unaddressed" data-status="unaddressed" data-date="2025-03-28T09:30:00">
+            <div class="row g-0">
+                <div class="col-md-1 d-flex align-items-center justify-content-center">
+                    <i class="fas fa-desktop computer-icon"></i>
+                </div>
+                <div class="col-md-11">
+                    <div class="fault-details">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <div class="hostname">PC-ITL6-001</div>
+                                <div class="location"><i class="fas fa-map-marker-alt me-1"></i>IT Lab 6</div>
+                            </div>
+                            <span class="badge bg-danger status-badge">Unaddressed</span>
+                        </div>
+                        <h5 class="fault-title">Monitor Display Not Working</h5>
+                        <p class="fault-description">The monitor is not displaying anything when turned on. Power light is on but screen remains black. Tried different cables but issue persists.</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="timestamp"><i class="far fa-clock me-1"></i>Reported: March 28, 2025 (09:30 AM)</span>
+                            <div class="d-flex">
+                                <select class="status-selector me-2">
+                                    <option value="unaddressed" selected>Unaddressed</option>
+                                    <option value="in-progress">In Progress</option>
+                                    <option value="scheduled">Scheduled for Later</option>
+                                    <option value="resolved">Resolved</option>
+                                    <option value="ignored">Ignored - Not Actionable</option>
+                                </select>
+                                <button class="btn btn-sm btn-outline-primary update-status">Update</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fault Card 2 -->
+        <div class="fault-card in-progress" data-status="in-progress" data-date="2025-03-27T14:15:00">
+            <div class="row g-0">
+                <div class="col-md-1 d-flex align-items-center justify-content-center">
+                    <i class="fas fa-desktop computer-icon"></i>
+                </div>
+                <div class="col-md-11">
+                    <div class="fault-details">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <div class="hostname">PC-ITL6-012</div>
+                                <div class="location"><i class="fas fa-map-marker-alt me-1"></i>IT Lab 6</div>
+                            </div>
+                            <span class="badge bg-warning text-dark status-badge">In Progress</span>
+                        </div>
+                        <h5 class="fault-title">Software Installation Failed</h5>
+                        <p class="fault-description">Unable to install AutoCAD software. Installation starts but fails at 67% with error code 0x80070643. Multiple attempts made.</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="timestamp"><i class="far fa-clock me-1"></i>Reported: March 27, 2025 (2:15 PM)</span>
+                            <div class="d-flex">
+                                <select class="status-selector me-2">
+                                    <option value="unaddressed">Unaddressed</option>
+                                    <option value="in-progress" selected>In Progress</option>
+                                    <option value="scheduled">Scheduled for Later</option>
+                                    <option value="resolved">Resolved</option>
+                                    <option value="ignored">Ignored - Not Actionable</option>
+                                </select>
+                                <button class="btn btn-sm btn-outline-primary update-status">Update</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fault Card 3 -->
+        <div class="fault-card scheduled" data-status="scheduled" data-date="2025-03-25T10:45:00">
+            <div class="row g-0">
+                <div class="col-md-1 d-flex align-items-center justify-content-center">
+                    <i class="fas fa-desktop computer-icon"></i>
+                </div>
+                <div class="col-md-11">
+                    <div class="fault-details">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <div class="hostname">PC-ITL6-008</div>
+                                <div class="location"><i class="fas fa-map-marker-alt me-1"></i>IT Lab 6</div>
+                            </div>
+                            <span class="badge bg-info status-badge">Scheduled</span>
+                        </div>
+                        <h5 class="fault-title">Keyboard Keys Not Responding</h5>
+                        <p class="fault-description">Several keys on the keyboard (A, S, D, F) are not responding. Keyboard is physically clean and has no visible damage. USB connection is secure.</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="timestamp"><i class="far fa-clock me-1"></i>Reported: March 25, 2025 (10:45 AM)</span>
+                            <div class="d-flex">
+                                <select class="status-selector me-2">
+                                    <option value="unaddressed">Unaddressed</option>
+                                    <option value="in-progress">In Progress</option>
+                                    <option value="scheduled" selected>Scheduled for Later</option>
+                                    <option value="resolved">Resolved</option>
+                                    <option value="ignored">Ignored - Not Actionable</option>
+                                </select>
+                                <button class="btn btn-sm btn-outline-primary update-status">Update</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fault Card 4 -->
+        <div class="fault-card resolved" data-status="resolved" data-date="2025-03-23T13:20:00">
+            <div class="row g-0">
+                <div class="col-md-1 d-flex align-items-center justify-content-center">
+                    <i class="fas fa-desktop computer-icon"></i>
+                </div>
+                <div class="col-md-11">
+                    <div class="fault-details">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <div class="hostname">PC-ITL6-024</div>
+                                <div class="location"><i class="fas fa-map-marker-alt me-1"></i>IT Lab 6</div>
+                            </div>
+                            <span class="badge bg-success status-badge">Resolved</span>
+                        </div>
+                        <h5 class="fault-title">System Freezing During Boot</h5>
+                        <p class="fault-description">System freezes at Windows logo during boot. Sometimes boots after multiple attempts. BIOS is accessible but Windows will not load properly.</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="timestamp"><i class="far fa-clock me-1"></i>Reported: March 23, 2025 (1:20 PM)</span>
+                            <div class="d-flex">
+                                <select class="status-selector me-2">
+                                    <option value="unaddressed">Unaddressed</option>
+                                    <option value="in-progress">In Progress</option>
+                                    <option value="scheduled">Scheduled for Later</option>
+                                    <option value="resolved" selected>Resolved</option>
+                                    <option value="ignored">Ignored - Not Actionable</option>
+                                </select>
+                                <button class="btn btn-sm btn-outline-primary update-status">Update</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fault Card 5 -->
+        <div class="fault-card ignored" data-status="ignored" data-date="2025-03-20T11:05:00">
+            <div class="row g-0">
+                <div class="col-md-1 d-flex align-items-center justify-content-center">
+                    <i class="fas fa-desktop computer-icon"></i>
+                </div>
+                <div class="col-md-11">
+                    <div class="fault-details">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <div class="hostname">PC-ITL6-017</div>
+                                <div class="location"><i class="fas fa-map-marker-alt me-1"></i>IT Lab 6</div>
+                            </div>
+                            <span class="badge bg-secondary status-badge">Ignored</span>
+                        </div>
+                        <h5 class="fault-title">Mouse Cursor Lagging</h5>
+                        <p class="fault-description">Mouse cursor movement is erratic and delayed. Tried cleaning mouse and changing USB port but issue persists. Mouse works fine on other computers.</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="timestamp"><i class="far fa-clock me-1"></i>Reported: March 20, 2025 (11:05 AM)</span>
+                            <div class="d-flex">
+                                <select class="status-selector me-2">
+                                    <option value="unaddressed">Unaddressed</option>
+                                    <option value="in-progress">In Progress</option>
+                                    <option value="scheduled">Scheduled for Later</option>
+                                    <option value="resolved">Resolved</option>
+                                    <option value="ignored" selected>Ignored - Not Actionable</option>
+                                </select>
+                                <button class="btn btn-sm btn-outline-primary update-status">Update</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    <nav aria-label="Fault reports navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            <li class="page-item disabled">
+                <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Previous</a>
+            </li>
+            <li class="page-item active"><a class="page-link" href="#">1</a></li>
+            <li class="page-item"><a class="page-link" href="#">2</a></li>
+            <li class="page-item"><a class="page-link" href="#">3</a></li>
+            <li class="page-item">
+                <a class="page-link" href="#">Next</a>
+            </li>
+        </ul>
+    </nav>
+</div>
+
+<!-- New Fault Modal -->
+<div class="modal fade" id="newFaultModal" tabindex="-1" aria-labelledby="newFaultModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="newFaultModalLabel">Report New Fault</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newFaultForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="hostname" class="form-label">Hostname*</label>
+                            <input type="text" class="form-control" id="hostname" placeholder="e.g. PC-ITL6-001" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="location" class="form-label">Location*</label>
+                            <input type="text" class="form-control" id="location" placeholder="e.g. IT Lab 6" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="faultTitle" class="form-label">Fault Title*</label>
+                        <input type="text" class="form-control" id="faultTitle" placeholder="Brief description of the issue" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="faultDescription" class="form-label">Fault Description*</label>
+                        <textarea class="form-control" id="faultDescription" rows="4" placeholder="Detailed description of the issue including steps to reproduce" required></textarea>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="reporterName" class="form-label">Reported By*</label>
+                            <input type="text" class="form-control" id="reporterName" placeholder="Your name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="priorityLevel" class="form-label">Priority Level</label>
+                            <select class="form-select" id="priorityLevel">
+                                <option value="low">Low</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="high">High</option>
+                                <option value="critical">Critical</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="submitFault">Submit Fault Report</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock main_content %}
+
+{% block scripts %}
+<script src="{% static 'resources/js/resources.js' %}"></script>
+{% endblock scripts %}

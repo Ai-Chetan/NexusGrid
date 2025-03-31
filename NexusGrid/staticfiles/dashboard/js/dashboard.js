@@ -1,4 +1,5 @@
 document.addEventListener("DOMContentLoaded", function () {
+
     // Ensure Plotly is loaded
     if (typeof Plotly === "undefined") {
         console.error("Plotly.js is not loaded.");
@@ -67,22 +68,18 @@ document.addEventListener("DOMContentLoaded", function () {
         observer.observe(sidebar);
     }
 
-    document.addEventListener("DOMContentLoaded", function () {
-        if (typeof userRole === "undefined") {
-            var userRole = "{{ user_role }}".trim(); // Remove extra spaces
+    var userRole = document.body.getAttribute("data-user-role")?.trim() || "";
+
+    if (!userRole) {
+        console.warn("User role is missing!");
+        return;
+    }
+
+    document.querySelectorAll("[data-role]").forEach(el => {
+        if (el.getAttribute("data-role") === userRole) {
+            el.style.display = el.closest(".sidebar") ? "flex" : "block";
+        } else {
+            el.style.display = "none";
         }
-    
-        console.log("User Role:", `"${userRole}"`); // Debugging log to check spaces
-    
-        // Hide all role panels
-        document.querySelectorAll(".role-panel").forEach(el => el.style.display = "none");
-    
-        // Find and show the correct panel
-        document.querySelectorAll(".role-panel").forEach(el => {
-            if (el.getAttribute("data-role").trim() === userRole) {
-                el.style.display = "block";
-                console.log("Displaying panel:", el);
-            }
-        });
     });
 });
