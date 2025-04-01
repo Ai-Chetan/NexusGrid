@@ -10,7 +10,7 @@ SECRET_KEY = 'django-insecure-y+wb+*b+ltq@(jt)b(gqdyt=awrz@dhgsev*a3&ixjg1ds%m_9
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']  # Change this in production
+ALLOWED_HOSTS = ["nexusgrid.onrender.com", "localhost", "127.0.0.1"]  # Change this in production
 
 # Application definition
 INSTALLED_APPS = [
@@ -21,6 +21,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',  # Required for allauth
+    'rest_framework', #django rest api
+    'corsheaders',
+    "django_extensions",
+    "channels",
 
     # Custom Apps:
     'login_manager',
@@ -43,6 +47,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -129,3 +134,32 @@ LOGIN_REDIRECT_URL = "dashboard"
 # SECURE_BROWSER_XSS_FILTER = True
 # SECURE_CONTENT_TYPE_NOSNIFF = True
 # SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+#django rest framework
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',  # Change for authentication later
+    ],
+}
+
+CORS_ALLOWED_ORIGINS = [
+    "http://nexusgrid.onrender.com",
+    "http://localhost:8000",  # If testing from local frontend
+]
+
+ASGI_APPLICATION = "NexusGrid.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
+}

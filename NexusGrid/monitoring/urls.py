@@ -1,6 +1,6 @@
 from django.urls import path
-from .views import system_monitor_view
+from .views import SystemInfoAPIView
 
 urlpatterns = [
-    path('', system_monitor_view, name='system_monitor'),
+    path('system-info/', SystemInfoAPIView.as_view(), name='system_info'),  # ✅ Use `.as_view()`
 ]
