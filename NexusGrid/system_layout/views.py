@@ -174,3 +174,16 @@ def get_system_info():
     except Exception as e:
         print(f"Error fetching system info: {e}")
         return {}
+    
+# def generate_qr(request, computer_id):
+#     # Fetch the computer from the database
+#     computer = get_object_or_404(LayoutItem, unique_id=computer_id)
+
+#     # Generate a QR code for the computer ID
+#     qr = qrcode.make(computer.unique_id)
+#     buffer = BytesIO()
+#     qr.save(buffer, format="PNG")
+#     buffer.seek(0)
+
+#     # Return the image as an HTTP response
+#     return HttpResponse(buffer.getvalue(), content_type="image/png")

@@ -9,4 +9,5 @@ urlpatterns = [
     path('layout/', include('system_layout.urls')),  # System Layout app
     path('faults/', include('faults.urls')),  # Fault Reports app
     path('resources/', include('resources.urls')),  # Resource Requests app
+    path("api/", include("monitoring.urls")),
 ]

@@ -26,6 +26,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',  # Required for allauth
+    'rest_framework', #django rest api
+    'corsheaders',
+    "django_extensions",
+    "channels",
 
     # Custom Apps:
     'login_manager',
@@ -122,7 +126,7 @@ MEDIA_ROOT = BASE_DIR / "media"  # Ensure this directory exists
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-SITE_ID = 1  # Required for allauth
+SITE_ID = 1 
 
 # SMTP Configuration
 EMAIL_HOST = env('EMAIL_HOST')
@@ -135,4 +139,31 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
 AUTH_USER_MODEL = 'login_manager.User'  # Custom user model extending django's AbstractUser
 LOGIN_REDIRECT_URL = "dashboard"
 
-SITE_ID = 1
+#django rest framework
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',  # Change for authentication later
+    ],
+}
+
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[
+    "http://localhost:8000",
+])
+
+
+ASGI_APPLICATION = "NexusGrid.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [(env("REDIS_HOST", default="127.0.0.1"), int(env("REDIS_PORT", default="6379")))],
+        },
+    },
+}
