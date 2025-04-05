@@ -31,8 +31,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Item type definitions with size and icon mappings
     const itemTypes = {
         'building': { icon: 'fa-building', sizeX: 3, sizeY: 3 },
-        'floor': { icon: 'fa-layer-group', sizeX: 3, sizeY: 2 },
-        'room': { icon: 'fa-door-open', sizeX: 2, sizeY: 2 },
+        'floor': { icon: 'fa-layer-group', sizeX: 6, sizeY: 1 },
+        'room': { icon: 'fa-door-open', sizeX: 1, sizeY: 2 },
         'computer': { icon: 'fa-desktop', sizeX: 1, sizeY: 1 },
         'server': { icon: 'fa-server', sizeX: 1, sizeY: 1 },
         'network_switch': { icon: 'fa-network-wired', sizeX: 1, sizeY: 1 },

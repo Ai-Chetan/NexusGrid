@@ -1,3 +1,13 @@
+/* Landing Page form */
+function toggleOtherSubject(selectElement) {
+    const otherSubjectContainer = document.getElementById('other-subject-container');
+    if (selectElement.value === "Other") {
+        otherSubjectContainer.style.display = "block";
+    } else {
+        otherSubjectContainer.style.display = "none";
+    }
+}
+
 /*Sign In to Sign Up Toggle*/
 const sign_in_btn = document.querySelector("#sign-in-btn");
 const sign_up_btn = document.querySelector("#sign-up-btn");
@@ -90,10 +100,20 @@ document.getElementById("verifyOtpBtn").addEventListener("click", function () {
 });
 
 /* Sign In Validation */
-document.getElementById("login-button").addEventListener("click", function () {
+document.getElementById("login-button").addEventListener("click", function (event) {
+  event.preventDefault();
   const username = document.getElementById("signin-username").value.trim();
   const password = document.getElementById("signin-password").value.trim();
   const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  // Get or create message element
+  let messageElement = document.getElementById("message");
+  if (!messageElement) {
+      messageElement = document.createElement("p");
+      messageElement.id = "message";
+      messageElement.style.color = "red";
+      document.body.appendChild(messageElement); // Append to body or a specific container
+  }
 
   fetch('/user-login/', {
       method: 'POST',
@@ -106,11 +126,32 @@ document.getElementById("login-button").addEventListener("click", function () {
   .then(response => response.json())
   .then(data => {
       if (data.success) {
-          alert("✅ Login Successful! Redirecting...");
-          window.location.href = data.redirect_url;  // Redirect on success
+          messageElement.style.color = "green";
+          messageElement.textContent = "Login Successful! Redirecting...";
+          setTimeout(() => {
+              sessionStorage.setItem("user_role", data.role);
+              window.location.href = data.redirect_url;
+          }, 1000);
       } else {
-          alert(data.message);  // Show error message
+          messageElement.style.color = "red";
+          messageElement.textContent = data.message;
       }
   })
-  .catch(error => console.error("Login request failed:", error));
+  .catch(error => {
+      messageElement.style.color = "red";
+      messageElement.textContent = "Login request failed. Please try again.";
+      console.error("Login request failed:", error);
+  });
+});
+document.getElementById("confirm-password").addEventListener("input", function () {
+  const password = document.getElementById("signup-password").value;
+  const confirmPassword = this.value;
+  const message = document.getElementById("message-pass");
+
+  if (password !== confirmPassword) {
+    message.style.color = "red";
+    message.innerText = "Passwords do not match!";
+  } else {
+    message.innerText = "";
+  }
 });

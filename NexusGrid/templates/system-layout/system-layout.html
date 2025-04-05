@@ -79,10 +79,7 @@
                 <i class="fas fa-desktop text-secondary"></i>
                 <div class="overview-details">
                     <h5>Functional Systems</h5>
-                    <span class="count text-secondary">48 / 50</span>
-                    <div class="progress">
-                        <div class="progress-bar bg-secondary" style="width: 96%;"></div>
-                    </div>
+                    <span class="count text-secondary">{{ functional_count }} / {{ total_systems }}</span>
                 </div>
             </div>
 
@@ -90,10 +87,7 @@
                 <i class="fas fa-desktop text-success"></i>
                 <div class="overview-details">
                     <h5>Active Systems</h5>
-                    <span class="count text-success">22 / 50</span>
-                    <div class="progress">
-                        <div class="progress-bar bg-success" style="width: 44%;"></div>
-                    </div>
+                    <span class="count text-success">{{ active_count }} / {{ total_systems }}</span>
                 </div>
             </div>
 
@@ -102,9 +96,6 @@
                 <div class="overview-details">
                     <h5>System Utilization</h5>
                     <span class="count text-secondary">75%</span>
-                    <div class="progress">
-                        <div class="progress-bar bg-secondary" style="width: 75%;"></div>
-                    </div>
                 </div>
             </div>
 
@@ -112,10 +103,7 @@
                 <i class="fas fa-exclamation-circle text-danger"></i>
                 <div class="overview-details">
                     <h5>Critical Systems</h5>
-                    <span class="count text-danger">01</span>
-                    <div class="progress">
-                        <div class="progress-bar bg-danger" style="width: 2%;"></div>
-                    </div>
+                    <span class="count text-danger">{{ critical_count }}</span>
                 </div>
             </div>
 
@@ -124,9 +112,6 @@
                 <div class="overview-details">
                     <h5>Fault Reports</h5>
                     <span class="count text-warning">01</span>
-                    <div class="progress">
-                        <div class="progress-bar bg-warning" style="width: 2%;"></div>
-                    </div>
                 </div>
             </div>
 
@@ -135,9 +120,6 @@
                 <div class="overview-details">
                     <h5>Resource Requests</h5>
                     <span class="count text-info">02</span>
-                    <div class="progress">
-                        <div class="progress-bar bg-info" style="width: 4%;"></div>
-                    </div>
                 </div>
             </div>
         </div>

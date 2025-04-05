@@ -1,3 +1,13 @@
+/* Landing Page form */
+function toggleOtherSubject(selectElement) {
+    const otherSubjectContainer = document.getElementById('other-subject-container');
+    if (selectElement.value === "Other") {
+        otherSubjectContainer.style.display = "block";
+    } else {
+        otherSubjectContainer.style.display = "none";
+    }
+}
+
 /*Sign In to Sign Up Toggle*/
 const sign_in_btn = document.querySelector("#sign-in-btn");
 const sign_up_btn = document.querySelector("#sign-up-btn");

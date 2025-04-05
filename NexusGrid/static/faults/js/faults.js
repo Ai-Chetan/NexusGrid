@@ -1,4 +1,16 @@
 document.addEventListener('DOMContentLoaded', function() {
+    // Get the user's role from the body attribute
+    var userRole = document.body.getAttribute("data-user-role")?.trim();
+
+    if (userRole) {
+        document.querySelectorAll("[data-role]").forEach(el => {
+            el.style.display = (el.getAttribute("data-role") === userRole) ? 
+                (el.closest(".sidebar") ? "flex" : "block") : "none";
+        });
+    } else {
+        console.warn("User role is missing!");
+    }
+
     // Show/hide custom date range based on time filter selection
     const timeFilter = document.getElementById('timeFilter');
     const customDateRange = document.querySelector('.custom-date-range');

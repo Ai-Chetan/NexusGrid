@@ -225,9 +225,22 @@
                         <div class="mb-3">
                             <input type="email" class="form-control" placeholder="Your Email">
                         </div>
+                
+                        <!-- Subject Dropdown -->
                         <div class="mb-3">
-                            <input type="text" class="form-control" placeholder="Your Subject">
+                            <select class="form-control" id="subject-select" onchange="toggleOtherSubject(this)">
+                                <option value="">Select Subject</option>
+                                <option value="Feedback">Feedback</option>
+                                <option value="Implementation">Implementing our system in your organization</option>
+                                <option value="Other">Other</option>
+                            </select>
                         </div>
+                
+                        <!-- Optional Subject Text Input -->
+                        <div class="mb-3" id="other-subject-container" style="display: none;">
+                            <input type="text" class="form-control" placeholder="Enter your subject">
+                        </div>
+                
                         <div class="mb-3">
                             <textarea class="form-control" rows="4" placeholder="Your Message"></textarea>
                         </div>

@@ -22,10 +22,8 @@
                                 <i class="fas fa-desktop text-secondary"></i>
                                 <div class="overview-details">
                                     <h5>Functional Systems</h5>
-                                    <span class="count text-secondary">48 / 50</span>
-                                    <div class="progress">
-                                        <div class="progress-bar bg-secondary"></div>
-                                    </div>
+                                    <span class="count text-secondary">{{ functional_count }} / {{ total_systems }}</span>
+                                    <div class="progress-bar bg-secondary functional-bar"></div>
                                 </div>
                             </div>
             
@@ -33,15 +31,12 @@
                                 <i class="fas fa-exclamation-circle text-danger"></i>
                                 <div class="overview-details">
                                     <h5>Critical Systems</h5>
-                                    <span class="count text-danger">01</span>
-                                    <div class="progress">
-                                        <div class="progress-bar bg-danger"></div>
-                                    </div>
+                                    <span class="count text-danger">{{ critical_count }}</span>
+                                    <div class="progress-bar bg-warning critical-bar"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
-            
                     <!-- System Overview - Set 2 -->
                     <div class="col-md-4">
                         <div class="overview-container">
@@ -49,10 +44,8 @@
                                 <i class="fas fa-desktop text-success"></i>
                                 <div class="overview-details">
                                     <h5>Active Systems</h5>
-                                    <span class="count text-success">22 / 50</span>
-                                    <div class="progress">
-                                        <div class="progress-bar bg-success"></div>
-                                    </div>
+                                    <span class="count text-success">{{ active_count }} / {{ total_systems }}</span>
+                                    <div class="progress-bar bg-success active-bar"></div>
                                 </div>
                             </div>
             
@@ -62,9 +55,7 @@
                                     <div class="overview-details">
                                         <h5>Fault Reports</h5>
                                         <span class="count text-warning">01</span>
-                                        <div class="progress">
-                                            <div class="progress-bar bg-warning"></div>
-                                        </div>
+                                        <div class="progress-bar bg-success active-bar"></div>
                                     </div>
                                 </div>
                             </div>
@@ -78,9 +69,7 @@
                             <div class="overview-details">
                                 <h5>System Utilization</h5>
                                 <span class="count text-secondary">75%</span>
-                                <div class="progress">
-                                    <div class="progress-bar"></div>
-                                </div>
+                                <div class="progress-bar bg-success active-bar"></div>
                             </div>
                         </div>
                         <div class="overview-card resource mt-2">
@@ -88,9 +77,7 @@
                             <div class="overview-details">
                                 <h5>Resource Requests</h5>
                                 <span class="count text-info">02</span>
-                                <div class="progress">
-                                    <div class="progress-bar bg-info"></div>
-                                </div>
+                                <div class="progress-bar bg-success active-bar"></div>
                             </div>
                         </div>
                     </div>
@@ -138,7 +125,7 @@
                 </div>
             </div>   
             <div class="role-panel" data-role="Lab Assistant">
-                <h2 class="overview-title mt-5"><i class="fas fa-laptop"></i> WORKPLACE</h2>
+                <h2 class="overview-title mt-4"><i class="fas fa-laptop"></i> WORKPLACE</h2>
                 <div class="row d-flex flex-row justify-content-between p-4 pt-0">
                     <div onclick="window.location.href=window.location.origin + '/layout/7/'" class="col-md-6 workspace-card d-flex flex-row align-items-center justify-content-center">
                         <i class="fas fa-chalkboard icon-large text-secondary"></i>
@@ -158,11 +145,8 @@
                 </div>
             </div>
             
-            <h2 class="overview-title mt-3"><i class="fas fa-chart-line"></i> Performance & Fault Trends</h2>
+            <h2 class="overview-title mt-3"><i class="fas fa-chart-line"></i> Performance and Fault Trends</h2>
             <div class="row">
-                <div class="col-md-6">
-                    <div id="performanceChart" class="graph-box"></div>
-                </div>
                 <div class="col-md-6">
                     <div id="faultTrendChart" class="graph-box"></div>
                 </div>
@@ -171,6 +155,10 @@
                 </div>
                 <div class="col-md-6">
                     <div id="resourceRequestChart" class="graph-box"></div>
+                </div>
+                <div class="col-md-6">
+                    <div id="performanceChart" class="graph-box">
+                    </div>
                 </div>
             </div>
             

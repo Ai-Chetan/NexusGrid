@@ -7,6 +7,7 @@ import json
 import psutil
 import platform
 import socket
+from system_layout.models import System
 from .models import LayoutItem
 
 @login_required(login_url="/login/")
@@ -14,22 +15,42 @@ def layout_view(request, item_id=None):
     if item_id:
         current_item = get_object_or_404(LayoutItem, id=int(item_id))  
         parent = current_item
-        
-        # Get ancestors for breadcrumb
         breadcrumb = [{'id': ancestor.id, 'name': ancestor.name} for ancestor in parent.get_ancestors()]
     else:
         current_item = None
         parent = None
         breadcrumb = []
 
-    # Merge context dictionaries
+    systems = System.objects.filter(lab_id=item_id)
+    total_systems = systems.count()
+
+    # Use filtered queryset for better accuracy
+    functional_count = systems.filter(status__in=['active', 'inactive']).count()
+    critical_count = systems.filter(status='non-functional').count()
+    active_count = systems.filter(status='active').count()
+
+    # Prevent division by zero
+    if total_systems > 0:
+        functional_percent = (functional_count / total_systems) * 100
+        critical_percent = (critical_count / total_systems) * 100
+        active_percent = (active_count / total_systems) * 100
+    else:
+        functional_percent = critical_percent = active_percent = 0
+
     context = {
+        'functional_count': functional_count,
+        'critical_count': critical_count,
+        'active_count': active_count,
+        'total_systems': total_systems,
+        'functional_percent': functional_percent,
+        'critical_percent': critical_percent,
+        'active_percent': active_percent,
+        'user_role': request.user.role,
         'parent': parent,
         'breadcrumb': breadcrumb,
         'parent_id': parent.id if parent else None,
-        'user_role': request.user.role,  # Include user_role in context
     }
-    
+
     return render(request, 'system-layout/system-layout.html', context)
 
 def system_details(request, item_id=None):
