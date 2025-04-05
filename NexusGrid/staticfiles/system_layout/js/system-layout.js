@@ -31,8 +31,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Item type definitions with size and icon mappings
     const itemTypes = {
         'building': { icon: 'fa-building', sizeX: 3, sizeY: 3 },
-        'floor': { icon: 'fa-layer-group', sizeX: 3, sizeY: 2 },
-        'room': { icon: 'fa-door-open', sizeX: 2, sizeY: 2 },
+        'floor': { icon: 'fa-layer-group', sizeX: 6, sizeY: 1 },
+        'room': { icon: 'fa-door-open', sizeX: 1, sizeY: 2 },
         'computer': { icon: 'fa-desktop', sizeX: 1, sizeY: 1 },
         'server': { icon: 'fa-server', sizeX: 1, sizeY: 1 },
         'network_switch': { icon: 'fa-network-wired', sizeX: 1, sizeY: 1 },
@@ -730,4 +730,52 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error(message);
         alert(message);
     }
+
+    // Fault Report Modal
+    document.getElementById("submitFault").addEventListener("click", function() {
+        const faultTitle = document.getElementById("faultTitle").value;
+        const faultDescription = document.getElementById("faultDescription").value;
+        const CSRF_TOKEN = "{{ csrf_token }}";
+        const USER_ID = "{{ user.id }}";
+        const PARENT_ID = "{{ parent_id|default:'null' }}";
+        // Check if the inputs are not empty
+        if (faultTitle && faultDescription) {
+            // Prepare data to send to server
+            const data = {
+                title: faultTitle,
+                description: faultDescription,
+                system_name: PARENT_ID, // LayoutItem ID
+                reported_by: USER_ID,  // User ID
+                fault_type: "Hardware",  // Assuming default type, can be updated as needed
+                status: "Pending"  // Default status as Pending
+            };
+    
+            // Send the data to the server using fetch
+            fetch('/layout/report_fault/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': CSRF_TOKEN // CSRF token to protect from CSRF attacks
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    alert("Fault report submitted successfully!");
+                    // Close the modal
+                    $('#newFaultModal').modal('hide');
+                } else {
+                    alert("Error submitting fault report: " + data.message);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("Failed to submit fault report.");
+            });
+        } else {
+            alert("Please fill out both the title and description.");
+        }
+    });
+    
 });

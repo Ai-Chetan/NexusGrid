@@ -182,8 +182,8 @@ body {
   background: white;
   padding: 10px;
   border-radius: 10px;
-  max-height:192px;
-  overflow-y: auto; /* Scroll if too many entries */
+  max-height:172px;
+  overflow-y: auto;
 }
 .history-card {
   border: 1px solid black;

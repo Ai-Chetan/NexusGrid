@@ -13,4 +13,5 @@ urlpatterns = [
     path("get_layout_items/", views.get_layout_items, name="get_layout_items"),
     path("get_parent/", views.get_parent, name="get_parent"),
     path("save/", views.save_layout, name="save_layout"),
+    path('report_fault/', views.report_fault, name='report_fault'),
 ]

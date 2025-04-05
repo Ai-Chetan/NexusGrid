@@ -730,4 +730,45 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error(message);
         alert(message);
     }
+
+    // Fault Report Modal
+    document.getElementById("submitFault").addEventListener("click", function () {
+        const faultTitle = document.getElementById("faultTitle").value;
+        const faultDescription = document.getElementById("faultDescription").value;
+        const USER_ID = "{{ user.id }}";
+        const PARENT_ID = "{{ parent_id|default:'null' }}";
+        if (faultTitle && faultDescription) {
+            const data = {
+                title: faultTitle,
+                description: faultDescription,
+                system_name: PARENT_ID,
+                reported_by: USER_ID,
+                fault_type: "Hardware",
+                status: "Pending"
+            };
+
+            fetch('/report_fault/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    alert("Fault report submitted successfully!");
+                    $('#newFaultModal').modal('hide');
+                } else {
+                    alert("Error: " + data.message);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("Failed to submit fault report.");
+            });
+        } else {
+            alert("Please fill out both the title and description.");
+        }
+    });
 });

@@ -11,7 +11,11 @@
 {% block main_content %}
 <div class="container">
     <h1 class="text-center my-4">Computer System Details</h1>
-
+    <div class="d-flex flex-row justify-content-end mb-3">
+        <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#newFaultModal">
+            <i class="fas fa-plus me-2"></i>New Fault Report
+        </button>
+    </div>
     {% if system_info %}
     <div class="row">
         {% for category, details in system_info.items %}
@@ -38,6 +42,34 @@
         <i class="fa fa-exclamation-circle"></i> No system information available.
     </div>
     {% endif %}
+</div>
+
+<div class="modal fade" id="newFaultModal" tabindex="-1" aria-labelledby="newFaultModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="newFaultModalLabel">Report New Fault</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newFaultForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="faultTitle" class="form-label">Fault Title*</label>
+                        <input type="text" class="form-control" id="faultTitle" placeholder="Brief description of the issue" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="faultDescription" class="form-label">Fault Description*</label>
+                        <textarea class="form-control" id="faultDescription" rows="4" placeholder="Detailed description of the issue" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="submitFault">Submit Fault Report</button>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock main_content %}
 

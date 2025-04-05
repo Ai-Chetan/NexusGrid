@@ -1,3 +1,4 @@
+import datetime
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -9,6 +10,8 @@ import platform
 import socket
 from system_layout.models import System
 from .models import LayoutItem
+from login_manager.models import User
+from faults.models import FaultReport
 
 @login_required(login_url="/login/")
 def layout_view(request, item_id=None):
@@ -196,6 +199,42 @@ def get_system_info():
         print(f"Error fetching system info: {e}")
         return {}
     
+@csrf_exempt
+def report_fault(request):
+    if request.method == 'POST':
+        try:
+            # Parse incoming JSON data
+            data = json.loads(request.body)
+            
+            # Retrieve the necessary fields
+            title = data.get('title')
+            description = data.get('description')
+            system_name_id = data.get('system_name')
+            reported_by_id = data.get('reported_by')
+            fault_type = data.get('fault_type', 'Hardware')  # Defaulting to 'Hardware'
+            status = data.get('status', 'Pending')  # Defaulting to 'Pending'
+
+            # Get LayoutItem and User objects
+            system_name = LayoutItem.objects.get(id=system_name_id)
+            reported_by = User.objects.get(id=reported_by_id)
+
+            # Create and save the FaultReport
+            fault_report = FaultReport(
+                system_name=system_name,
+                reported_by=reported_by,
+                fault_type=fault_type,
+                description=description,
+                status=status
+            )
+
+            fault_report.save()
+
+            return JsonResponse({'status': 'success', 'message': 'Fault report submitted successfully.'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
+
 # def generate_qr(request, computer_id):
 #     # Fetch the computer from the database
 #     computer = get_object_or_404(LayoutItem, unique_id=computer_id)
