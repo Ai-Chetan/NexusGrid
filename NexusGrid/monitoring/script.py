@@ -2,26 +2,14 @@ import socket
 import platform
 import psutil
 import requests
-import json
-import time
-import socketio
+from datetime import datetime
 
-# Socket.IO Client Setup
-sio = socketio.Client()
-
-# API URLs
-API_URLS = [
-    "http://127.0.0.1:8000/api/system-info/",
-    "http://nexusgrid.onrender.com/api/system-info/"
-]
-
-# Socket.IO Server URL (Replace with your admin PC IP)
-SOCKET_IO_SERVER = "http://admin_pc_ip:5000"
-
+# API URL (Replace with your actual API URL)
+API_URL ="http://nexusgrid.onrender.com/api/system-info/"
+# Function to fetch system information
 def get_system_info():
-    """Fetches system info and returns as a dictionary."""
     try:
-        info = {
+        system_info = {
             "hostname": socket.gethostname(),
             "system": platform.system(),
             "version": platform.version(),
@@ -30,83 +18,48 @@ def get_system_info():
             "processor": platform.processor(),
             "architecture": platform.architecture()[0],
 
-            "cpu": {
-                "physical_cores": psutil.cpu_count(logical=False),
-                "total_cores": psutil.cpu_count(logical=True),
-                "max_freq": psutil.cpu_freq().max,
-                "min_freq": psutil.cpu_freq().min,
-                "current_freq": psutil.cpu_freq().current,
-                "cpu_usage": psutil.cpu_percent(interval=1)
-            },
+            "cpu_physical_cores": psutil.cpu_count(logical=False),
+            "cpu_total_cores": psutil.cpu_count(logical=True),
+            "cpu_max_freq": psutil.cpu_freq().max,
+            "cpu_min_freq": psutil.cpu_freq().min,
+            "cpu_current_freq": psutil.cpu_freq().current,
+            "cpu_usage": psutil.cpu_percent(interval=1),
 
-            "memory": {
-                "total": round(psutil.virtual_memory().total / (1024 ** 3), 2),
-                "available": round(psutil.virtual_memory().available / (1024 ** 3), 2),
-                "used": round(psutil.virtual_memory().used / (1024 ** 3), 2),
-                "usage_percent": psutil.virtual_memory().percent
-            },
+            "memory_total": round(psutil.virtual_memory().total / (1024 ** 3), 2),
+            "memory_available": round(psutil.virtual_memory().available / (1024 ** 3), 2),
+            "memory_used": round(psutil.virtual_memory().used / (1024 ** 3), 2),
+            "memory_usage_percent": psutil.virtual_memory().percent,
 
-            "disk": {
-                "total": round(psutil.disk_usage('/').total / (1024 ** 3), 2),
-                "used": round(psutil.disk_usage('/').used / (1024 ** 3), 2),
-                "free": round(psutil.disk_usage('/').free / (1024 ** 3), 2),
-                "usage_percent": psutil.disk_usage('/').percent
-            },
+            "disk_total": round(psutil.disk_usage('/').total / (1024 ** 3), 2),
+            "disk_used": round(psutil.disk_usage('/').used / (1024 ** 3), 2),
+            "disk_free": round(psutil.disk_usage('/').free / (1024 ** 3), 2),
+            "disk_usage_percent": psutil.disk_usage('/').percent,
 
-            "network": {
-                "ip_address": socket.gethostbyname(socket.gethostname()),
-                "bytes_sent": psutil.net_io_counters().bytes_sent,
-                "bytes_received": psutil.net_io_counters().bytes_recv
-            },
+            "ip_address": socket.gethostbyname(socket.gethostname()),
+            "bytes_sent": psutil.net_io_counters().bytes_sent,
+            "bytes_received": psutil.net_io_counters().bytes_recv,
 
-            "users": {
-                "current_users": len(psutil.users()),
-                "logged_in_users": [user.name for user in psutil.users()]
-            }
+            "users_count": len(psutil.users()),
+            "logged_in_users": ", ".join([user.name for user in psutil.users()]),
+
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
-        return info
+        return system_info
     except Exception as e:
-        print(f"Error fetching system info: {e}")
+        print(f" Error fetching system info: {e}")
         return {}
 
-def send_data_to_api(data):
-    """Sends system data to the API endpoints."""
-    for url in API_URLS:
-        try:
-            response = requests.post(url, json=data, timeout=5)
-            if response.status_code == 201:
-                print(f"✅ Data successfully sent to {url}")
-            else:
-                print(f"⚠️ Failed to send data to {url}: {response.status_code} - {response.text}")
-        except requests.exceptions.RequestException as e:
-            print(f"❌ Error sending data to {url}: {e}")
-
-def send_data_to_socket(data):
-    """Sends system info to the admin PC via Socket.IO."""
+# Function to send data to API
+def send_data_to_api(system_info):
     try:
-        sio.emit('system_info', data)
-        print("📡 Data sent to admin PC via Socket.IO")
+        headers = {"Content-Type": "application/json"}  # ✅ Add this
+        response = requests.post(API_URL, json=system_info, headers=headers)
+        print(f" Sent to API! Status: {response.status_code}, Response: {response.json()}headers: {headers}")  # ✅ Add this
     except Exception as e:
-        print(f"⚠️ Socket.IO error: {e}")
+        print(f" Error sending data to API: {e}")
 
-def main():
-    """Main loop to fetch system info and send it periodically."""
-    print(" Starting system monitoring script...")
-    
-    # Connect to Socket.IO server
-    try:
-        sio.connect(SOCKET_IO_SERVER)
-        print("✅ Connected to Socket.IO server")
-    except Exception as e:
-        print(f"⚠️ Could not connect to Socket.IO server: {e}")
-
-    while True:
-        system_info = get_system_info()
-        if system_info:
-            send_data_to_api(system_info)
-            send_data_to_socket(system_info)
-
-        time.sleep(300)  # Run every 5 minutes
-
+# Main function
 if __name__ == "__main__":
-    main()
+    system_info = get_system_info()
+    if system_info:
+        send_data_to_api(system_info)  # Send data to API
