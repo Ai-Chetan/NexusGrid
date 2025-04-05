@@ -8,8 +8,7 @@ import json
 import psutil
 import platform
 import socket
-from system_layout.models import System
-from .models import LayoutItem
+from .models import LayoutItem, Lab, System
 from login_manager.models import User
 from faults.models import FaultReport
 
@@ -24,21 +23,27 @@ def layout_view(request, item_id=None):
         parent = None
         breadcrumb = []
 
-    systems = System.objects.filter(lab_id=item_id)
+    # Get lab_name from parent (room)
+    lab_name = None
+    if parent and parent.item_type == 'room':
+        lab = Lab.objects.filter(layout_item_id=parent.id).first()
+        if lab:
+            lab_name = lab.lab_name
+
+    systems = System.objects.filter(lab_id=lab_name) if lab_name else System.objects.none()
     total_systems = systems.count()
 
-    # Use filtered queryset for better accuracy
     functional_count = systems.filter(status__in=['active', 'inactive']).count()
     critical_count = systems.filter(status='non-functional').count()
     active_count = systems.filter(status='active').count()
 
-    # Prevent division by zero
     if total_systems > 0:
         functional_percent = (functional_count / total_systems) * 100
         critical_percent = (critical_count / total_systems) * 100
         active_percent = (active_count / total_systems) * 100
+        system_utilization = round((active_count / functional_count) * 100, 2)
     else:
-        functional_percent = critical_percent = active_percent = 0
+        functional_percent = critical_percent = active_percent = system_utilization = 0
 
     context = {
         'functional_count': functional_count,
@@ -48,6 +53,7 @@ def layout_view(request, item_id=None):
         'functional_percent': functional_percent,
         'critical_percent': critical_percent,
         'active_percent': active_percent,
+        'system_utilization': system_utilization,
         'user_role': request.user.role,
         'parent': parent,
         'breadcrumb': breadcrumb,
@@ -87,24 +93,35 @@ def add_layout_item(request):
         return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
     
     try:
-        data = json.loads(request.body)
-        parent_id = data.get('parent_id')
-        parent = get_object_or_404(LayoutItem, id=int(parent_id)) if parent_id and parent_id.isdigit() else None
-        
-        item = LayoutItem.objects.create(
-            name=data.get('name'),
-            item_type=data.get('item_type'),
-            parent=parent,
-            position_x=data.get('position_x', 0),
-            position_y=data.get('position_y', 0),
-            width=data.get('width', 1),
-            height=data.get('height', 1)
-        )
-        return JsonResponse({'status': 'success', 'item': item.to_dict()})
+        with transaction.atomic():
+            data = json.loads(request.body)
+            parent_id = data.get('parent_id')
+            
+            # Handle null parent_id properly
+            if parent_id == 'null' or parent_id is None:
+                parent = None
+            else:
+                parent = get_object_or_404(LayoutItem, id=int(parent_id))
+            
+            item = LayoutItem.objects.create(
+                name=data.get('name'),
+                item_type=data.get('item_type'),
+                parent=parent,
+                position_x=data.get('position_x', 0),
+                position_y=data.get('position_y', 0),
+                width=data.get('width', 1),
+                height=data.get('height', 1)
+            )
+            return JsonResponse({'status': 'success', 'item': item.to_dict()})
     except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
-
-
+        import traceback
+        return JsonResponse({
+            'status': 'error', 
+            'message': str(e),
+            'traceback': traceback.format_exc(),
+            'request_data': json.loads(request.body) if request.body else {}
+        }, status=400)
+    
 @csrf_exempt
 def update_layout_item(request, item_id):
     if request.method != 'POST':
@@ -131,11 +148,24 @@ def delete_layout_item(request, item_id):
     
     try:
         item = get_object_or_404(LayoutItem, id=int(item_id))
+        
+        # Check if item has related objects in System or Lab models
+        if hasattr(item, 'system'):
+            item.system.delete()
+        
+        if hasattr(item, 'lab'):
+            item.system.delete()
+            
+        # Check if item has children
+        if item.children.exists():
+            # Either delete children first or return an error
+            return JsonResponse({'status': 'error', 'message': 'Cannot delete - item has child items'}, status=400)
+            
         item.delete()
         return JsonResponse({'status': 'success'})
     except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
-
+        import traceback
+        return JsonResponse({'status': 'error', 'message': str(e), 'traceback': traceback.format_exc()}, status=400)
 
 @csrf_exempt
 def save_layout(request):

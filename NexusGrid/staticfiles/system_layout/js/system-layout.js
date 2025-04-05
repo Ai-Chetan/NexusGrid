@@ -620,24 +620,27 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function deleteItem(itemId) {
-        console.log('Deleting item with ID type:', typeof itemId, 'value:', itemId);
+        console.log('Deleting item with ID:', itemId);
+        console.log('CSRF Token:', getCSRFToken());
         
         fetch(`/layout/delete_layout_item/${itemId}/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCSRFToken()
-            }
+            },
+            body: JSON.stringify({}) // Send empty body to ensure proper request format
         })
         .then(response => {
             console.log('Delete response status:', response.status);
-            if (!response.ok) {
-                return response.text().then(text => {
-                    console.error('Error response text:', text);
-                    throw new Error('Network response was not ok');
-                });
-            }
-            return response.json();
+            return response.text().then(text => {
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error('Error parsing JSON:', text);
+                    throw new Error('Invalid JSON response');
+                }
+            });
         })
         .then(data => {
             console.log('Delete response data:', data);
@@ -732,30 +735,25 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Fault Report Modal
-    document.getElementById("submitFault").addEventListener("click", function() {
+    document.getElementById("submitFault").addEventListener("click", function () {
         const faultTitle = document.getElementById("faultTitle").value;
         const faultDescription = document.getElementById("faultDescription").value;
-        const CSRF_TOKEN = "{{ csrf_token }}";
         const USER_ID = "{{ user.id }}";
         const PARENT_ID = "{{ parent_id|default:'null' }}";
-        // Check if the inputs are not empty
         if (faultTitle && faultDescription) {
-            // Prepare data to send to server
             const data = {
                 title: faultTitle,
                 description: faultDescription,
-                system_name: PARENT_ID, // LayoutItem ID
-                reported_by: USER_ID,  // User ID
-                fault_type: "Hardware",  // Assuming default type, can be updated as needed
-                status: "Pending"  // Default status as Pending
+                system_name: PARENT_ID,
+                reported_by: USER_ID,
+                fault_type: "Hardware",
+                status: "Pending"
             };
-    
-            // Send the data to the server using fetch
-            fetch('/layout/report_fault/', {
+
+            fetch('/report_fault/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': CSRF_TOKEN // CSRF token to protect from CSRF attacks
                 },
                 body: JSON.stringify(data)
             })
@@ -763,10 +761,9 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 if (data.status === "success") {
                     alert("Fault report submitted successfully!");
-                    // Close the modal
                     $('#newFaultModal').modal('hide');
                 } else {
-                    alert("Error submitting fault report: " + data.message);
+                    alert("Error: " + data.message);
                 }
             })
             .catch(error => {
@@ -777,5 +774,4 @@ document.addEventListener('DOMContentLoaded', function() {
             alert("Please fill out both the title and description.");
         }
     });
-    
 });

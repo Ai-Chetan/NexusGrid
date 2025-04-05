@@ -620,24 +620,27 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function deleteItem(itemId) {
-        console.log('Deleting item with ID type:', typeof itemId, 'value:', itemId);
+        console.log('Deleting item with ID:', itemId);
+        console.log('CSRF Token:', getCSRFToken());
         
         fetch(`/layout/delete_layout_item/${itemId}/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCSRFToken()
-            }
+            },
+            body: JSON.stringify({}) // Send empty body to ensure proper request format
         })
         .then(response => {
             console.log('Delete response status:', response.status);
-            if (!response.ok) {
-                return response.text().then(text => {
-                    console.error('Error response text:', text);
-                    throw new Error('Network response was not ok');
-                });
-            }
-            return response.json();
+            return response.text().then(text => {
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error('Error parsing JSON:', text);
+                    throw new Error('Invalid JSON response');
+                }
+            });
         })
         .then(data => {
             console.log('Delete response data:', data);
@@ -731,44 +734,46 @@ document.addEventListener('DOMContentLoaded', function() {
         alert(message);
     }
 
-    // Fault Report Modal
-    document.getElementById("submitFault").addEventListener("click", function () {
-        const faultTitle = document.getElementById("faultTitle").value;
-        const faultDescription = document.getElementById("faultDescription").value;
-        const USER_ID = "{{ user.id }}";
-        const PARENT_ID = "{{ parent_id|default:'null' }}";
-        if (faultTitle && faultDescription) {
-            const data = {
-                title: faultTitle,
-                description: faultDescription,
-                system_name: PARENT_ID,
-                reported_by: USER_ID,
-                fault_type: "Hardware",
-                status: "Pending"
-            };
+    // Fault Report 
+    if (event.target && event.target.id === "submitFault") {
+        document.getElementById("submitFault").addEventListener("click", function () {
+            const faultTitle = document.getElementById("faultTitle").value;
+            const faultDescription = document.getElementById("faultDescription").value;
+            const USER_ID = "{{ user.id }}";
+            const PARENT_ID = "{{ parent_id|default:'null' }}";
+            if (faultTitle && faultDescription) {
+                const data = {
+                    title: faultTitle,
+                    description: faultDescription,
+                    system_name: PARENT_ID,
+                    reported_by: USER_ID,
+                    fault_type: "Hardware",
+                    status: "Pending"
+                };
 
-            fetch('/report_fault/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === "success") {
-                    alert("Fault report submitted successfully!");
-                    $('#newFaultModal').modal('hide');
-                } else {
-                    alert("Error: " + data.message);
-                }
-            })
-            .catch(error => {
-                console.error("Error:", error);
-                alert("Failed to submit fault report.");
-            });
-        } else {
-            alert("Please fill out both the title and description.");
-        }
-    });
+                fetch('/report_fault/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        alert("Fault report submitted successfully!");
+                        $('#newFaultModal').modal('hide');
+                    } else {
+                        alert("Error: " + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    alert("Failed to submit fault report.");
+                });
+            } else {
+                alert("Please fill out both the title and description.");
+            }
+        });
+    }
 });

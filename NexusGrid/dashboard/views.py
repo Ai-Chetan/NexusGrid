@@ -22,8 +22,9 @@ def dashboard_view(request):
         functional_percent = (functional_count / total_systems) * 100
         critical_percent = (critical_count / total_systems) * 100
         active_percent = (active_count / total_systems) * 100
+        system_utilization = round((active_count / functional_count) * 100, 2)
     else:
-        functional_percent = critical_percent = active_percent = 0
+        functional_percent = critical_percent = active_percent = system_utilization = 0
 
     context = {
         'functional_count': functional_count,
@@ -33,6 +34,7 @@ def dashboard_view(request):
         'functional_percent': functional_percent,
         'critical_percent': critical_percent,
         'active_percent': active_percent,
+        'system_utilization': system_utilization,
         'user_role': request.user.role,
     }
     return render(request, "dashboard/dashboard.html", context)
