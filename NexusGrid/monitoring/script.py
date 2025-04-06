@@ -50,13 +50,29 @@ def get_system_info():
         return {}
 
 # Function to send data to API
+# def send_data_to_api(system_info):
+#     try:
+#         headers = {"Content-Type": "application/json"}  # ✅ Add this
+#         response = requests.post(API_URL, json=system_info, headers=headers)
+#         print(f" Sent to API! Status: {response.status_code}, Response: {response.json()}headers: {headers}")  # ✅ Add this
+#     except Exception as e:
+#         print(f" Error sending data to API: {e}")
 def send_data_to_api(system_info):
     try:
-        headers = {"Content-Type": "application/json"}  # ✅ Add this
+        headers = {"Content-Type": "application/json"}
         response = requests.post(API_URL, json=system_info, headers=headers)
-        print(f" Sent to API! Status: {response.status_code}, Response: {response.json()}headers: {headers}")  # ✅ Add this
+
+        print(f"Status Code: {response.status_code}")
+        print(f"Raw Response: {response.text}")  # ⬅️ this will always show something, even if not JSON
+
+        # Try parsing JSON if possible
+        try:
+            print("Parsed JSON:", response.json())
+        except ValueError:
+            print(" Response is not JSON (maybe HTML error page or empty)")
     except Exception as e:
         print(f" Error sending data to API: {e}")
+
 
 # Main function
 if __name__ == "__main__":
