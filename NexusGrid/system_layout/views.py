@@ -5,9 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 import json
-import psutil
-import platform
-import socket
+from django.views.decorators.http import require_POST
 from .models import LayoutItem, Lab, System
 from login_manager.models import User
 from faults.models import FaultReport
@@ -64,10 +62,43 @@ def layout_view(request, item_id=None):
     return render(request, 'system-layout/system-layout.html', context)
 
 def system_details(request, item_id=None):
-    if item_id:
-        system_info = get_system_info()
-        return render(request, 'system-layout/system-details.html', {"system_info": system_info})
-    return HttpResponse("Invalid request", status=400)
+    if not item_id:
+        return HttpResponse("Invalid request", status=400)
+
+    try:
+        print(f"[DEBUG] Requested LayoutItem ID: {item_id}")
+
+        layout_item = get_object_or_404(LayoutItem, id=item_id)
+        print(f"[DEBUG] LayoutItem fetched: {layout_item.name} (ID: {layout_item.id})")
+
+        # Get associated system
+        system = System.objects.filter(layout_item_id=layout_item.id).first()
+        if not system or not system.host_name:
+            print("[DEBUG] No associated System or host_name found.")
+            return HttpResponse("No associated system or hostname found", status=404)
+
+        hostname = system.host_name
+        print(f"[DEBUG] Hostname from System table: {hostname}")
+
+        # Get latest SystemInfo for hostname
+        system_info = SystemInfo.objects.filter(hostname=hostname).order_by('-timestamp').first()
+        if not system_info:
+            print(f"[DEBUG] No SystemInfo record found for hostname: {hostname}")
+            return HttpResponse("System info not found for this host", status=404)
+
+        print(f"[DEBUG] SystemInfo found for hostname: {hostname} (Timestamp: {system_info.timestamp})")
+
+        # Pass everything needed to the template
+        context = {
+            "layout_item": layout_item,
+            "system": system,
+            "system_info": system_info,
+        }
+        return render(request, 'system-layout/system-details.html', context)
+
+    except Exception as e:
+        print(f"[ERROR] Exception occurred: {str(e)}")
+        return HttpResponse(f"Error fetching system details: {str(e)}", status=500)
 
 def get_layout_items(request):
     parent_id = request.GET.get('parent_id')
@@ -199,63 +230,6 @@ def save_layout(request):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
 
-
-def get_system_info():
-    try:
-        current_host = socket.gethostname()
-        system_info = SystemInfo.objects.filter(hostname=current_host).order_by('-timestamp').first()
-
-        if not system_info:
-            return {}
-
-        info = {
-            "System Information": {
-                "Hostname": system_info.hostname,
-                "System": system_info.system,
-                "Version": system_info.version,
-                "Release": system_info.release,
-                "Machine": system_info.machine,
-                "Processor": system_info.processor,
-                "Architecture": system_info.architecture
-            },
-            "CPU Information": {
-                "Physical Cores": system_info.cpu_physical_cores,
-                "Total Cores": system_info.cpu_total_cores,
-                "Max Frequency (MHz)": system_info.cpu_max_freq,
-                "Min Frequency (MHz)": system_info.cpu_min_freq,
-                "Current Frequency (MHz)": system_info.cpu_current_freq,
-                "CPU Usage (%)": system_info.cpu_usage
-            },
-            "Memory Information": {
-                "Total Memory (GB)": system_info.memory_total,
-                "Available Memory (GB)": system_info.memory_available,
-                "Used Memory (GB)": system_info.memory_used,
-                "Memory Usage (%)": system_info.memory_usage_percent
-            },
-            "Disk Information": {
-                "Total Disk Space (GB)": system_info.disk_total,
-                "Used Disk Space (GB)": system_info.disk_used,
-                "Free Disk Space (GB)": system_info.disk_free,
-                "Disk Usage (%)": system_info.disk_usage_percent
-            },
-            "Network Information": {
-                "IP Address": system_info.ip_address,
-                "Bytes Sent": system_info.bytes_sent,
-                "Bytes Received": system_info.bytes_received
-            },
-            "User Information": {
-                "Users Count": system_info.users_count,
-                "Logged In Users": system_info.logged_in_users
-            },
-            "Timestamp": system_info.timestamp
-        }
-
-        return info
-
-    except Exception as e:
-        print(f"Error fetching system info: {e}")
-        return {}
-    
 @csrf_exempt
 def report_fault(request):
     if request.method == 'POST':
@@ -292,15 +266,35 @@ def report_fault(request):
 
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
 
-# def generate_qr(request, computer_id):
-#     # Fetch the computer from the database
-#     computer = get_object_or_404(LayoutItem, unique_id=computer_id)
+@csrf_exempt
+def submit_fault_report(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            fault_type = data.get("fault_type")
+            description = data.get("description")
+            title = data.get("title")
+            system_id = data.get("system_id")
 
-#     # Generate a QR code for the computer ID
-#     qr = qrcode.make(computer.unique_id)
-#     buffer = BytesIO()
-#     qr.save(buffer, format="PNG")
-#     buffer.seek(0)
+            if not fault_type or not description or not system_id:
+                return JsonResponse({"error": "Missing required fields."}, status=400)
 
-#     # Return the image as an HTTP response
-#     return HttpResponse(buffer.getvalue(), content_type="image/png")
+            if not request.user.is_authenticated:
+                return JsonResponse({"error": "User not authenticated."}, status=401)
+
+            full_description = f"Title: {title}\n\n{description}" if title else description
+
+            report = FaultReport.objects.create(
+                fault_type=fault_type,
+                description=full_description,
+                reported_by=request.user,
+                system_name_id=system_id,
+                status="Pending"  # Set default status
+            )
+
+            return JsonResponse({"message": "Fault reported successfully.", "fault_id": report.fault_id}, status=201)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Invalid method"}, status=405)

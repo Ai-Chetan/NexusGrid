@@ -11,6 +11,11 @@
 {% block main_content %}
 <div class="container">
     <h1 class="text-center my-4">Computer System Details</h1>
+    <div class="d-flex justify-content-end mb-3">
+        <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#newFaultModal">
+            <i class="fas fa-plus me-2"></i>New Fault Report
+        </button>
+    </div>
     
     {% if system_info %}
     <div class="row">
@@ -136,11 +141,110 @@
     </div>
     {% endif %}
 </div>
+<!-- New Fault Modal -->
+<div class="modal fade" id="newFaultModal" tabindex="-1" aria-labelledby="newFaultModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="newFaultModalLabel">Report New Fault</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newFaultForm">
+                    <!-- Fault Type Dropdown -->
+                    <div class="mb-3">
+                        <input type="hidden" id="layoutItemId" value="{{ layout_item.id }}">
+                        <label for="faultType" class="form-label">Fault Type*</label>
+                        <select class="form-select" id="faultType" required>
+                            <option value="" disabled selected>Select a fault type</option>
+                            <option value="Software">Software</option>
+                            <option value="Hardware">Hardware</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <!-- Conditionally Shown Title Field -->
+                    <div class="mb-3" id="faultTitleGroup" style="display: none;">
+                        <label for="faultTitle" class="form-label">Fault Title*</label>
+                        <input type="text" class="form-control" id="faultTitle" placeholder="Enter fault title" required>
+                    </div>
+
+                    <!-- Fault Description -->
+                    <div class="mb-3">
+                        <label for="faultDescription" class="form-label">Fault Description*</label>
+                        <textarea class="form-control" id="faultDescription" rows="4" placeholder="Detailed description of the issue including steps to reproduce" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="submitFault">Submit Fault Report</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock main_content %}
 
 {% block scripts %}
 <script>
-    const CSRF_TOKEN = "{{ csrf_token }}";
+    document.addEventListener("DOMContentLoaded", function () {
+        const CSRF_TOKEN = "{{ csrf_token }}";
+        const faultType = document.getElementById("faultType");
+        const titleGroup = document.getElementById("faultTitleGroup");
+
+        faultType.addEventListener("change", function () {
+            if (this.value === "Other") {
+                titleGroup.style.display = "block";
+                document.getElementById("faultTitle").required = true;
+            } else {
+                titleGroup.style.display = "none";
+                document.getElementById("faultTitle").required = false;
+            }
+        });
+
+        document.getElementById("submitFault").addEventListener("click", async function () {
+            const selectedFaultType = document.getElementById("faultType").value;
+            const title = document.getElementById("faultTitle").value;
+            const description = document.getElementById("faultDescription").value;
+            const systemId = document.getElementById("layoutItemId").value;
+
+            if (!selectedFaultType || !description || !systemId) {
+                alert("Please fill out all required fields.");
+                return;
+            }
+
+            try {
+                const response = await fetch("/layout/report_fault/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": CSRF_TOKEN,
+                    },
+                    body: JSON.stringify({
+                        fault_type: selectedFaultType,
+                        title: selectedFaultType === "Other" ? title : null,
+                        description: description,
+                        system_id: systemId
+                    }),
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    alert("Fault reported successfully!");
+                    document.getElementById("newFaultForm").reset();
+                    titleGroup.style.display = "none";
+                    var modal = bootstrap.Modal.getInstance(document.getElementById("newFaultModal"));
+                    modal.hide();
+                } else {
+                    alert(data.error || "Something went wrong.");
+                }
+            } catch (error) {
+                console.error(error);
+                alert("Request failed.");
+            }
+        });
+    });
 </script>
+
 <script src="{% static 'system_layout/js/system-layout.js' %}"></script>
 {% endblock scripts %}
