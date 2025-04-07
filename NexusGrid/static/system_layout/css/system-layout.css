@@ -126,6 +126,7 @@
   border: 1px solid black;
   border-left: 5px solid #28a745;
 }
+
 .active .progress-bar {
   background-color: #28a745;
   width: 50%;
@@ -352,7 +353,29 @@
 
 .item-computer {
   background-color: #E8F0FE;
-  color: #1a56db;
+}
+.item-computer.active {
+  border: 2px solid #198754; /* darker green */
+  background-color: #d1e7dd; /* soft green */
+  color: #0f5132; /* deep green text */
+}
+
+.item-computer.inactive {
+  border: 2px solid #6c757d; /* medium grey */
+  background-color: #e2e3e5; /* soft grey */
+  color: #41464b; /* dark grey text */
+}
+
+.item-computer.non-functional {
+  border: 2px solid #dc3545; /* red */
+  background-color: #f8d7da; /* soft red */
+  color: #842029; /* dark red text */
+}
+
+.item-computer .item-icon i,
+.item-computer .item-name,
+.item-computer .item-type {
+  color: inherit; /* match text/icon color to parent */
 }
 
 .item-server {

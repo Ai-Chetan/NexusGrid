@@ -5,6 +5,12 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 function initQRScanner() {
+    const readerElement = document.getElementById("reader");
+    if (!readerElement) {
+        console.log("QR scanner not initialized: #reader element not found on this page.");
+        return;
+    }
+
     const html5QrCode = new Html5Qrcode("reader");
     const config = { fps: 10, qrbox: 250 };
 

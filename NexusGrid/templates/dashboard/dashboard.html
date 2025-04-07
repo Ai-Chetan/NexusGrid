@@ -9,161 +9,161 @@
 {% endblock head %}
 
 {% block main_content %}
-    <div class="content">
-        <div class="row">
-            <!-- Left Column: Two System Overview Containers -->
-            <div class="col-md-8">
-                <h2 class="overview-title mt-2"><i class="fas fa-search"></i> System Overview</h2>
-                <div class="row overview-section">
-                    <!-- System Overview - Set 1 -->
-                    <div class="col-md-4">
-                        <div class="overview-container">
-                            <div class="overview-card functional">
-                                <i class="fas fa-desktop text-secondary"></i>
-                                <div class="overview-details">
-                                    <h5>Functional Systems</h5>
-                                    <span class="count text-secondary">{{ functional_count }} / {{ total_systems }}</span>
-                                    <div class="progress-bar bg-secondary functional-bar"></div>
-                                </div>
+<div class="content">
+    <div class="row">
+        <!-- Left Column: Two System Overview Containers -->
+        <div class="col-md-8">
+            <h2 class="overview-title mt-2"><i class="fas fa-search"></i> System Overview</h2>
+            <div class="row overview-section">
+                <!-- System Overview - Set 1 -->
+                <div class="col-md-4">
+                    <div class="overview-container">
+                        <div class="overview-card functional">
+                            <i class="fas fa-desktop text-secondary"></i>
+                            <div class="overview-details">
+                                <h5>Functional Systems</h5>
+                                <span class="count text-secondary">{{ functional_count }} / {{ total_systems }}</span>
+                                <div class="progress-bar bg-secondary functional-bar"></div>
                             </div>
-            
-                            <div class="overview-card critical mt-2">
-                                <i class="fas fa-exclamation-circle text-danger"></i>
-                                <div class="overview-details">
-                                    <h5>Critical Systems</h5>
-                                    <span class="count text-danger">{{ critical_count }}</span>
-                                    <div class="progress-bar bg-warning critical-bar"></div>
-                                </div>
+                        </div>
+        
+                        <div class="overview-card critical mt-2">
+                            <i class="fas fa-exclamation-circle text-danger"></i>
+                            <div class="overview-details">
+                                <h5>Critical Systems</h5>
+                                <span class="count text-danger">{{ critical_count }}</span>
+                                <div class="progress-bar bg-warning critical-bar"></div>
                             </div>
                         </div>
                     </div>
-                    <!-- System Overview - Set 2 -->
-                    <div class="col-md-4">
+                </div>
+                <!-- System Overview - Set 2 -->
+                <div class="col-md-4">
+                    <div class="overview-container">
+                        <div class="overview-card active">
+                            <i class="fas fa-desktop text-success"></i>
+                            <div class="overview-details">
+                                <h5>Active Systems</h5>
+                                <span class="count text-success">{{ active_count }} / {{ total_systems }}</span>
+                                <div class="progress-bar bg-success active-bar"></div>
+                            </div>
+                        </div>
+        
                         <div class="overview-container">
-                            <div class="overview-card active">
-                                <i class="fas fa-desktop text-success"></i>
+                            <div class="overview-card fault  mt-2">
+                                <i class="fas fa-exclamation-triangle text-warning"></i>
                                 <div class="overview-details">
-                                    <h5>Active Systems</h5>
-                                    <span class="count text-success">{{ active_count }} / {{ total_systems }}</span>
+                                    <h5>Fault Reports</h5>
+                                    <span class="count text-warning">01</span>
                                     <div class="progress-bar bg-success active-bar"></div>
                                 </div>
                             </div>
-            
-                            <div class="overview-container">
-                                <div class="overview-card fault  mt-2">
-                                    <i class="fas fa-exclamation-triangle text-warning"></i>
-                                    <div class="overview-details">
-                                        <h5>Fault Reports</h5>
-                                        <span class="count text-warning">01</span>
-                                        <div class="progress-bar bg-success active-bar"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-            
-                    <!-- System Overview - Set 3 (Newly Added) -->
-                    <div class="col-md-4">
-                        <div class="overview-card utilization">
-                            <i class="fas fa-microchip text-secondary"></i>
-                            <div class="overview-details">
-                                <h5>System Utilization</h5>
-                                <span class="count text-secondary">{{ system_utilization }}%</span>
-                                <div class="progress-bar bg-success active-bar"></div>
-                            </div>
-                        </div>
-                        <div class="overview-card resource mt-2">
-                            <i class="fas fa-box text-info"></i>
-                            <div class="overview-details">
-                                <h5>Resource Requests</h5>
-                                <span class="count text-info">02</span>
-                                <div class="progress-bar bg-success active-bar"></div>
-                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
         
-            <!-- Right Column: Recent History -->
-            <div class="col-md-4">
-                <h2 class="overview-title mt-2"><i class="fas fa-history"></i> Recent History</h2>
-                <div class="history-container">
-                    <div class="history-card">
-                        <i class="fas fa-box text-primary"></i>
-                        <div class="text-container">
-                            <h6>Resource Request <span class="time">5 mins ago</span></h6>
-                            <span class="text-primary">Keyboard</span>
+                <!-- System Overview - Set 3 (Newly Added) -->
+                <div class="col-md-4">
+                    <div class="overview-card utilization">
+                        <i class="fas fa-microchip text-secondary"></i>
+                        <div class="overview-details">
+                            <h5>System Utilization</h5>
+                            <span class="count text-secondary">{{ system_utilization }}%</span>
+                            <div class="progress-bar bg-success active-bar"></div>
                         </div>
                     </div>
-                    
-                    <div class="history-card">
-                        <i class="fas fa-check-circle text-success"></i>
-                        <div class="text-container">
-                            <h6>Fault Resolved <span class="time">10 mins ago</span></h6>
-                            <span class="text-success">Power Saving Issue</span>
-                        </div>
-                    </div>
-                    
-                    <div class="history-card">
-                        <i class="fas fa-exclamation-triangle text-warning"></i>
-                        <div class="text-container">
-                            <h6>New Fault Report <span class="time">15 mins ago</span></h6>
-                            <span class="text-warning">Power Saving</span>
-                        </div>
-                    </div>
-                    
-                    <div class="history-card">
-                        <i class="fas fa-exclamation-circle text-danger"></i>
-                        <div class="text-container">
-                            <h6>Critical System Alert <span class="time">20 mins ago</span></h6>
-                            <span class="text-danger">High Temperature</span>
-                        </div>
-                    </div>
-                    <div class="text-end">
-                        <a class="text-dark" href="#">View More <i class="fas fa-arrow-right"></i></a>
-                    </div>
-                </div>
-            </div>   
-            <div class="role-panel" data-role="Lab Assistant">
-                <h2 class="overview-title mt-4"><i class="fas fa-laptop"></i> WORKPLACE</h2>
-                <div class="row d-flex flex-row justify-content-between p-4 pt-0">
-                    <div onclick="window.location.href=window.location.origin + '/layout/38/'" class="col-md-6 workspace-card d-flex flex-row align-items-center justify-content-center">
-                        <i class="fas fa-chalkboard icon-large text-secondary"></i>
-                        <div class="text-center">
-                            <h5>IT Lab 4</h5>
-                            <span class="text-muted">Wing A, Floor 3</span>
-                        </div>
-                    </div>
-                
-                    <div onclick="window.location.href=window.location.origin + '/layout/39/'" class="col-md-6 workspace-card d-flex flex-row align-items-center justify-content-center">
-                        <i class="fas fa-chalkboard icon-large text-secondary"></i>
-                        <div class="text-center">
-                            <h5>IT Lab 6</h5>
-                            <span class="text-muted">Wing A, Floor 3</span>
+                    <div class="overview-card resource mt-2">
+                        <i class="fas fa-box text-info"></i>
+                        <div class="overview-details">
+                            <h5>Resource Requests</h5>
+                            <span class="count text-info">02</span>
+                            <div class="progress-bar bg-success active-bar"></div>
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <h2 class="overview-title mt-3"><i class="fas fa-chart-line"></i> Performance and Fault Trends</h2>
-            <div class="row">
-                <div class="col-md-6">
-                    <div id="faultTrendChart" class="graph-box"></div>
-                </div>
-                <div class="col-md-6">
-                    <div id="faultDistributionChart" class="graph-box"></div>
-                </div>
-                <div class="col-md-6">
-                    <div id="resourceRequestChart" class="graph-box"></div>
-                </div>
-                <div class="col-md-6">
-                    <div id="performanceChart" class="graph-box">
-                    </div>
-                </div>
-            </div>
-            
         </div>
+    
+        <!-- Right Column: Recent History -->
+        <div class="col-md-4">
+            <h2 class="overview-title mt-2"><i class="fas fa-history"></i> Recent History</h2>
+            <div class="history-container">
+                <div class="history-card">
+                    <i class="fas fa-box text-primary"></i>
+                    <div class="text-container">
+                        <h6>Resource Request <span class="time">5 mins ago</span></h6>
+                        <span class="text-primary">Keyboard</span>
+                    </div>
+                </div>
+                
+                <div class="history-card">
+                    <i class="fas fa-check-circle text-success"></i>
+                    <div class="text-container">
+                        <h6>Fault Resolved <span class="time">10 mins ago</span></h6>
+                        <span class="text-success">Power Saving Issue</span>
+                    </div>
+                </div>
+                
+                <div class="history-card">
+                    <i class="fas fa-exclamation-triangle text-warning"></i>
+                    <div class="text-container">
+                        <h6>New Fault Report <span class="time">15 mins ago</span></h6>
+                        <span class="text-warning">Power Saving</span>
+                    </div>
+                </div>
+                
+                <div class="history-card">
+                    <i class="fas fa-exclamation-circle text-danger"></i>
+                    <div class="text-container">
+                        <h6>Critical System Alert <span class="time">20 mins ago</span></h6>
+                        <span class="text-danger">High Temperature</span>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <a class="text-dark" href="#">View More <i class="fas fa-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>   
+        <div class="role-panel" data-role="Lab Assistant">
+            <h2 class="overview-title mt-4"><i class="fas fa-laptop"></i> WORKPLACE</h2>
+            <div class="row d-flex flex-row justify-content-between p-4 pt-0">
+                <div onclick="window.location.href=window.location.origin + '/layout/38/'" class="col-md-6 workspace-card d-flex flex-row align-items-center justify-content-center">
+                    <i class="fas fa-chalkboard icon-large text-secondary"></i>
+                    <div class="text-center">
+                        <h5>IT Lab 4</h5>
+                        <span class="text-muted">Wing A, Floor 3</span>
+                    </div>
+                </div>
+            
+                <div onclick="window.location.href=window.location.origin + '/layout/39/'" class="col-md-6 workspace-card d-flex flex-row align-items-center justify-content-center">
+                    <i class="fas fa-chalkboard icon-large text-secondary"></i>
+                    <div class="text-center">
+                        <h5>IT Lab 6</h5>
+                        <span class="text-muted">Wing A, Floor 3</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <h2 class="overview-title mt-3"><i class="fas fa-chart-line"></i> Performance and Fault Trends</h2>
+        <div class="row">
+            <div class="col-md-6">
+                <div id="faultTrendChart" class="graph-box"></div>
+            </div>
+            <div class="col-md-6">
+                <div id="faultDistributionChart" class="graph-box"></div>
+            </div>
+            <div class="col-md-6">
+                <div id="resourceRequestChart" class="graph-box"></div>
+            </div>
+            <div class="col-md-6">
+                <div id="performanceChart" class="graph-box">
+                </div>
+            </div>
+        </div>
+        
     </div>
+</div>
 {% endblock main_content %}
 {% block scripts %}
 <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>

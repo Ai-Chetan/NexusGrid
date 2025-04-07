@@ -108,22 +108,34 @@ document.addEventListener('DOMContentLoaded', function() {
     // Create DOM element for a layout item
     function createItemElement(item) {
         const itemElement = document.createElement('div');
-        itemElement.className = `layout-item item-${item.item_type}`;
+    
+        // Default extra class is empty
+        let extraClass = '';
+    
+        // If it's a computer and has a status, add status as a class
+        if (item.item_type === 'computer' && item.status) {
+            extraClass = ` ${item.status}`;  // e.g. ' active', ' non-functional'
+        }
+    
+        // Set the class name with item type and optional status
+        itemElement.className = `layout-item item-${item.item_type}${extraClass}`;
         itemElement.dataset.id = item.id;
         itemElement.dataset.type = item.item_type;
-        
-        // Set grid position and size
+    
+        // Grid positioning
         itemElement.style.gridColumn = `${item.position_x + 1} / span ${item.width}`;
         itemElement.style.gridRow = `${item.position_y + 1} / span ${item.height}`;
-        
-        // Set content
+    
+        // Get icon info
         const typeInfo = itemTypes[item.item_type] || { icon: 'fa-question' };
+    
+        // Set inner HTML
         itemElement.innerHTML = `
             <div class="item-icon"><i class="fas ${typeInfo.icon}"></i></div>
             <div class="item-name">${item.name}</div>
             <div class="item-type">${formatType(item.item_type)}</div>
         `;
-        
+    
         return itemElement;
     }
     

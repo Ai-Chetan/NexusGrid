@@ -258,19 +258,13 @@ body {
   display: none; /* Hide all role panels by default */ 
 }
 
-.main {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  margin: 0 auto;
-  background: linear-gradient(to right, #f8f9fa, #e9ecef);
-}
-
 .scanner-page-wrapper {
+  width: 100vw;
   padding: 2rem;
-  max-width: 800px;
-  margin: 0 auto;
+  display: flex;
+  justify-content: center;  /* centers child content horizontally */
+  align-items: center;      /* optional: centers vertically too */
+  box-sizing: border-box;   /* ensures padding doesn't overflow width */
 }
 
 /* ===== Heading Style ===== */

@@ -11,6 +11,7 @@ import socket
 from .models import LayoutItem, Lab, System
 from login_manager.models import User
 from faults.models import FaultReport
+from monitoring.models import SystemInfo
 
 @login_required(login_url="/login/")
 def layout_view(request, item_id=None):
@@ -41,7 +42,7 @@ def layout_view(request, item_id=None):
         functional_percent = (functional_count / total_systems) * 100
         critical_percent = (critical_count / total_systems) * 100
         active_percent = (active_count / total_systems) * 100
-        system_utilization = round((active_count / functional_count) * 100, 2)
+        system_utilization = round((active_count / (functional_count if functional_count != 0 else 1)) * 100, 2)
     else:
         functional_percent = critical_percent = active_percent = system_utilization = 0
 
@@ -68,15 +69,26 @@ def system_details(request, item_id=None):
         return render(request, 'system-layout/system-details.html', {"system_info": system_info})
     return HttpResponse("Invalid request", status=400)
 
-
 def get_layout_items(request):
     parent_id = request.GET.get('parent_id')
     parent_id = int(parent_id) if parent_id and parent_id.isdigit() else None 
     
     items = LayoutItem.objects.filter(parent_id=parent_id) if parent_id else LayoutItem.objects.filter(parent__isnull=True)
-    
-    return JsonResponse({'items': [item.to_dict() for item in items]})
 
+    item_list = []
+    for item in items:
+        item_dict = item.to_dict()
+        
+        # If item is a computer, fetch status from system table
+        if item.item_type == 'computer':
+            system = System.objects.filter(layout_item_id=item.id).first()
+            item_dict['status'] = system.status if system else None  # Could be 'active', 'inactive', etc.
+        else:
+            item_dict['status'] = None
+
+        item_list.append(item_dict)
+
+    return JsonResponse({'items': item_list})
 
 def get_parent(request):
     item_id = request.GET.get('item_id')
@@ -190,41 +202,56 @@ def save_layout(request):
 
 def get_system_info():
     try:
+        current_host = socket.gethostname()
+        system_info = SystemInfo.objects.filter(hostname=current_host).order_by('-timestamp').first()
+
+        if not system_info:
+            return {}
+
         info = {
             "System Information": {
-                "Hostname": socket.gethostname(),
-                "System": platform.system(),
-                "Version": platform.version(),
-                "Release": platform.release(),
-                "Machine": platform.machine(),
-                "Processor": platform.processor(),
-                "Architecture": platform.architecture()[0]
+                "Hostname": system_info.hostname,
+                "System": system_info.system,
+                "Version": system_info.version,
+                "Release": system_info.release,
+                "Machine": system_info.machine,
+                "Processor": system_info.processor,
+                "Architecture": system_info.architecture
             },
             "CPU Information": {
-                "Physical Cores": psutil.cpu_count(logical=False),
-                "Total Cores": psutil.cpu_count(logical=True),
-                "Max Frequency (MHz)": psutil.cpu_freq().max,
-                "Min Frequency (MHz)": psutil.cpu_freq().min,
-                "Current Frequency (MHz)": psutil.cpu_freq().current,
-                "CPU Usage (%)": psutil.cpu_percent(interval=1)
+                "Physical Cores": system_info.cpu_physical_cores,
+                "Total Cores": system_info.cpu_total_cores,
+                "Max Frequency (MHz)": system_info.cpu_max_freq,
+                "Min Frequency (MHz)": system_info.cpu_min_freq,
+                "Current Frequency (MHz)": system_info.cpu_current_freq,
+                "CPU Usage (%)": system_info.cpu_usage
             },
             "Memory Information": {
-                "Total Memory (GB)": round(psutil.virtual_memory().total / (1024 ** 3), 2),
-                "Available Memory (GB)": round(psutil.virtual_memory().available / (1024 ** 3), 2),
-                "Used Memory (GB)": round(psutil.virtual_memory().used / (1024 ** 3), 2),
-                "Memory Usage (%)": psutil.virtual_memory().percent
+                "Total Memory (GB)": system_info.memory_total,
+                "Available Memory (GB)": system_info.memory_available,
+                "Used Memory (GB)": system_info.memory_used,
+                "Memory Usage (%)": system_info.memory_usage_percent
             },
             "Disk Information": {
-                "Total Disk Space (GB)": round(psutil.disk_usage('/').total / (1024 ** 3), 2),
-                "Used Disk Space (GB)": round(psutil.disk_usage('/').used / (1024 ** 3), 2),
-                "Free Disk Space (GB)": round(psutil.disk_usage('/').free / (1024 ** 3), 2),
-                "Disk Usage (%)": psutil.disk_usage('/').percent
+                "Total Disk Space (GB)": system_info.disk_total,
+                "Used Disk Space (GB)": system_info.disk_used,
+                "Free Disk Space (GB)": system_info.disk_free,
+                "Disk Usage (%)": system_info.disk_usage_percent
             },
             "Network Information": {
-                "IP Address": socket.gethostbyname(socket.gethostname())
-            }
+                "IP Address": system_info.ip_address,
+                "Bytes Sent": system_info.bytes_sent,
+                "Bytes Received": system_info.bytes_received
+            },
+            "User Information": {
+                "Users Count": system_info.users_count,
+                "Logged In Users": system_info.logged_in_users
+            },
+            "Timestamp": system_info.timestamp
         }
+
         return info
+
     except Exception as e:
         print(f"Error fetching system info: {e}")
         return {}

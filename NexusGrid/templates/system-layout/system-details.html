@@ -11,31 +11,124 @@
 {% block main_content %}
 <div class="container">
     <h1 class="text-center my-4">Computer System Details</h1>
-    <div class="d-flex flex-row justify-content-end mb-3">
-        <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#newFaultModal">
-            <i class="fas fa-plus me-2"></i>New Fault Report
-        </button>
-    </div>
+    
     {% if system_info %}
     <div class="row">
-        {% for category, details in system_info.items %}
+        <!-- System Info -->
         <div class="col-md-6 mb-4">
             <div class="card shadow">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="fa fa-desktop"></i> {{ category }}</h5>
+                    <i class="fa fa-laptop-code me-2"></i>System Info
                 </div>
                 <div class="card-body">
                     <ul class="list-group list-group-flush">
-                        {% for key, value in details.items %}
-                        <li class="list-group-item">
-                            <strong>{{ key }}:</strong> {{ value }}
-                        </li>
-                        {% endfor %}
+                        <li class="list-group-item"><strong>Hostname:</strong> {{ system_info.hostname }}</li>
+                        <li class="list-group-item"><strong>System:</strong> {{ system_info.system }}</li>
+                        <li class="list-group-item"><strong>Version:</strong> {{ system_info.version }}</li>
+                        <li class="list-group-item"><strong>Release:</strong> {{ system_info.release }}</li>
+                        <li class="list-group-item"><strong>Machine:</strong> {{ system_info.machine }}</li>
+                        <li class="list-group-item"><strong>Architecture:</strong> {{ system_info.architecture }}</li>
                     </ul>
                 </div>
             </div>
         </div>
-        {% endfor %}
+
+        <!-- CPU Info -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-danger text-white">
+                    <i class="fa fa-microchip me-2"></i>CPU Info
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Processor:</strong> {{ system_info.processor }}</li>
+                        <li class="list-group-item"><strong>Physical Cores:</strong> {{ system_info.cpu_physical_cores }}</li>
+                        <li class="list-group-item"><strong>Total Cores:</strong> {{ system_info.cpu_total_cores }}</li>
+                        <li class="list-group-item"><strong>Max Frequency:</strong> {{ system_info.cpu_max_freq }}</li>
+                        <li class="list-group-item"><strong>Min Frequency:</strong> {{ system_info.cpu_min_freq }}</li>
+                        <li class="list-group-item"><strong>Current Frequency:</strong> {{ system_info.cpu_current_freq }}</li>
+                        <li class="list-group-item"><strong>CPU Usage:</strong> {{ system_info.cpu_usage }}%</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Memory Info -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <i class="fa fa-memory me-2"></i>Memory Info
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Total Memory:</strong> {{ system_info.memory_total }}</li>
+                        <li class="list-group-item"><strong>Available Memory:</strong> {{ system_info.memory_available }}</li>
+                        <li class="list-group-item"><strong>Used Memory:</strong> {{ system_info.memory_used }}</li>
+                        <li class="list-group-item"><strong>Memory Usage %:</strong> {{ system_info.memory_usage_percent }}%</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Disk Info -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">
+                    <i class="fa fa-hdd me-2"></i>Disk Info
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Total Disk:</strong> {{ system_info.disk_total }}</li>
+                        <li class="list-group-item"><strong>Used Disk:</strong> {{ system_info.disk_used }}</li>
+                        <li class="list-group-item"><strong>Free Disk:</strong> {{ system_info.disk_free }}</li>
+                        <li class="list-group-item"><strong>Disk Usage %:</strong> {{ system_info.disk_usage_percent }}%</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Network Info -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <i class="fa fa-network-wired me-2"></i>Network Info
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>IP Address:</strong> {{ system_info.ip_address }}</li>
+                        <li class="list-group-item"><strong>Bytes Sent:</strong> {{ system_info.bytes_sent }}</li>
+                        <li class="list-group-item"><strong>Bytes Received:</strong> {{ system_info.bytes_received }}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Info -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-secondary text-white">
+                    <i class="fa fa-users me-2"></i>User Info
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Users Count:</strong> {{ system_info.users_count }}</li>
+                        <li class="list-group-item"><strong>Logged In Users:</strong> {{ system_info.logged_in_users }}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timestamp -->
+        <div class="col-12 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-dark text-white">
+                    <i class="fa fa-clock me-2"></i>Timestamp
+                </div>
+                <div class="card-body">
+                    <p class="mb-0"><strong>Recorded At:</strong> {{ system_info.timestamp }}</p>
+                </div>
+            </div>
+        </div>
     </div>
     {% else %}
     <div class="alert alert-warning text-center" role="alert">
@@ -43,42 +136,11 @@
     </div>
     {% endif %}
 </div>
-
-<div class="modal fade" id="newFaultModal" tabindex="-1" aria-labelledby="newFaultModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="newFaultModalLabel">Report New Fault</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="newFaultForm">
-                    {% csrf_token %}
-                    <div class="mb-3">
-                        <label for="faultTitle" class="form-label">Fault Title*</label>
-                        <input type="text" class="form-control" id="faultTitle" placeholder="Brief description of the issue" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="faultDescription" class="form-label">Fault Description*</label>
-                        <textarea class="form-control" id="faultDescription" rows="4" placeholder="Detailed description of the issue" required></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger" id="submitFault">Submit Fault Report</button>
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock main_content %}
 
 {% block scripts %}
 <script>
-    const PARENT_ID = "{% if parent_id %}{{ parent_id }}{% else %}null{% endif %}";
     const CSRF_TOKEN = "{{ csrf_token }}";
-    const STATIC_URL = "{% static '' %}";
-    const PARENT_TYPE = "{% if parent %}{{ parent.item_type }}{% else %}null{% endif %}";
 </script>
 <script src="{% static 'system_layout/js/system-layout.js' %}"></script>
 {% endblock scripts %}

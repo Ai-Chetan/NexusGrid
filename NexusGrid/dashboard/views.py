@@ -23,7 +23,7 @@ def dashboard_view(request):
         functional_percent = (functional_count / total_systems) * 100
         critical_percent = (critical_count / total_systems) * 100
         active_percent = (active_count / total_systems) * 100
-        system_utilization = round((active_count / functional_count) * 100, 2)
+        system_utilization = round((active_count / (functional_count if functional_count != 0 else 1)) * 100, 2)
     else:
         functional_percent = critical_percent = active_percent = system_utilization = 0
 
