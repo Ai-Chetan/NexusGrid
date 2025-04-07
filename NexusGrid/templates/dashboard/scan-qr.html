@@ -1,0 +1,46 @@
+{% extends "dashboard/sidebar.html" %}
+{% load static %}
+
+{% block title %}| QR Code Scanner{% endblock title %}
+
+{% block head %}
+<link href="{% static 'dashboard/css/dashboard.css' %}" rel="stylesheet">
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+{% endblock head %}
+
+{% block main_content %}
+<div class="scanner-page-wrapper">
+    <div class="text-center">
+        <h1 class="mb-3 animate__animated animate__fadeIn">QR Code Scanner</h1>
+        <p class="text-muted mb-4 animate__animated animate__fadeIn animate__delay-1s">
+            Align the QR code within the frame to scan
+        </p>
+
+        <div class="scanner-container mb-3 animate__animated animate__fadeInUp">
+            <div id="reader"></div>
+            <div class="overlay">
+                <div class="corner top-left"></div>
+                <div class="corner top-right"></div>
+                <div class="corner bottom-left"></div>
+                <div class="corner bottom-right"></div>
+            </div>
+        </div>
+
+        <!-- Loader after scan -->
+        <div class="loader text-center animate__animated animate__fadeIn">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Processing...</span>
+            </div>
+            <p class="mt-2">Processing scanned data...</p>
+        </div>
+    </div>
+</div>
+{% endblock main_content %}
+
+{% block scripts %}
+<script src="{% static 'dashboard/js/dashboard.js' %}"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock scripts %}

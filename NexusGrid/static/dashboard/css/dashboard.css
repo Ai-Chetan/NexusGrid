@@ -257,3 +257,157 @@ body {
 .role-panel {
   display: none; /* Hide all role panels by default */ 
 }
+
+.main {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0 auto;
+  background: linear-gradient(to right, #f8f9fa, #e9ecef);
+}
+
+.scanner-page-wrapper {
+  padding: 2rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* ===== Heading Style ===== */
+h1 {
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 1.5rem;
+  position: relative;
+  display: inline-block;
+}
+
+h1:after {
+  content: '';
+  position: absolute;
+  width: 60px;
+  height: 4px;
+  background: linear-gradient(90deg, #4a6cf7, #00c853);
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 2px;
+}
+
+/* ===== Scanner Container ===== */
+.scanner-container {
+  position: relative;
+  width: 340px;
+  height: 340px;
+  margin: 0 auto;
+  background: #000;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+}
+
+#reader {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ===== Overlay Corners ===== */
+.corner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #4a6cf7;
+  position: absolute;
+  animation: pulse 2s infinite;
+}
+
+.top-left {
+  top: 10px;
+  left: 10px;
+  border-right: none;
+  border-bottom: none;
+  border-top-left-radius: 8px;
+}
+
+.top-right {
+  top: 10px;
+  right: 10px;
+  border-left: none;
+  border-bottom: none;
+  border-top-right-radius: 8px;
+}
+
+.bottom-left {
+  bottom: 10px;
+  left: 10px;
+  border-top: none;
+  border-right: none;
+  border-bottom-left-radius: 8px;
+}
+
+.bottom-right {
+  bottom: 10px;
+  right: 10px;
+  border-top: none;
+  border-left: none;
+  border-bottom-right-radius: 8px;
+}
+
+/* ===== Scan Line Animation ===== */
+.scan-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(to right, #4a6cf7, #00c853);
+  animation: moveScanLine 2s linear infinite;
+}
+
+@keyframes moveScanLine {
+  0% {
+    top: 0%;
+  }
+  100% {
+    top: 100%;
+  }
+}
+
+/* ===== Pulse Effect for Corners ===== */
+@keyframes pulse {
+  0% {
+    opacity: 0.6;
+    border-color: #4a6cf7;
+  }
+  50% {
+    opacity: 1;
+    border-color: #00c853;
+  }
+  100% {
+    opacity: 0.6;
+    border-color: #4a6cf7;
+  }
+}
+
+/* ===== Mobile Responsive ===== */
+@media (max-width: 576px) {
+  .scanner-container {
+    width: 280px;
+    height: 280px;
+  }
+  
+  .corner {
+    width: 40px;
+    height: 40px;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+}

@@ -4,6 +4,7 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from system_layout.models import System
+from django.views.decorators.csrf import csrf_exempt
 import json
 
 from django.urls import reverse
@@ -42,3 +43,28 @@ def dashboard_view(request):
 def user_logout(request):
     logout(request)  # Logs out the user
     return redirect(reverse("/login/"))
+
+def qr_scanner(request):
+    return render(request, 'dashboard/scan-qr.html')
+
+@csrf_exempt
+def scan_result(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            qr_data = data.get('qr_data', '')
+
+            # For testing: print data in console
+            print("QR Data:", qr_data)
+
+            # Check if the scanned data is a digit (like an ID)
+            if qr_data.isdigit():
+                return JsonResponse({'redirect_url': f'/layout/details/{qr_data}/'})
+            else:
+                # Fallback: redirect to dashboard or error page
+                return JsonResponse({'redirect_url': f'/dashboard/?qr_data={qr_data}'})
+
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
