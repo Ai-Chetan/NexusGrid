@@ -82,7 +82,7 @@
 
     <!-- Results Stats -->
     <div class="d-flex justify-content-between mb-3">
-        <h4 id="resultsCount">Showing all fault reports (5)</h4>
+        <h4 id="resultsCount">Showing all fault reports</h4>
         <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#newFaultModal">
             <i class="fas fa-plus me-2"></i>New Fault Report
         </button>
@@ -163,33 +163,42 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form id="newFaultForm">
+                <form id="newRequestForm">
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label for="hostname" class="form-label">Hostname*</label>
+                            <label for="hostname" class="form-label">System Name*</label>
                             <input type="text" class="form-control" id="hostname" placeholder="e.g. PC-ITL6-001" required>
                         </div>
                         <div class="col-md-6">
-                            <label for="location" class="form-label">Location*</label>
-                            <input type="text" class="form-control" id="location" placeholder="e.g. IT Lab 6" required>
+                            <label for="labLocation" class="form-label">Location*</label>
+                            <input type="text" class="form-control" id="labLocation" placeholder="e.g. IT Lab 6" required>
                         </div>
                     </div>
+            
                     <div class="mb-3">
-                        <label for="faultTitle" class="form-label">Fault Title*</label>
-                        <input type="text" class="form-control" id="faultTitle" placeholder="Brief description of the issue" required>
+                        <label for="resourceType" class="form-label">Resource Type*</label>
+                        <select class="form-select" id="resourceType" required>
+                            <option value="">Select resource type</option>
+                            <option value="Hardware">Hardware</option>
+                            <option value="Software">Software</option>
+                            <option value="Network">Network</option>
+                        </select>
                     </div>
+            
                     <div class="mb-3">
-                        <label for="faultDescription" class="form-label">Fault Description*</label>
-                        <textarea class="form-control" id="faultDescription" rows="4" placeholder="Detailed description of the issue including steps to reproduce" required></textarea>
+                        <label for="requestDescription" class="form-label">Resource Description*</label>
+                        <textarea class="form-control" id="requestDescription" rows="4" placeholder="Details about the resource needed and the reason" required></textarea>
                     </div>
+            
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label for="reporterName" class="form-label">Reported By*</label>
-                            <input type="text" class="form-control" id="reporterName" placeholder="Your name" required>
+                            <label for="requesterName" class="form-label">Requested By*</label>
+                            <input type="text" class="form-control" id="requesterName" placeholder="Your name" required>
                         </div>
                     </div>
                 </form>
             </div>
+            
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-danger" id="submitFault">Submit Fault Report</button>

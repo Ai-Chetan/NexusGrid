@@ -1,7 +1,7 @@
 {% extends "dashboard/sidebar.html" %}
 {% load static %}
 
-{% block title %}| Falt Reports{% endblock title %}
+{% block title %}| Resource requests{% endblock title %}
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
@@ -18,7 +18,7 @@
                     <span class="input-group-text bg-primary text-white">
                         <i class="fas fa-search"></i>
                     </span>
-                    <input type="text" id="searchInput" class="form-control form-control-lg" placeholder="Search for Fault Reports by hostname, location or title...">
+                    <input type="text" id="searchInput" class="form-control form-control-lg" placeholder="Search for Resource requested by hostname, location or title...">
                     <button class="btn btn-primary" type="button" id="searchButton">Search</button>
                 </div>
             </div>
@@ -80,55 +80,55 @@
         </div>
     </div>
 
-    <!-- Results Stats -->
+    <!-- Results Header -->
     <div class="d-flex justify-content-between mb-3">
-        <h4 id="resultsCount">Showing all fault reports (5)</h4>
-        <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#newFaultModal">
-            <i class="fas fa-plus me-2"></i>New Fault Report
+        <h4 id="resultsCount">Showing all resource requests</h4>
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#newRequestModal">
+            <i class="fas fa-plus me-2"></i>New Resource Request
         </button>
     </div>
 
     <!-- No Results Message -->
     <div id="noResultsMessage">
-        <i class="fas fa-search fa-3x text-muted mb-3"></i>
-        <h4>No fault reports found</h4>
-        <p class="text-muted">Try adjusting your search criteria or filters</p>
+        <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+        <h4>No resource requests found</h4>
+        <p class="text-muted">Try adjusting your search or filters</p>
     </div>
 
-    <!-- Fault Reports Container -->
-    <div id="faultReportsContainer">
-        {% for report in fault_reports %}
-        <div class="fault-card {{ report.status|lower }}" data-status="{{ report.status|lower }}" data-date="{{ report.reported_at|date:"Y-m-d\\TH:i:s" }}">
+    <!-- Request Cards -->
+    <div id="requestsContainer">
+        {% for request in resource_requests %}
+        <div class="resource-card {{ request.status|lower }}" data-status="{{ request.status|lower }}" data-date="{{ request.requested_at|date:"Y-m-d\\TH:i:s" }}">
             <div class="row g-0">
                 <div class="col-md-1 d-flex align-items-center justify-content-center">
-                    <i class="fas fa-desktop computer-icon"></i>
+                    <i class="fas fa-cubes resource-icon"></i>
                 </div>
                 <div class="col-md-11">
-                    <div class="fault-details">
+                    <div class="request-details">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <div>
-                                <div class="hostname">{{ report.system_name.system.host_name }}</div>
-                                <div class="location"><i class="fas fa-map-marker-alt me-1"></i>{{ report.system_name.system.lab.lab_name }}</div> <!-- Corrected -->
+                                <div class="requester">{{ request.requested_by.username }}</div>
+                                <div class="location"><i class="fas fa-map-marker-alt me-1"></i>{{ request.system_name.lab.lab_name }}</div>
                             </div>
-                            <span class="badge bg-{% if report.status == 'Pending' %}danger{% elif report.status == 'Resolved' %}success{% else %}secondary{% endif %} status-badge">{{ report.status }}</span>
+                            <span class="badge bg-{% if request.status == 'Pending' %}warning{% elif request.status == 'Approved' %}success{% else %}secondary{% endif %} status-badge">{{ request.status }}</span>
                         </div>
-                        <h5 class="fault-title">{{ report.fault_type }}</h5>
-                        <p class="fault-description">{{ report.description }}</p>
+                        <h5 class="resource-title">{{ request.resource_type }}</h5>
+                        <p class="resource-description">{{ request.description }}</p>
                         <div class="d-flex justify-content-between align-items-center">
-                            <span class="timestamp"><i class="far fa-clock me-1"></i>Reported: {{ report.reported_at|date:"F d, Y (h:i A)" }}</span>
-                            <div class="d-flex flex-row align-items-center">
-                                <form method="post" action="{% url 'update_fault_status' fault_id=report.fault_id %}">
-                                    {% csrf_token %}
-                                    <select class="status-selector me-2" name="status" style="width: auto;">
-                                        <option value="unaddressed" {% if report.status == 'Pending' %}selected{% endif %}>Unaddressed</option>
-                                        <option value="in-progress" {% if report.status == 'in-progress' %}selected{% endif %}>In Progress</option>
-                                        <option value="scheduled" {% if report.status == 'scheduled' %}selected{% endif %}>Scheduled for Later</option>
-                                        <option value="resolved" {% if report.status == 'Resolved' %}selected{% endif %}>Resolved</option>
-                                        <option value="ignored" {% if report.status == 'ignored' %}selected{% endif %}>Ignored - Not Actionable</option>
-                                    </select>
-                                    <button class="btn btn-outline-primary" type="submit">Update</button>
-                                </form>
-                            </div>
+                            <span class="timestamp"><i class="far fa-clock me-1"></i>Requested: {{ request.requested_at|date:"F d, Y (h:i A)" }}</span>
+                            {% if request.id %}
+                            <form method="post" action="{% url 'update_resource_status' resource_id=request.id %}">
+                                {% csrf_token %}
+                                <select class="status-selector me-2" name="status" style="width: auto;">
+                                    <option value="Pending" {% if request.status == 'Pending' %}selected{% endif %}>Pending</option>
+                                    <option value="In Progress" {% if request.status == 'In Progress' %}selected{% endif %}>In Progress</option>
+                                    <option value="Approved" {% if request.status == 'Approved' %}selected{% endif %}>Approved</option>
+                                    <option value="Fulfilled" {% if request.status == 'Fulfilled' %}selected{% endif %}>Fulfilled</option>
+                                    <option value="Denied" {% if request.status == 'Denied' %}selected{% endif %}>Denied</option>
+                                </select>
+                                <button class="btn btn-outline-success" type="submit">Update</button>
+                            </form>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -136,37 +136,32 @@
         </div>
         {% endfor %}
     </div>
-    
 
     <!-- Pagination -->
-    <nav aria-label="Fault reports navigation" class="mt-4">
+    <nav aria-label="Page navigation" class="mt-4">
         <ul class="pagination justify-content-center">
-            <li class="page-item disabled">
-                <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Previous</a>
-            </li>
+            <li class="page-item disabled"><a class="page-link" href="#">Previous</a></li>
             <li class="page-item active"><a class="page-link" href="#">1</a></li>
             <li class="page-item"><a class="page-link" href="#">2</a></li>
             <li class="page-item"><a class="page-link" href="#">3</a></li>
-            <li class="page-item">
-                <a class="page-link" href="#">Next</a>
-            </li>
+            <li class="page-item"><a class="page-link" href="#">Next</a></li>
         </ul>
-    </nav>  
+    </nav>
 </div>
 
-<!-- New Fault Modal -->
-<div class="modal fade" id="newFaultModal" tabindex="-1" aria-labelledby="newFaultModalLabel" aria-hidden="true">
+<!-- New Resource Request Modal -->
+<div class="modal fade" id="newRequestModal" tabindex="-1" aria-labelledby="newRequestModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="newFaultModalLabel">Report New Fault</h5>
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="newRequestModalLabel">New Resource Request</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form id="newFaultForm">
+                <form id="newRequestForm">
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label for="hostname" class="form-label">Hostname*</label>
+                            <label for="hostname" class="form-label">System Name*</label>
                             <input type="text" class="form-control" id="hostname" placeholder="e.g. PC-ITL6-001" required>
                         </div>
                         <div class="col-md-6">
@@ -174,25 +169,29 @@
                             <input type="text" class="form-control" id="location" placeholder="e.g. IT Lab 6" required>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="faultTitle" class="form-label">Fault Title*</label>
-                        <input type="text" class="form-control" id="faultTitle" placeholder="Brief description of the issue" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="faultDescription" class="form-label">Fault Description*</label>
-                        <textarea class="form-control" id="faultDescription" rows="4" placeholder="Detailed description of the issue including steps to reproduce" required></textarea>
-                    </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label for="reporterName" class="form-label">Reported By*</label>
-                            <input type="text" class="form-control" id="reporterName" placeholder="Your name" required>
+                            <label for="requesterName" class="form-label">Requested By*</label>
+                            <input type="text" class="form-control" id="requesterName" required>
                         </div>
+                        <div class="col-md-6">
+                            <label for="lab" class="form-label">Lab*</label>
+                            <input type="text" class="form-control" id="lab" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="resourceType" class="form-label">Resource Type*</label>
+                        <input type="text" class="form-control" id="resourceType" placeholder="e.g. RAM, Mouse, Keyboard" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="requestDescription" class="form-label">Description*</label>
+                        <textarea class="form-control" id="requestDescription" rows="4" required></textarea>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger" id="submitFault">Submit Fault Report</button>
+                <button type="button" class="btn btn-success" id="submitRequest">Submit Request</button>
             </div>
         </div>
     </div>

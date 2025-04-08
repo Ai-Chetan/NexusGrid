@@ -9,6 +9,8 @@ from django.views.decorators.http import require_POST
 from .models import LayoutItem, Lab, System
 from login_manager.models import User
 from faults.models import FaultReport
+from resources.models import ResourceRequest
+from django.db.models import Q
 from monitoring.models import SystemInfo
 
 @login_required(login_url="/login/")
@@ -293,6 +295,40 @@ def submit_fault_report(request):
             )
 
             return JsonResponse({"message": "Fault reported successfully.", "fault_id": report.fault_id}, status=201)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Invalid method"}, status=405)
+
+@csrf_exempt
+def submit_resource_request(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+
+            resource_type = data.get("resource_type")
+            description = data.get("resource_name")  # mapping "resource_name" from frontend to "description"
+            system_id = data.get("system_id")
+
+            if not resource_type or not description or not system_id:
+                return JsonResponse({"error": "Missing required fields."}, status=400)
+
+            if not request.user.is_authenticated:
+                return JsonResponse({"error": "User not authenticated."}, status=401)
+
+            request_entry = ResourceRequest.objects.create(
+                resource_type=resource_type,
+                description=description,
+                system_name_id=system_id,
+                requested_by=request.user,
+                status="Pending"  # Set default status
+            )
+
+            return JsonResponse({
+                "message": "Resource request submitted successfully.",
+                "request_id": request_entry.resource_id
+            }, status=201)
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
