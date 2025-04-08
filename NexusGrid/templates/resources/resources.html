@@ -5,7 +5,7 @@
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-<link href="{% static 'faults/css/faults.css' %}" rel="stylesheet">
+<link href="{% static 'resources/css/resources.css' %}" rel="stylesheet">
 {% endblock head %}
 
 {% block main_content %}
@@ -42,11 +42,11 @@
                 <label for="statusFilter" class="form-label"><i class="fas fa-filter me-2"></i>Status:</label>
                 <select class="form-select" id="statusFilter">
                     <option value="all">All Statuses</option>
-                    <option value="unaddressed">Unaddressed</option>
-                    <option value="in-progress">In Progress</option>
-                    <option value="scheduled">Scheduled</option>
-                    <option value="resolved">Resolved</option>
-                    <option value="ignored">Ignored</option>
+                    <option value="Pending">Pending</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Fulfilled">Fulfilled</option>
+                    <option value="Denied">Denied</option>
                 </select>
             </div>
             <div class="col-md-4 mb-2">
@@ -54,6 +54,7 @@
                 <select class="form-select" id="sortBy">
                     <option value="newest">Newest First</option>
                     <option value="oldest">Oldest First</option>
+                    <option value="priority">By Priority</option>
                 </select>
             </div>
             <!-- Custom date range inputs (initially hidden) -->
@@ -89,7 +90,7 @@
     </div>
 
     <!-- No Results Message -->
-    <div id="noResultsMessage">
+    <div id="noResultsMessage" style="display: none;">
         <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
         <h4>No resource requests found</h4>
         <p class="text-muted">Try adjusting your search or filters</p>
@@ -97,8 +98,8 @@
 
     <!-- Request Cards -->
     <div id="requestsContainer">
-        {% for request in resource_requests %}
-        <div class="resource-card {{ request.status|lower }}" data-status="{{ request.status|lower }}" data-date="{{ request.requested_at|date:"Y-m-d\\TH:i:s" }}">
+        {% for resource in resource_requests %}
+        <div class="resource-card {{ resource.status|lower }}" data-status="{{ resource.status|lower }}" data-date="{{ resource.requested_at|date:"Y-m-d\\TH:i:s" }}">
             <div class="row g-0">
                 <div class="col-md-1 d-flex align-items-center justify-content-center">
                     <i class="fas fa-cubes resource-icon"></i>
@@ -107,28 +108,30 @@
                     <div class="request-details">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <div>
-                                <div class="requester">{{ request.requested_by.username }}</div>
-                                <div class="location"><i class="fas fa-map-marker-alt me-1"></i>{{ request.system_name.lab.lab_name }}</div>
+                                <div class="requester">{{ resource.requested_by.username }}</div>
+                                <div class="location"><i class="fas fa-map-marker-alt me-1"></i>{{ resource.system_name.system.lab.lab_name }}</div>
                             </div>
-                            <span class="badge bg-{% if request.status == 'Pending' %}warning{% elif request.status == 'Approved' %}success{% else %}secondary{% endif %} status-badge">{{ request.status }}</span>
+                            <span class="badge bg-{% if resource.status == 'Pending' %}warning{% elif resource.status == 'Approved' %}success{% else %}secondary{% endif %} status-badge">{{ resource.status }}</span>
                         </div>
-                        <h5 class="resource-title">{{ request.resource_type }}</h5>
-                        <p class="resource-description">{{ request.description }}</p>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="timestamp"><i class="far fa-clock me-1"></i>Requested: {{ request.requested_at|date:"F d, Y (h:i A)" }}</span>
-                            {% if request.id %}
-                            <form method="post" action="{% url 'update_resource_status' resource_id=request.id %}">
+                        <h5 class="resource-title">{{ resource.resource_type }}</h5>
+                        <p class="resource-description">{{ resource.description }}</p>
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mt-3">
+                            <div class="timestamp">
+                                <i class="far fa-clock me-1"></i>Requested: {{ resource.requested_at|date:"F d, Y (h:i A)" }}
+                            </div>
+                            <form method="post" action="{% url 'update_resource_status' resource_id=resource.resource_id %}">
                                 {% csrf_token %}
-                                <select class="status-selector me-2" name="status" style="width: auto;">
-                                    <option value="Pending" {% if request.status == 'Pending' %}selected{% endif %}>Pending</option>
-                                    <option value="In Progress" {% if request.status == 'In Progress' %}selected{% endif %}>In Progress</option>
-                                    <option value="Approved" {% if request.status == 'Approved' %}selected{% endif %}>Approved</option>
-                                    <option value="Fulfilled" {% if request.status == 'Fulfilled' %}selected{% endif %}>Fulfilled</option>
-                                    <option value="Denied" {% if request.status == 'Denied' %}selected{% endif %}>Denied</option>
-                                </select>
-                                <button class="btn btn-outline-success" type="submit">Update</button>
+                                <div class="d-flex align-items-center">
+                                    <select class="status-selector me-2" name="status" style="width: auto;">
+                                        <option value="Pending" {% if resource.status == 'Pending' %}selected{% endif %}>Pending</option>
+                                        <option value="In Progress" {% if resource.status == 'In Progress' %}selected{% endif %}>In Progress</option>
+                                        <option value="Approved" {% if resource.status == 'Approved' %}selected{% endif %}>Approved</option>
+                                        <option value="Fulfilled" {% if resource.status == 'Fulfilled' %}selected{% endif %}>Fulfilled</option>
+                                        <option value="Denied" {% if resource.status == 'Denied' %}selected{% endif %}>Denied</option>
+                                    </select>
+                                    <button class="btn btn-outline-success" type="submit">Update</button>
+                                </div>
                             </form>
-                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -199,5 +202,5 @@
 {% endblock main_content %}
 
 {% block scripts %}
-<script src="{% static 'faults/js/faults.js' %}"></script>
+<script src="{% static 'resources/js/resources.js' %}"></script>
 {% endblock scripts %}

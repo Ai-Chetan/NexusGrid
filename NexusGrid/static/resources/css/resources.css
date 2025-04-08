@@ -39,7 +39,8 @@ body {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
 }
 
-.fault-card {
+/* Resource card styles */
+.resource-card {
   background-color: #fff;
   border-radius: 12px;
   box-shadow: 0 4px 12px var(--card-shadow);
@@ -49,51 +50,42 @@ body {
   border-left: 6px solid var(--primary-color);
 }
 
-.fault-card:hover {
+.resource-card:hover {
   transform: translateY(-6px);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15);
 }
 
-.fault-card.unaddressed {
-  border-left-color: var(--danger-color);
-}
-
-.fault-card.in-progress {
+.resource-card.pending {
   border-left-color: var(--warning-color);
 }
 
-.fault-card.scheduled {
-  border-left-color: var(--info-color);
-}
-
-.fault-card.resolved {
+.resource-card.approved {
   border-left-color: var(--success-color);
 }
 
-.fault-card.ignored {
+.resource-card.fulfilled {
+  border-left-color: var(--success-color);
+}
+
+.resource-card.denied {
   border-left-color: var(--secondary-color);
 }
 
-.computer-icon {
+/* Icon */
+.resource-icon {
   font-size: 2.2rem;
-  color: var(--primary-color);
-  background-color: rgba(13, 110, 253, 0.1);
+  color: var(--success-color);
+  background-color: rgba(25, 135, 84, 0.1);
   padding: 18px;
   border-radius: 50%;
 }
 
-.status-badge {
-  font-size: 0.9rem;
-  padding: 6px 12px;
-  border-radius: 20px;
-  text-transform: capitalize;
-}
-
-.fault-details {
+/* Resource card details */
+.request-details {
   padding-left: 20px;
 }
 
-.hostname {
+.requester {
   font-weight: 600;
   font-size: 1.15rem;
   margin-bottom: 5px;
@@ -105,13 +97,13 @@ body {
   margin-bottom: 12px;
 }
 
-.fault-title {
+.resource-title {
   font-weight: 700;
   font-size: 1.1rem;
   margin-bottom: 8px;
 }
 
-.fault-description {
+.resource-description {
   color: #555;
   font-size: 1rem;
   margin-bottom: 18px;
@@ -124,8 +116,15 @@ body {
   margin-right: 15px;
 }
 
+.status-badge {
+  font-size: 0.9rem;
+  padding: 6px 12px;
+  border-radius: 20px;
+  text-transform: capitalize;
+}
+
 .status-selector {
-  width: 100%;
+  width: auto;
   padding: 10px;
   border-radius: 8px;
   border: 1px solid #ddd;
@@ -149,7 +148,6 @@ button:hover {
 }
 
 #noResultsMessage {
-  display: none;
   text-align: center;
   padding: 50px;
   background-color: #fff;
@@ -157,6 +155,7 @@ button:hover {
   box-shadow: 0 4px 12px var(--card-shadow);
 }
 
+/* Pagination */
 .pagination .page-item.active .page-link {
   background-color: var(--primary-color);
   border-color: var(--primary-color);
@@ -174,33 +173,87 @@ button:hover {
   color: #fff;
 }
 
-@media (max-width: 768px) {
-  .fault-card {
-    padding: 15px;
-  }
+/* Modal styles */
+.modal-content {
+  border-radius: 12px;
+  overflow: hidden;
+}
 
-  .computer-icon {
-    font-size: 1.8rem;
-    padding: 12px;
-  }
+.modal-header {
+  padding: 15px 20px;
+}
 
-  .filter-section {
-    padding: 15px;
-  }
+.modal-body {
+  padding: 20px;
+}
 
-  .status-selector {
-    padding: 8px;
-  }
+.modal-footer {
+  padding: 15px 20px;
+  border-top: 1px solid #eee;
+}
 
-  .hostname {
-    font-size: 1rem;
-  }
+/* Form styles */
+.form-label {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
 
-  .location {
-    font-size: 0.9rem;
-  }
+.form-control,
+.form-select {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  transition: all 0.3s ease;
+}
 
-  .fault-title {
-    font-size: 1rem;
-  }
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Style for the form to make the update button visible */
+form[action*="update_resource_status"] {
+  display: flex;
+  align-items: center;
+}
+
+form[action*="update_resource_status"] button {
+  display: inline-block;
+  margin-left: 8px;
+}
+
+/* Alert style */
+.alert-success {
+  background-color: var(--success-color);
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  min-width: 300px;
+  z-index: 9999;
+}
+
+/* Ensure consistent card height */
+.resource-card {
+  min-height: 170px; /* Ensures all cards maintain uniform height */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Fix spacing and layout inside the card */
+.resource-card .row {
+  height: 100%;
+  align-items: center;
+}
+
+/* Escape class with hyphen for status-specific styling */
+.resource-card.in-progress {
+  border-left-color: var(--info-color);
+}
+.status-selector {
+  min-width: 110px;
+}
+
+form[action*="update_resource_status"] button {
+  min-width: 80px;
 }

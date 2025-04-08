@@ -37,4 +37,4 @@ def update_resource_status(request, resource_id):
         except ResourceRequest.DoesNotExist:
             pass
 
-    return redirect('resource_requests')
+    return redirect('resource_request')

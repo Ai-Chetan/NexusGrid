@@ -22,7 +22,7 @@ class ResourceRequest(models.Model):
     )
     description = models.TextField()
     status = models.CharField(
-        max_length=10, choices=STATUS_CHOICES, db_index=True
+        max_length=30, choices=STATUS_CHOICES, db_index=True
     )
     requested_at = models.DateTimeField(auto_now_add=True)
     provided_at = models.DateTimeField(null=True, blank=True)

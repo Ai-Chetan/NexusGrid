@@ -15,12 +15,26 @@
 
     <!-- Buttons -->
     <div class="d-flex justify-content-between mb-3 align-items-center">
-        <!-- Back Button -->
-        <div>
-            <a href="#" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left me-2"></i>Back
-            </a>
-        </div>
+        <button id="backButton" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back
+        </button>
+        
+        <!-- JS (in a script tag at bottom of body or in DOMContentLoaded) -->
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const backBtn = document.getElementById('backButton');
+                if (backBtn) {
+                    backBtn.addEventListener('click', function () {
+                        console.log("Referrer:", document.referrer);
+                        if (document.referrer) {
+                            window.history.back();
+                        } else {
+                            window.location.href = '/';
+                        }
+                    });
+                }
+            });
+        </script>
     
         <!-- Right-side Buttons -->
         <div class="d-flex gap-2">

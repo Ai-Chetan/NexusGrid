@@ -2,12 +2,9 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('', views.admin_lab_privileges, name='admin_lab_privileges'),
-    # path('labs/delete/', views.delete_lab, name='delete_lab'),
-    # path('labs/add/', views.add_lab, name='add_lab'),
-    # path('labs/add-incharge/', views.add_lab_incharge, name='add_lab_incharge'),
-    # path('labs/add-assistant/', views.add_lab_assistant, name='add_lab_assistant'),
-    # path('labs/remove-member/', views.remove_lab_member, name='remove_lab_member'),
-    # path('members/add/', views.add_member, name='add_member'),
-    # path('settings/update/', views.update_settings, name='update_settings'),
+    path('', views.user_privileges, name='admin_lab_privileges'),
+    path('assign-role/', views.assign_role, name='assign_role'),
+    path('update-lab/<str:lab_name>/', views.update_lab_assignment, name='update_lab_assignment'),
+    path('remove-role/<int:user_id>/', views.remove_role, name='remove_role'),
+    path('userprivileges/remove/<str:lab_name>/<str:user_type>/<int:user_id>/', views.remove_lab_user, name='remove_lab_user'),
 ]
