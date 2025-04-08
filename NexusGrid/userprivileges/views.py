@@ -15,6 +15,7 @@ def user_privileges(request):
     return render(request, 'userprivileges/userprivileges.html', {
         'users': users,
         'labs': labs,
+        'user_role': request.user.role,
         'default_limit': DEFAULT_LAB_LIMIT
     })
 

@@ -39,7 +39,7 @@ body {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
 }
 
-.fault-card {
+.resource-card {
   background-color: #fff;
   border-radius: 12px;
   box-shadow: 0 4px 12px var(--card-shadow);
@@ -49,28 +49,28 @@ body {
   border-left: 6px solid var(--primary-color);
 }
 
-.fault-card:hover {
+.resource-card:hover {
   transform: translateY(-6px);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15);
 }
 
-.fault-card.unaddressed {
+.resource-card.unaddressed {
   border-left-color: var(--danger-color);
 }
 
-.fault-card.in-progress {
+.resource-card.in-progress {
   border-left-color: var(--warning-color);
 }
 
-.fault-card.scheduled {
+.resource-card.scheduled {
   border-left-color: var(--info-color);
 }
 
-.fault-card.resolved {
+.resource-card.resolved {
   border-left-color: var(--success-color);
 }
 
-.fault-card.ignored {
+.resource-card.ignored {
   border-left-color: var(--secondary-color);
 }
 
@@ -175,7 +175,7 @@ button:hover {
 }
 
 @media (max-width: 768px) {
-  .fault-card {
+  .resource-card {
     padding: 15px;
   }
 

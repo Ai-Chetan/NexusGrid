@@ -9,6 +9,11 @@
 {% endblock head %}
 
 {% block main_content %}
+<!-- Embed data as safe JSON -->
+{{ fault_trend_data|json_script:"fault-trend-data" }}
+{{ fault_distribution_data|json_script:"fault-distribution-data" }}
+{{ resource_trend_data|json_script:"resource-trend-data" }}
+{{ system_status_distribution|json_script:"system-status-distribution" }}
 <div class="content">
     <div class="row">
         <!-- Left Column: Two System Overview Containers -->
@@ -124,26 +129,23 @@
                 </div>
             </div>
         </div>   
+        {% if user.role == 'Lab Assistant' and assistant_labs %}
         <div class="role-panel" data-role="Lab Assistant">
             <h2 class="overview-title mt-4"><i class="fas fa-laptop"></i> WORKPLACE</h2>
             <div class="row d-flex flex-row justify-content-between p-4 pt-0">
-                <div onclick="window.location.href=window.location.origin + '/layout/38/'" class="col-md-6 workspace-card d-flex flex-row align-items-center justify-content-center">
-                    <i class="fas fa-chalkboard icon-large text-secondary"></i>
-                    <div class="text-center">
-                        <h5>IT Lab 4</h5>
-                        <span class="text-muted">Wing A, Floor 3</span>
+                {% for lab in assistant_labs %}
+                    <div onclick="window.location.href='{{ request.scheme }}://{{ request.get_host }}/layout/{{ lab.layout_item.id }}/'" 
+                        class="col-md-6 workspace-card d-flex flex-row align-items-center justify-content-center mb-4">
+                        <i class="fas fa-chalkboard icon-large text-secondary"></i>
+                        <div class="text-center">
+                            <h5>{{ lab.lab_name }}</h5>
+                            <span class="text-muted">{{ lab.location }}</span>
+                        </div>
                     </div>
-                </div>
-            
-                <div onclick="window.location.href=window.location.origin + '/layout/39/'" class="col-md-6 workspace-card d-flex flex-row align-items-center justify-content-center">
-                    <i class="fas fa-chalkboard icon-large text-secondary"></i>
-                    <div class="text-center">
-                        <h5>IT Lab 6</h5>
-                        <span class="text-muted">Wing A, Floor 3</span>
-                    </div>
-                </div>
+                {% endfor %}
             </div>
         </div>
+        {% endif %}
         
         <h2 class="overview-title mt-3"><i class="fas fa-chart-line"></i> Performance and Fault Trends</h2>
         <div class="row">
@@ -157,7 +159,7 @@
                 <div id="resourceRequestChart" class="graph-box"></div>
             </div>
             <div class="col-md-6">
-                <div id="performanceChart" class="graph-box">
+                <div id="systemStatusChart" class="graph-box">
                 </div>
             </div>
         </div>
@@ -166,6 +168,18 @@
 </div>
 {% endblock main_content %}
 {% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const faultTrendData = JSON.parse(document.getElementById('fault-trend-data').textContent);
+        const faultDistributionData = JSON.parse(document.getElementById('fault-distribution-data').textContent);
+        const resourceTrendData = JSON.parse(document.getElementById('resource-trend-data').textContent);
+        const systemStatusData = JSON.parse(document.getElementById('system-status-distribution').textContent);
+
+        initDashboardCharts(faultTrendData, faultDistributionData, resourceTrendData, systemStatusData);
+        initQRScanner();
+        initRoleBasedDashboard();
+    });
+</script>
 <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
 <script src="{% static 'dashboard/js/dashboard.js' %}"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

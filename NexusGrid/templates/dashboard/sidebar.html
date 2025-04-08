@@ -36,8 +36,8 @@
                 <i class="fas fa-user-circle user-icon"></i>
             </div>
             <div class="user-info">
-                <strong class="user-name">Chetan</strong>
-                <span class="user-role">{{ user_role }}</span>
+                <strong class="user-name">{{ request.user.username }}</strong>
+                <span class="user-role">{{ request.user.role }}</span>
             </div>
         </a>
     

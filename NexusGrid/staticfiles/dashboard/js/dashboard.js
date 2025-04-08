@@ -1,15 +1,89 @@
-document.addEventListener("DOMContentLoaded", function () {
-    initQRScanner();
-    initDashboardCharts();
-    initRoleBasedDashboard();
-});
+function initDashboardCharts(faultTrendData, faultDistributionData, resourceTrendData, systemStatusData) {
+    // Fault Trend Chart
+    if (Array.isArray(faultTrendData) && faultTrendData.length > 0) {
+        const faultMonths = faultTrendData.map(item =>
+            new Date(item.month).toLocaleString('default', { month: 'short', year: 'numeric' })
+        );
+        const faultCounts = faultTrendData.map(item => item.count);
+
+        Plotly.newPlot("faultTrendChart", [{
+            x: faultMonths,
+            y: faultCounts,
+            type: 'scatter',
+            mode: 'lines+markers',
+            marker: { color: 'red' }
+        }], {
+            title: { text: '📈 Fault Reports Over Time', font: { size: 22 } },
+            xaxis: { title: { text: 'Month' } },
+            yaxis: { title: { text: 'Number of Faults' } },
+            margin: { t: 60 }
+        });
+    } else {
+        document.getElementById("faultTrendChart").innerText = "No fault trend data available.";
+    }
+
+    // Fault Distribution Pie Chart
+    if (Array.isArray(faultDistributionData) && faultDistributionData.length > 0) {
+        const faultTypes = faultDistributionData.map(item => item.fault_type);
+        const faultCounts = faultDistributionData.map(item => item.count);
+
+        Plotly.newPlot("faultDistributionChart", [{
+            labels: faultTypes,
+            values: faultCounts,
+            type: 'pie'
+        }], {
+            title: { text: '📊 Fault Type Distribution', font: { size: 22 } },
+            margin: { t: 60 }
+        });
+    } else {
+        document.getElementById("faultDistributionChart").innerText = "No fault distribution data available.";
+    }
+
+    // Resource Request Trend
+    if (Array.isArray(resourceTrendData) && resourceTrendData.length > 0) {
+        const resourceMonths = resourceTrendData.map(item =>
+            new Date(item.month).toLocaleString('default', { month: 'short', year: 'numeric' })
+        );
+        const resourceCounts = resourceTrendData.map(item => item.count);
+
+        Plotly.newPlot("resourceRequestChart", [{
+            x: resourceMonths,
+            y: resourceCounts,
+            type: 'bar',
+            marker: { color: 'green' }
+        }], {
+            title: { text: '📦 Resource Requests Trend', font: { size: 22 } },
+            xaxis: { title: { text: 'Month' } },
+            yaxis: { title: { text: 'Number of Requests' } },
+            margin: { t: 60 }
+        });
+    } else {
+        document.getElementById("resourceRequestChart").innerText = "No resource request data available.";
+    }
+
+    // System Status Distribution Chart
+    if (Array.isArray(systemStatusData) && systemStatusData.length > 0) {
+        const statuses = systemStatusData.map(item => item.status);
+        const counts = systemStatusData.map(item => item.count);
+
+        Plotly.newPlot("systemStatusChart", [{
+            labels: statuses,
+            values: counts,
+            type: 'pie',
+            hole: 0.4  // Optional for donut style
+        }], {
+            title: { text: '🖥️ System Status Distribution', font: { size: 22 } },
+            margin: { t: 60 }
+        });
+    } else {
+        document.getElementById("systemStatusChart").innerText = "No system status data available.";
+    }
+
+}
 
 function initQRScanner() {
     const readerElement = document.getElementById("reader");
-    if (!readerElement) {
-        console.log("QR scanner not initialized: #reader element not found on this page.");
-        return;
-    }
+    if (!readerElement) return;
 
     const html5QrCode = new Html5Qrcode("reader");
     const config = { fps: 10, qrbox: 250 };
@@ -17,102 +91,37 @@ function initQRScanner() {
     html5QrCode.start(
         { facingMode: "environment" },
         config,
-        (qrCodeMessage) => {
-            sendScanResultToServer(qrCodeMessage); // Send QR data to the server
+        qrCodeMessage => {
+            sendScanResultToServer(qrCodeMessage);
             html5QrCode.stop().then(() => {
-                console.log("Scanner stopped after successful scan.");
-            }).catch(err => {
-                console.error("Error stopping scanner: ", err);
+                console.log("Scanner stopped.");
             });
         },
-        (errorMessage) => {
-            // optional: console.warn(`QR Scan error: ${errorMessage}`);
+        errorMessage => {
+            // console.warn(`QR error: ${errorMessage}`);
         }
     ).catch(err => {
-        console.error("Failed to start scanner: ", err);
+        console.error("Failed to start QR scanner:", err);
     });
 }
 
-// Send scanned QR data to Django backend
 function sendScanResultToServer(qrData) {
     fetch('/dashboard/scan-result/', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ qr_data: qrData })
     })
-    .then(response => response.json())
+    .then(res => res.json())
     .then(data => {
         if (data.redirect_url) {
-            window.location.href = data.redirect_url; // Redirect user
+            window.location.href = data.redirect_url;
         } else if (data.error) {
             console.error('Server error:', data.error);
         }
     })
-    .catch(error => {
-        console.error('Error sending scan result:', error);
+    .catch(err => {
+        console.error('Fetch error:', err);
     });
-}
-
-function initDashboardCharts() {
-    if (typeof Plotly === "undefined") {
-        console.log("Plotly.js not loaded on this page");
-        return;
-    }
-
-    const performanceChart = document.getElementById('performanceChart');
-    const faultTrendChart = document.getElementById('faultTrendChart');
-    const faultDistributionChart = document.getElementById('faultDistributionChart');
-    const resourceRequestChart = document.getElementById('resourceRequestChart');
-
-    if (performanceChart && faultTrendChart && faultDistributionChart && resourceRequestChart) {
-        Plotly.newPlot("performanceChart", [{
-            x: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
-            y: [10, 15, 7, 20, 13],
-            type: 'bar',
-            marker: { color: '#007bff' }
-        }], {
-            title: { text: 'Monthly Requests' },
-            xaxis: { title: { text: 'Month' } },
-            yaxis: { title: { text: 'Value' } },
-            margin: { t: 50 }
-        });
-
-        Plotly.newPlot("faultTrendChart", [{
-            x: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
-            y: [2, 5, 8, 3, 6],
-            type: 'scatter',
-            mode: 'lines+markers',
-            marker: { color: 'red' }
-        }], {
-            title: { text: 'Fault Reports Over Time' },
-            xaxis: { title: { text: 'Month' } },
-            yaxis: { title: { text: 'Faults' } },
-            margin: { t: 50 }
-        });
-
-        Plotly.newPlot("faultDistributionChart", [{
-            labels: ['Hardware', 'Software', 'Network', 'Other'],
-            values: [30, 45, 15, 10],
-            type: 'pie'
-        }], {
-            title: { text: 'Fault Distribution' },
-            margin: { t: 50 }
-        });
-
-        Plotly.newPlot("resourceRequestChart", [{
-            x: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
-            y: [5, 8, 12, 7, 10],
-            mode: 'markers',
-            marker: { color: 'green', size: 10 }
-        }], {
-            title: { text: 'Resource Requests Trend' },
-            xaxis: { title: { text: 'Month' } },
-            yaxis: { title: { text: 'Requests' } },
-            margin: { t: 50 }
-        });
-    }
 }
 
 function initRoleBasedDashboard() {
