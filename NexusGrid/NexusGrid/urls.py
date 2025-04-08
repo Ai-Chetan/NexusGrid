@@ -10,4 +10,5 @@ urlpatterns = [
     path('faults/', include('faults.urls')),  # Fault Reports app
     path('resources/', include('resources.urls')),  # Resource Requests app
     path("api/", include("monitoring.urls")),
+    path("userprivileges/", include("userprivileges.urls")),
 ]

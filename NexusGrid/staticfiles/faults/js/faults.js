@@ -123,18 +123,6 @@ document.addEventListener('DOMContentLoaded', function() {
             cardsArray.sort((a, b) => {
                 return new Date(a.dataset.date) - new Date(b.dataset.date);
             });
-        } else if (sortValue === 'priority') {
-            const priorityOrder = {
-                'unaddressed': 0,
-                'in-progress': 1,
-                'scheduled': 2,
-                'resolved': 3,
-                'ignored': 4
-            };
-            
-            cardsArray.sort((a, b) => {
-                return priorityOrder[a.dataset.status] - priorityOrder[b.dataset.status];
-            });
         }
         
         // Reorder DOM elements
@@ -271,7 +259,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const faultTitle = document.getElementById('faultTitle').value;
             const faultDescription = document.getElementById('faultDescription').value;
             const reporterName = document.getElementById('reporterName').value;
-            const priorityLevel = document.getElementById('priorityLevel').value;
             
             // Create new fault card
             const now = new Date();

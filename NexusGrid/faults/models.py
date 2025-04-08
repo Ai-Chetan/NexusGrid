@@ -18,7 +18,7 @@ class FaultReport(models.Model):
     reported_by = models.ForeignKey(User, on_delete=models.CASCADE, db_column="reported_by_id")
     fault_type = models.CharField(max_length=20, choices=FAULT_CHOICES, db_column="fault_type")
     description = models.TextField(db_column="description")
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, db_column="status")
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, db_column="status")
     reported_at = models.DateTimeField(auto_now_add=True, db_column="reported_at")
     resolved_at = models.DateTimeField(null=True, blank=True, db_column="resolved_at")
 

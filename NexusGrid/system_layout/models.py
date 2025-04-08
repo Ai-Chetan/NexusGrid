@@ -71,14 +71,14 @@ class Lab(models.Model):
         related_name='lab'
     )
     lab_name = models.CharField(max_length=100, primary_key=True)
-    instructor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    instructors = models.ManyToManyField(User, related_name='instructed_labs', blank=True)
+    assistants = models.ManyToManyField(User, related_name='assisted_labs', blank=True)
     location = models.CharField(max_length=200, null=True)
     capacity = models.IntegerField(null=True)
     dimension = models.CharField(max_length=50, null=True)
 
     def __str__(self):
         return self.lab_name
-
 
 class System(models.Model):
     STATUS_CHOICES = [

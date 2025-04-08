@@ -5,87 +5,53 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 function initQRScanner() {
-    let activeReader = null;
-    let scannerStarted = false; // Flag to track if the scanner has been started
-
-    function updateResult(message) {
-        const resultElement = document.getElementById('result');
-        if (resultElement) {
-            resultElement.innerText = message;
-            resultElement.classList.add('animate__animated', 'animate__fadeInUp', 'success-scan');
-            setTimeout(() => {
-                resultElement.classList.remove('success-scan');
-            }, 1000);
-        }
+    const readerElement = document.getElementById("reader");
+    if (!readerElement) {
+        console.log("QR scanner not initialized: #reader element not found on this page.");
+        return;
     }
 
-    function startScanner(cameraId) {
-        // Stop any existing scanner
-        if (activeReader) {
-            try {
-                activeReader.stop();
-            } catch (err) {
-                console.log("No active scanner to stop");
-            }
-            activeReader = null;
-            scannerStarted = false; // Reset the flag when stopping
+    const html5QrCode = new Html5Qrcode("reader");
+    const config = { fps: 10, qrbox: 250 };
+
+    html5QrCode.start(
+        { facingMode: "environment" },
+        config,
+        (qrCodeMessage) => {
+            sendScanResultToServer(qrCodeMessage); // Send QR data to the server
+            html5QrCode.stop().then(() => {
+                console.log("Scanner stopped after successful scan.");
+            }).catch(err => {
+                console.error("Error stopping scanner: ", err);
+            });
+        },
+        (errorMessage) => {
+            // optional: console.warn(`QR Scan error: ${errorMessage}`);
         }
+    ).catch(err => {
+        console.error("Failed to start scanner: ", err);
+    });
+}
 
-        // Clear the container
-        const readerContainer = document.getElementById("reader");
-        if (readerContainer) {
-            readerContainer.innerHTML = "";
+// Send scanned QR data to Django backend
+function sendScanResultToServer(qrData) {
+    fetch('/dashboard/scan-result/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ qr_data: qrData })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.redirect_url) {
+            window.location.href = data.redirect_url; // Redirect user
+        } else if (data.error) {
+            console.error('Server error:', data.error);
         }
-
-        // Create a new scanner instance
-        activeReader = new Html5Qrcode("reader");
-
-        const config = {
-            fps: 10,
-            qrbox: 250,
-            videoConstraints: {
-                facingMode: "environment" // Use back camera
-            }
-        };
-
-        activeReader.start(
-            cameraId,
-            config,
-            (qrCodeMessage) => {
-                updateResult(`Scanned: ${qrCodeMessage}`);
-                // Optionally, stop the scanner after a successful scan
-                // if (activeReader && scannerStarted) {
-                //     activeReader.stop();
-                //     activeReader = null;
-                //     scannerStarted = false;
-                // }
-            },
-            (errorMessage) => {
-                console.warn("QR Scan error:", errorMessage);
-            }
-        ).catch(err => {
-            console.error("Scanner start error:", err);
-            updateResult("Error starting scanner: " + err.message);
-        });
-        scannerStarted = true; // Set the flag after successfully starting
-    }
-
-    // Get available cameras and use main one
-    Html5Qrcode.getCameras().then(devices => {
-        if (devices && devices.length) {
-            const backCamera = devices.find(device => device.label.toLowerCase().includes('back')) || devices[0];
-            // Start the scanner only if it hasn't been started yet
-            if (!scannerStarted) {
-                startScanner(backCamera.id);
-                updateResult(`Using: ${backCamera.label || "Default Camera"}`);
-            }
-        } else {
-            console.error("No camera devices found.");
-            updateResult("No cameras detected!");
-        }
-    }).catch(err => {
-        console.error("Camera fetch error:", err);
-        updateResult("Error accessing cameras: " + err.message);
+    })
+    .catch(error => {
+        console.error('Error sending scan result:', error);
     });
 }
 
