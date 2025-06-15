@@ -28,7 +28,7 @@ section {
     transform: scale(1.1);
 }
 
-.login-btn {
+/* .login-btn {
     text-align: center;
     color: white;
     background: #007bff;
@@ -42,7 +42,7 @@ section {
 }
 
 .login-btn:hover { transform: scale(1.1); }
-.login-btn:active { transform: scale(0.9); }
+.login-btn:active { transform: scale(0.9); } */
 
 .hero {
     height: 100vh;
