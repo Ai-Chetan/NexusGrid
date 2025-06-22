@@ -7,26 +7,34 @@
 <div class="main-container">
     <div class="forms-container">
         <div class="signin-signup">
+
             <!-- Sign In Form -->
-            <form action="{% url 'dashboard' %}" class="sign-in-form" method="POST">
+            <form method="POST" action="{% url 'user_login' %}" class="sign-in-form">
                 <h1 class="heading mt-5">Welcome Back to <b>NexusGrid</b>!</h1>
                 <p>Keep Your Systems in Check, Anytime, Anywhere.</p>
                 <h2 class="title">Sign In <i class="fas fa-sign-in-alt"></i></h2>
-                
+
                 {% csrf_token %}
                 <div class="input-container">
                     <input type="text" id="signin-username" name="username" class="input-field" placeholder=" " required>
                     <label for="signin-username" class="floating-label"><i class="fa fa-user"></i> Username</label>
                 </div>
-                
+
                 <div class="input-container">
                     <input type="password" id="signin-password" name="password" class="input-field" placeholder=" " required>
                     <label for="signin-password" class="floating-label"><i class="fas fa-lock"></i> Password</label>
                     <span class="eye-icon" id="toggle-password-signin"><i class="fa-solid fa-eye-slash"></i></span>
                 </div>
 
-                <p id="message" style="color: red; font-size: 12px;"></p>
-                <button id="login-button" type="submit" class="btns solid">Login <i class="fas fa-sign-in-alt"></i></button>
+                {% if messages %}
+                <div class="messages" id="top-messages">
+                    {% for message in messages %}
+                    <p class="text-danger">{{ message }}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <button type="submit" class="btns solid">Login <i class="fas fa-sign-in-alt"></i></button>
 
                 <p class="social-text text-center">OR<br/><b>Sign In with Social Platforms</b></p>
                 <div class="social-media">
@@ -46,7 +54,7 @@
             </form>
 
             <!-- Sign Up Form -->
-            <form action="/login/" method="POST" class="sign-up-form">
+            <form id="signup-form" class="sign-up-form">
                 <h2 class="title">Sign Up <i class="fa fa-user-plus"></i></h2>
                 {% csrf_token %}
                 <div id="user-details">
@@ -71,9 +79,16 @@
                         <label for="confirm-password" class="floating-label"><i class="fas fa-lock"></i> Confirm Password</label>
                         <span class="eye-icon" id="toggle-password-confirm"><i class="fas fa-eye-slash"></i></span>
                     </div>
-                    <p id="message-pass" style="color: red; font-size: 12px;"></p>
-                    <button type="button" class="btns solid" onclick="getOTP()">Sign Up <i class="fa fa-rocket"></i></button>
+
+                    <div id="signup-messages" class="messages text-wrap w-100"></div>
+                    <button type="button" class="btns solid" id="signup-btn">
+                        <span class="btn-text">Sign Up <i class="fa fa-rocket"></i></span>
+                        <span class="btn-loading d-none">
+                            <i class="fas fa-spinner fa-spin"></i> Sending OTP...
+                        </span>
+                    </button>
                 </div>
+
                 <p class="social-text text-center">OR<br/><b>Sign Up with Social Platforms</b></p>
                 <div class="social-media">
                     <a href="{# {% provider_login_url 'google' %} #}" class="social-icon">
@@ -93,20 +108,28 @@
         </div>
     </div>
 
-    <div class="modal fade" id="otpModal" tabindex="-1">
+    <!-- Enhanced OTP Modal -->
+    <div class="modal fade" id="otpModal" tabindex="-1" data-bs-backdrop="static">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Enter OTP</h5>
+                    <h5 class="modal-title">Verify Your Email</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <input type="text" id="otpInput" class="form-control" placeholder="Enter OTP" maxlength="6">
-                    <small id="otpError" class="text-danger d-none">Invalid OTP, try again.</small>
+                    <p class="mb-3">We've sent a 6-digit verification code to <strong id="otp-email"></strong></p>
+                    <input type="text" id="otpInput" class="form-control text-center" placeholder="_ _ _ _ _ _" maxlength="6" style="font-size: 1.2em; letter-spacing: 0.5em;">
+                    <div id="otp-timer" class="text-muted mt-2 text-center">Code expires in: <span id="countdown">5:00</span></div>
+                    <div id="otp-messages" class="text-center mt-2"></div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-success" id="verifyOtpBtn">Verify</button>
+                    <button type="button" class="btn btn-outline-secondary" id="resend-otp-btn">Resend OTP</button>
+                    <button type="button" class="btn btn-success" id="verifyOtpBtn">
+                        <span class="btn-text">Verify</span>
+                        <span class="btn-loading d-none">
+                            <i class="fas fa-spinner fa-spin"></i> Verifying...
+                        </span>
+                    </button>
                 </div>
             </div>
         </div>

@@ -51,7 +51,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',       # Required by allauth
-    'django.contrib.humanize',    # If you intend to use humanize filters
+    'django.contrib.humanize',
 
     # Third-Party Apps
     'rest_framework',             # Django REST Framework
@@ -174,7 +174,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 # ------------------------------------------------------------------------------
 
 # Enable/disable compression based on DEBUG mode (enabled when DEBUG is False)
-COMPRESS_ENABLED = not DEBUG
+COMPRESS_ENABLED = True
 
 # If True, `manage.py compress` must be run to generate compressed files
 # otherwise, compression happens on-the-fly (not recommended for production)
@@ -185,7 +185,8 @@ COMPRESS_ROOT = STATIC_ROOT
 
 # URL from which compressed files will be served (usually same as STATIC_URL)
 COMPRESS_URL = STATIC_URL
-
+if DEBUG:
+    COMPRESS_REBUILD_TIMEOUT = 1
 # Filters for CSS minification (requires 'cssmin' package: pip install cssmin)
 COMPRESS_CSS_FILTERS = [
     'compressor.filters.cssmin.CSSMinFilter',
@@ -236,7 +237,6 @@ ACCOUNT_LOGIN_METHODS = {'username', 'email'}  # replaces AUTHENTICATION_METHOD
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']  # replaces all 3 deprecated ones
 
 ACCOUNT_UNIQUE_EMAIL = True
-ACCOUNT_EMAIL_VERIFICATION = "mandatory" # or "optional", "none"
 ACCOUNT_SESSION_REMEMBER = True
 ACCOUNT_FORMS = {
     'signup': 'login_manager.forms.CustomSignupForm', # Example if you have a custom signup form
