@@ -413,6 +413,7 @@ function showToast(message, type = 'info') {
     toast.setAttribute('role', 'alert');
     toast.setAttribute('aria-live', 'assertive');
     toast.setAttribute('aria-atomic', 'true');
+    toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';  // Optional: subtle pop effect
 
     toast.innerHTML = `
         <div class="d-flex">
@@ -426,7 +427,6 @@ function showToast(message, type = 'info') {
     const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
     bsToast.show();
 
-    // Optional: remove from DOM after hidden
     toast.addEventListener('hidden.bs.toast', () => toast.remove());
 }
 

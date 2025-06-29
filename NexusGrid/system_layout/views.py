@@ -1,4 +1,4 @@
-import datetime
+from django.utils import timezone
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -10,7 +10,6 @@ from .models import LayoutItem, Lab, System
 from login_manager.models import User
 from faults.models import FaultReport
 from resources.models import ResourceRequest
-from django.db.models import Q
 from monitoring.models import SystemInfo
 
 @login_required(login_url="/login/")
@@ -25,13 +24,12 @@ def layout_view(request, item_id=None):
         breadcrumb = []
 
     # Get lab_name from parent (room)
-    lab_name = None
+    lab = None
     if parent and parent.item_type == 'room':
         lab = Lab.objects.filter(layout_item_id=parent.id).first()
-        if lab:
-            lab_name = lab.lab_name
 
-    systems = System.objects.filter(lab_id=lab_name) if lab_name else System.objects.none()
+    systems = System.objects.filter(lab=lab) if lab else System.objects.none()
+
     total_systems = systems.count()
 
     functional_count = systems.filter(status__in=['active', 'inactive']).count()
@@ -131,23 +129,18 @@ def get_parent(request):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
 
-
 @csrf_exempt
 def add_layout_item(request):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
-    
+
     try:
         with transaction.atomic():
             data = json.loads(request.body)
             parent_id = data.get('parent_id')
-            
-            # Handle null parent_id properly
-            if parent_id == 'null' or parent_id is None:
-                parent = None
-            else:
-                parent = get_object_or_404(LayoutItem, id=int(parent_id))
-            
+
+            parent = None if parent_id in [None, 'null'] else get_object_or_404(LayoutItem, id=int(parent_id))
+
             item = LayoutItem.objects.create(
                 name=data.get('name'),
                 item_type=data.get('item_type'),
@@ -157,55 +150,99 @@ def add_layout_item(request):
                 width=data.get('width', 1),
                 height=data.get('height', 1)
             )
+
+            # Auto-create Lab or System
+            if item.item_type == 'room':
+                # Get ancestors for location: e.g., Building > Floor
+                ancestors = item.get_ancestors()
+                location_parts = [a.name for a in ancestors]
+                location = " > ".join(location_parts) if location_parts else "Unknown"
+
+                Lab.objects.create(
+                    layout_item=item,
+                    lab_name=item.name,
+                    location=location
+                )
+
+            elif item.item_type in ['computer', 'server', 'network_switch', 'router', 'printer', 'ups', 'rack']:
+                parent_lab = None
+                ancestor = item.parent
+                while ancestor:
+                    if hasattr(ancestor, 'lab'):
+                        parent_lab = ancestor.lab
+                        break
+                    ancestor = ancestor.parent
+
+                System.objects.create(
+                    layout_item=item,
+                    lab=parent_lab,
+                    host_name=item.name,
+                    updated_at=timezone.now(),
+                    updated_by_id=request.user.id if request.user.is_authenticated else None
+                )
             return JsonResponse({'status': 'success', 'item': item.to_dict()})
     except Exception as e:
         import traceback
         return JsonResponse({
-            'status': 'error', 
+            'status': 'error',
             'message': str(e),
             'traceback': traceback.format_exc(),
             'request_data': json.loads(request.body) if request.body else {}
         }, status=400)
-    
+
 @csrf_exempt
 def update_layout_item(request, item_id):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
-    
+
     try:
         item = get_object_or_404(LayoutItem, id=int(item_id))
         data = json.loads(request.body)
-        
+
+        name_changed = False
         for field in ['name', 'position_x', 'position_y']:
             if field in data:
                 setattr(item, field, data[field])
-        
+                if field == 'name':
+                    name_changed = True
+
         item.save()
+
+        # Update Lab name if applicable
+        if item.item_type == 'room' and hasattr(item, 'lab') and name_changed:
+            item.lab.lab_name = item.name
+            item.lab.save()
+
+        # Update System host_name and metadata if it's a system item
+        if item.item_type in ['computer', 'server', 'network_switch', 'router', 'printer', 'ups', 'rack']:
+            if hasattr(item, 'system'):
+                item.system.host_name = item.name
+                item.system.updated_at = timezone.now()
+                if request.user.is_authenticated:
+                    item.system.updated_by_id = request.user.id
+                item.system.save()
+
         return JsonResponse({'status': 'success', 'item': item.to_dict()})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
-
 
 @csrf_exempt
 def delete_layout_item(request, item_id):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
-    
+
     try:
         item = get_object_or_404(LayoutItem, id=int(item_id))
-        
-        # Check if item has related objects in System or Lab models
+
+        # if item.children.exists():
+        #     return JsonResponse({'status': 'error', 'message': 'Cannot delete - item has child items'}, status=400)
+
+        # Delete related Lab/System safely
         if hasattr(item, 'system'):
             item.system.delete()
-        
         if hasattr(item, 'lab'):
-            item.system.delete()
-            
-        # Check if item has children
-        if item.children.exists():
-            # Either delete children first or return an error
-            return JsonResponse({'status': 'error', 'message': 'Cannot delete - item has child items'}, status=400)
-            
+            item.lab.delete()
+
         item.delete()
         return JsonResponse({'status': 'success'})
     except Exception as e:

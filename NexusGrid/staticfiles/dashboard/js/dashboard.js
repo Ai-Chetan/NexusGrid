@@ -409,22 +409,25 @@ function showRefreshError(message) {
 
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
-    toast.className = `toast-notification toast-${type}`;
+    toast.className = `toast align-items-center text-bg-${type} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';  // Optional: subtle pop effect
+
     toast.innerHTML = `
-        <i class="fas fa-${type === 'success' ? 'check' : 'exclamation-triangle'}"></i>
-        <span>${message}</span>
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
     `;
-    
-    document.body.appendChild(toast);
-    
-    // Show toast
-    setTimeout(() => toast.classList.add('show'), 100);
-    
-    // Remove toast
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
+
+    document.getElementById('toast-container').appendChild(toast);
+
+    const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
+    bsToast.show();
+
+    toast.addEventListener('hidden.bs.toast', () => toast.remove());
 }
 
 function getCsrfToken() {

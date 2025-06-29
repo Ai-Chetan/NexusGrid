@@ -41,7 +41,6 @@ def dashboard_view(request):
         recent_activity = get_recent_activity()
 
         context = {
-            'user_role': request.user.role,
             'assistant_labs': assistant_labs,
             'dashboard_data': dashboard_data,
             'chart_data': chart_data,
@@ -55,7 +54,6 @@ def dashboard_view(request):
         logger.error(f"Dashboard view error: {str(e)}")
         context = {
             'error_message': 'Unable to load dashboard data. Please try again.',
-            'user_role': getattr(request.user, 'role', 'Unknown')
         }
         return render(request, "dashboard/dashboard.html", context)
 
@@ -307,7 +305,6 @@ def qr_scanner_view(request):
     QR Scanner page with server-side validation
     """
     context = {
-        'user_role': request.user.role,
         'page_title': 'QR Code Scanner',
         'scanner_config': {
             'fps': 10,
@@ -419,7 +416,6 @@ def handle_dashboard_error(request, error_message):
     
     context = {
         'error_message': error_message,
-        'user_role': getattr(request.user, 'role', 'Unknown'),
         'show_retry': True
     }
     

@@ -1,3 +1,4 @@
+# models.py - Fixed version
 from django.db import models
 from login_manager.models import User
 
@@ -70,15 +71,15 @@ class Lab(models.Model):
         blank=True,
         related_name='lab'
     )
-    lab_name = models.CharField(max_length=100, primary_key=True)
-    instructors = models.ManyToManyField(User, related_name='instructed_labs', blank=True)
-    assistants = models.ManyToManyField(User, related_name='assisted_labs', blank=True)
+    lab_name = models.CharField(max_length=100, unique=True)
+    instructor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     location = models.CharField(max_length=200, null=True)
     capacity = models.IntegerField(null=True)
     dimension = models.CharField(max_length=50, null=True)
 
     def __str__(self):
         return self.lab_name
+
 
 class System(models.Model):
     STATUS_CHOICES = [
@@ -91,15 +92,16 @@ class System(models.Model):
         LayoutItem,
         on_delete=models.CASCADE,
         related_name='system',
-        limit_choices_to={'item_type': 'computer'},
+        limit_choices_to={'item_type__in': ['computer', 'server', 'network_switch', 'router', 'printer', 'ups', 'rack']},
         unique=True,
         null=True
     )
     lab = models.ForeignKey(
         Lab,
         on_delete=models.CASCADE,
-        to_field='lab_name',
+        db_index=True
     )
+
     host_name = models.TextField(null=True, blank=True, default="")
 
     status = models.CharField(

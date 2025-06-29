@@ -1,11 +1,13 @@
 {% extends "dashboard/sidebar.html" %}
 {% load static %}
+{% load compress %}
 
-{% block title %}| Layout System{% endblock title %}
+{% block title %}| System Detail{% endblock title %}
 
 {% block head %}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+{% compress css %}
 <link href="{% static 'system_layout/css/system-layout.css' %}" rel="stylesheet">
+{% endcompress %}
 {% endblock head %}
 
 {% block main_content %}
@@ -353,5 +355,7 @@
     });
 </script>
 
+{% compress js %}
 <script src="{% static 'system_layout/js/system-layout.js' %}"></script>
+{% endcompress %}
 {% endblock scripts %}

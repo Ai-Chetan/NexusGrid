@@ -1,11 +1,13 @@
 {% extends "dashboard/sidebar.html" %}
 {% load static %}
+{% load compress %}
 
 {% block title %}| Resource requests{% endblock title %}
 
 {% block head %}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+{% compress css %}
 <link href="{% static 'resources/css/resources.css' %}" rel="stylesheet">
+{% endcompress %}
 {% endblock head %}
 
 {% block main_content %}
@@ -202,5 +204,7 @@
 {% endblock main_content %}
 
 {% block scripts %}
+{% compress js %}
 <script src="{% static 'resources/js/resources.js' %}"></script>
+{% endcompress %}
 {% endblock scripts %}

@@ -296,6 +296,7 @@
 /* Layout Items */
 .layout-item {
   border-radius: 6px;
+  border: 1px solid black;
   padding: 10px;
   cursor: pointer;
   display: flex;
@@ -354,29 +355,7 @@
 .item-computer {
   background-color: #E8F0FE;
 }
-.item-computer.active {
-  border: 2px solid #198754; /* darker green */
-  background-color: #d1e7dd; /* soft green */
-  color: #0f5132; /* deep green text */
-}
 
-.item-computer.inactive {
-  border: 2px solid #6c757d; /* medium grey */
-  background-color: #e2e3e5; /* soft grey */
-  color: #41464b; /* dark grey text */
-}
-
-.item-computer.non-functional {
-  border: 2px solid #dc3545; /* red */
-  background-color: #f8d7da; /* soft red */
-  color: #842029; /* dark red text */
-}
-
-.item-computer .item-icon i,
-.item-computer .item-name,
-.item-computer .item-type {
-  color: inherit; /* match text/icon color to parent */
-}
 
 .item-server {
   background-color: #F8D7DA;
@@ -398,6 +377,52 @@
   color: #383d41;
 }
 
+
+/* ACTIVE status */
+.item-computer.active,
+.item-server.active,
+.item-network_switch.active,
+.item-router.active,
+.item-printer.active,
+.item-ups.active,
+.item-rack.active {
+  border: 2px solid #198754; /* darker green */
+  background-color: #d1e7dd; /* soft green */
+  color: #0f5132; /* deep green text */
+}
+
+/* INACTIVE status */
+.item-computer.inactive,
+.item-server.inactive,
+.item-network_switch.inactive,
+.item-router.inactive,
+.item-printer.inactive,
+.item-ups.inactive,
+.item-rack.inactive {
+  border: 2px solid #6c757d; /* medium grey */
+  background-color: #e2e3e5; /* soft grey */
+  color: #41464b; /* dark grey text */
+}
+
+/* NON-FUNCTIONAL status */
+.item-computer.non-functional,
+.item-server.non-functional,
+.item-network_switch.non-functional,
+.item-router.non-functional,
+.item-printer.non-functional,
+.item-ups.non-functional,
+.item-rack.non-functional {
+  border: 2px solid #dc3545; /* red */
+  background-color: #f8d7da; /* soft red */
+  color: #842029; /* dark red text */
+}
+
+.item-computer .item-icon i,
+.item-computer .item-name,
+.item-computer .item-type {
+  color: inherit; /* match text/icon color to parent */
+}
+
 /* Dragging styles */
 .layout-item.dragging {
   opacity: 0.7;
@@ -409,34 +434,6 @@
   background-color: rgba(0, 123, 255, 0.2);
   border: 2px dashed #007bff;
   border-radius: 6px;
-}
-.info-card {
-  display: flex;
-  align-items: center;
-  padding: 10px 20px;
-  width: 100%;
-}
-
-.info-card ul {
-  display: flex;
-  justify-content: space-between; 
-  align-items: center;
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  width: 100%;
-}
-
-.info-card li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  justify-content: center;
-}
-/* Roles */
-.role-panel {
-  display: none; /* Hide all role panels by default */ 
 }
 
 /* Responsive adjustments */

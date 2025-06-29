@@ -1,11 +1,16 @@
+
+import json
+import logging
+from datetime import datetime, timedelta
+from django.contrib.auth import authenticate, login
+from django.conf import settings
+from django.views.decorators.http import require_http_methods
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.shortcuts import render,redirect
-from django.contrib.auth import authenticate, login
 from django.contrib import messages
-from django.urls import reverse
-from django.views.decorators.csrf import csrf_exempt
 from django.core.mail import send_mail
-from django.utils.timezone import now
 from django.contrib.auth.hashers import make_password
 from NexusGrid import settings
 from login_manager.models import User
@@ -21,43 +26,6 @@ def landing_page(request):
 
 def login_page(request):
     return render(request,'login_manager/landing-page.html' )
-
-def user_login(request):
-    if request.method == "POST":
-        username = request.POST.get("username", "").strip()
-        password = request.POST.get("password", "").strip()
-
-        # Ensure both fields are filled
-        if not username or not password:
-            messages.error(request, "Please enter both username and password.")
-            return render(request, "signin-signup-page.html", {"username": username})
-
-        user = authenticate(request, username=username, password=password)
-
-        if user is not None:
-            login(request, user)
-            return redirect(reverse("dashboard"))
-        else:
-            messages.error(request, "Invalid username or password.")
-            return render(request, 'login_manager/signin-signup-page.html')
-
-    return render(request, 'login_manager/signin-signup-page.html')
-
-import json
-import random
-import logging
-from datetime import datetime, timedelta
-from django.shortcuts import render, redirect
-from django.contrib.auth import authenticate, login
-from django.contrib.auth.hashers import make_password
-from django.contrib import messages
-from django.http import JsonResponse
-from django.core.mail import send_mail
-from django.conf import settings
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from django.core.validators import validate_email
-from django.core.exceptions import ValidationError
 
 # Configure logging
 logger = logging.getLogger(__name__)

@@ -1,11 +1,13 @@
 {% extends "dashboard/sidebar.html" %}
 {% load static %}
+{% load compress %}
 
 {% block title %}| User Privileges{% endblock title %}
 
 {% block head %}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+{% compress css %}
 <link href="{% static 'userprivileges/css/userprivileges.css' %}" rel="stylesheet">
+{% endcompress %}
 {% endblock head %}
 
 {% block main_content %}  
@@ -140,6 +142,7 @@
 {% endblock main_content %}
 
 {% block scripts %}
+{% compress js %}
 <script src="{% static 'userprivileges/js/userprivileges.js' %}"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+{% endcompress %}
 {% endblock scripts %}

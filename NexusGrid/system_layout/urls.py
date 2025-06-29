@@ -14,5 +14,4 @@ urlpatterns = [
     path("get_parent/", views.get_parent, name="get_parent"),
     path("save/", views.save_layout, name="save_layout"),
     path('report_fault/', views.submit_fault_report, name='submit_fault_report'),
-    path('resource_requests/', views.submit_resource_request, name='submit_resource_request'),
 ]
