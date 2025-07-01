@@ -10,7 +10,6 @@ from .models import LayoutItem, Lab, System
 from login_manager.models import User
 from faults.models import FaultReport
 from resources.models import ResourceRequest
-from monitoring.models import SystemInfo
 
 @login_required(login_url="/login/")
 def layout_view(request, item_id=None):
@@ -61,44 +60,44 @@ def layout_view(request, item_id=None):
 
     return render(request, 'system-layout/system-layout.html', context)
 
-def system_details(request, item_id=None):
-    if not item_id:
-        return HttpResponse("Invalid request", status=400)
+# def system_details(request, item_id=None):
+#     if not item_id:
+#         return HttpResponse("Invalid request", status=400)
 
-    try:
-        print(f"[DEBUG] Requested LayoutItem ID: {item_id}")
+#     try:
+#         print(f"[DEBUG] Requested LayoutItem ID: {item_id}")
 
-        layout_item = get_object_or_404(LayoutItem, id=item_id)
-        print(f"[DEBUG] LayoutItem fetched: {layout_item.name} (ID: {layout_item.id})")
+#         layout_item = get_object_or_404(LayoutItem, id=item_id)
+#         print(f"[DEBUG] LayoutItem fetched: {layout_item.name} (ID: {layout_item.id})")
 
-        # Get associated system
-        system = System.objects.filter(layout_item_id=layout_item.id).first()
-        if not system or not system.host_name:
-            print("[DEBUG] No associated System or host_name found.")
-            return HttpResponse("No associated system or hostname found", status=404)
+#         # Get associated system
+#         system = System.objects.filter(layout_item_id=layout_item.id).first()
+#         if not system or not system.host_name:
+#             print("[DEBUG] No associated System or host_name found.")
+#             return HttpResponse("No associated system or hostname found", status=404)
 
-        hostname = system.host_name
-        print(f"[DEBUG] Hostname from System table: {hostname}")
+#         hostname = system.host_name
+#         print(f"[DEBUG] Hostname from System table: {hostname}")
 
-        # Get latest SystemInfo for hostname
-        system_info = SystemInfo.objects.filter(hostname=hostname).order_by('-timestamp').first()
-        if not system_info:
-            print(f"[DEBUG] No SystemInfo record found for hostname: {hostname}")
-            return HttpResponse("System info not found for this host", status=404)
+#         # Get latest SystemInfo for hostname
+#         system_info = SystemInfo.objects.filter(hostname=hostname).order_by('-timestamp').first()
+#         if not system_info:
+#             print(f"[DEBUG] No SystemInfo record found for hostname: {hostname}")
+#             return HttpResponse("System info not found for this host", status=404)
 
-        print(f"[DEBUG] SystemInfo found for hostname: {hostname} (Timestamp: {system_info.timestamp})")
+#         print(f"[DEBUG] SystemInfo found for hostname: {hostname} (Timestamp: {system_info.timestamp})")
 
-        # Pass everything needed to the template
-        context = {
-            "layout_item": layout_item,
-            "system": system,
-            "system_info": system_info,
-        }
-        return render(request, 'system-layout/system-details.html', context)
+#         # Pass everything needed to the template
+#         context = {
+#             "layout_item": layout_item,
+#             "system": system,
+#             "system_info": system_info,
+#         }
+#         return render(request, 'system-layout/system-details.html', context)
 
-    except Exception as e:
-        print(f"[ERROR] Exception occurred: {str(e)}")
-        return HttpResponse(f"Error fetching system details: {str(e)}", status=500)
+    # except Exception as e:
+    #     print(f"[ERROR] Exception occurred: {str(e)}")
+    #     return HttpResponse(f"Error fetching system details: {str(e)}", status=500)
 
 def get_layout_items(request):
     parent_id = request.GET.get('parent_id')
