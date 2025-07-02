@@ -226,7 +226,6 @@ def get_recent_activity():
         activities.append({
             'type': 'fault',
             'icon': 'fas fa-exclamation-triangle',
-            'color': 'warning' if fault.priority == 'medium' else 'danger',
             'title': f'New Fault Report - {fault.fault_type}',
             'description': fault.description[:50] + '...' if len(fault.description) > 50 else fault.description,
             'timestamp': fault.reported_at,

@@ -2,7 +2,7 @@
 {% load static %}
 {% load compress %}
 
-{% block title %}| Resource requests{% endblock title %}
+{% block title %}| Resource Requests{% endblock title %}
 
 {% block head %}
 {% compress css %}
@@ -20,7 +20,8 @@
                     <span class="input-group-text bg-primary text-white">
                         <i class="fas fa-search"></i>
                     </span>
-                    <input type="text" id="searchInput" class="form-control form-control-lg" placeholder="Search for Resource requested by hostname, location or title...">
+                    <input type="text" id="searchInput" class="form-control form-control-lg" 
+                        placeholder="Search for Resource Requests by hostname, location or type...">
                     <button class="btn btn-primary" type="button" id="searchButton">Search</button>
                 </div>
             </div>
@@ -31,7 +32,9 @@
     <div class="filter-section mb-4">
         <div class="row">
             <div class="col-md-4 mb-2">
-                <label for="timeFilter" class="form-label"><i class="fas fa-clock me-2"></i>Time Range:</label>
+                <label for="timeFilter" class="form-label">
+                    <i class="fas fa-clock me-2"></i>Time Range:
+                </label>
                 <select class="form-select" id="timeFilter">
                     <option value="all">All Time</option>
                     <option value="today">Today</option>
@@ -41,7 +44,9 @@
                 </select>
             </div>
             <div class="col-md-4 mb-2">
-                <label for="statusFilter" class="form-label"><i class="fas fa-filter me-2"></i>Status:</label>
+                <label for="statusFilter" class="form-label">
+                    <i class="fas fa-filter me-2"></i>Status:
+                </label>
                 <select class="form-select" id="statusFilter">
                     <option value="all">All Statuses</option>
                     <option value="Pending">Pending</option>
@@ -52,23 +57,24 @@
                 </select>
             </div>
             <div class="col-md-4 mb-2">
-                <label for="sortBy" class="form-label"><i class="fas fa-sort me-2"></i>Sort By:</label>
+                <label for="sortBy" class="form-label">
+                    <i class="fas fa-sort me-2"></i>Sort By:
+                </label>
                 <select class="form-select" id="sortBy">
                     <option value="newest">Newest First</option>
                     <option value="oldest">Oldest First</option>
                     <option value="priority">By Priority</option>
                 </select>
             </div>
-            <!-- Custom date range inputs (initially hidden) -->
-            <div class="row mt-2 custom-date-range" style="display: none;">
-                <div class="col-md-6">
-                    <label for="startDate" class="form-label">Start Date:</label>
-                    <input type="date" class="form-control" id="startDate">
-                </div>
-                <div class="col-md-6">
-                    <label for="endDate" class="form-label">End Date:</label>
-                    <input type="date" class="form-control" id="endDate">
-                </div>
+        </div>
+        <div class="row mt-2 custom-date-range" style="display: none;">
+            <div class="col-md-6">
+                <label for="startDate" class="form-label">Start Date:</label>
+                <input type="date" class="form-control" id="startDate">
+            </div>
+            <div class="col-md-6">
+                <label for="endDate" class="form-label">End Date:</label>
+                <input type="date" class="form-control" id="endDate">
             </div>
         </div>
         <div class="row mt-3">
@@ -98,60 +104,107 @@
         <p class="text-muted">Try adjusting your search or filters</p>
     </div>
 
-    <!-- Request Cards -->
+    <!-- Resource Requests Container -->
     <div id="requestsContainer">
-        {% for resource in resource_requests %}
-        <div class="resource-card {{ resource.status|lower }}" data-status="{{ resource.status|lower }}" data-date="{{ resource.requested_at|date:"Y-m-d\\TH:i:s" }}">
-            <div class="row g-0">
-                <div class="col-md-1 d-flex align-items-center justify-content-center">
-                    <i class="fas fa-cubes resource-icon"></i>
-                </div>
-                <div class="col-md-11">
-                    <div class="request-details">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <div>
-                                <div class="requester">{{ resource.requested_by.username }}</div>
-                                <div class="location"><i class="fas fa-map-marker-alt me-1"></i>{{ resource.system_name.system.lab.lab_name }}</div>
-                            </div>
-                            <span class="badge bg-{% if resource.status == 'Pending' %}warning{% elif resource.status == 'Approved' %}success{% else %}secondary{% endif %} status-badge">{{ resource.status }}</span>
-                        </div>
-                        <h5 class="resource-title">{{ resource.resource_type }}</h5>
-                        <p class="resource-description">{{ resource.description }}</p>
-                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mt-3">
-                            <div class="timestamp">
-                                <i class="far fa-clock me-1"></i>Requested: {{ resource.requested_at|date:"F d, Y (h:i A)" }}
-                            </div>
-                            <form method="post" action="{% url 'update_resource_status' resource_id=resource.resource_id %}">
-                                {% csrf_token %}
-                                <div class="d-flex align-items-center">
-                                    <select class="status-selector me-2" name="status" style="width: auto;">
-                                        <option value="Pending" {% if resource.status == 'Pending' %}selected{% endif %}>Pending</option>
-                                        <option value="In Progress" {% if resource.status == 'In Progress' %}selected{% endif %}>In Progress</option>
-                                        <option value="Approved" {% if resource.status == 'Approved' %}selected{% endif %}>Approved</option>
-                                        <option value="Fulfilled" {% if resource.status == 'Fulfilled' %}selected{% endif %}>Fulfilled</option>
-                                        <option value="Denied" {% if resource.status == 'Denied' %}selected{% endif %}>Denied</option>
-                                    </select>
-                                    <button class="btn btn-outline-success" type="submit">Update</button>
-                                </div>
-                            </form>
+    {% for resource in resource_requests %}
+    <div class="resource-card {{ resource.status|lower }}" 
+        data-status="{{ resource.status|lower }}" 
+        data-date="{{ resource.requested_at|date:"Y-m-d\\TH:i:s" }}">
+        <div class="row g-3">
+            <div class="col-md-8 col-12">
+                <div class="hostname fw-bold ms-5 mb-3">
+                    <i class="fas fa-cubes fa-3x me-3 text-success"></i>
+                    <div>
+                        <span class="fs-4">{{ resource.system_name.system.host_name }}</span>
+                        <div class="location text-muted">
+                            <i class="fas fa-map-marker-alt me-1"></i>
+                            {{ resource.system_name.system.lab.lab_name }}
                         </div>
                     </div>
                 </div>
+                <div class="ms-5">
+                    <h5 class="resource-title mb-1">{{ resource.resource_type }}</h5>
+                    <p class="resource-description mb-2 text-justify">{{ resource.description }}</p>
+                </div>
+            </div>
+            <div class="col-md-4 col-12 text-md-end">
+                <span class="badge mb-2 bg-{% if resource.status == 'Pending' %}warning{% elif resource.status == 'Approved' %}success{% elif resource.status == 'In Progress' %}info{% elif resource.status == 'Fulfilled' %}success{% elif resource.status == 'Denied' %}secondary{% else %}secondary{% endif %} status-badge">
+                    {{ resource.status }}
+                </span>
+                {% if resource.status != 'Fulfilled' and resource.status != 'Denied' %}
+                <form method="post" action="{% url 'update_resource_status' resource_id=resource.resource_id %}" class="d-flex justify-content-md-end align-items-center mt-4">
+                    {% csrf_token %}
+                    <select class="status-selector me-2" name="status">
+                        <option value="Pending" {% if resource.status == 'Pending' %}selected{% endif %}>Pending</option>
+                        <option value="In Progress" {% if resource.status == 'In Progress' %}selected{% endif %}>In Progress</option>
+                        <option value="Approved" {% if resource.status == 'Approved' %}selected{% endif %}>Approved</option>
+                        <option value="Fulfilled" {% if resource.status == 'Fulfilled' %}selected{% endif %}>Fulfilled</option>
+                        <option value="Denied" {% if resource.status == 'Denied' %}selected{% endif %}>Denied</option>
+                    </select>
+                    <button class="btn btn-outline-success btn-sm" type="submit">Update</button>
+                </form>
+                {% endif %}
+                <div class="d-flex flex-wrap align-items-center text-primary small mt-4 mb-4 ms-3">
+                    <div>
+                        <i class="far fa-clock me-1"></i>
+                        <span class="me-3">Requested: {{ resource.requested_at|date:"F d, Y (h:i A)" }}</span>
+                    </div>
+                    <div>
+                        <i class="fas fa-user me-1"></i>
+                        <span>By: {{ resource.requested_by.username }}</span>
+                    </div>
+                </div>
+                {% if resource.provided_at %}
+                <div class="d-flex flex-wrap align-items-center text-success small mb-4 ms-3">
+                    <div>
+                        <i class="far fa-check-circle me-1"></i>
+                        <span class="me-3">Provided: {{ resource.provided_at|date:"F d, Y (h:i A)" }}</span>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
-        {% endfor %}
+    </div>
+    {% empty %}
+    <div class="text-center text-muted my-5">
+        <i class="fas fa-search fa-3x mb-3"></i>
+        <h4>No resource requests found</h4>
+        <p class="text-muted">Try adjusting your search or filters</p>
+    </div>
+    {% endfor %}
     </div>
 
-    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
     <nav aria-label="Page navigation" class="mt-4">
         <ul class="pagination justify-content-center">
-            <li class="page-item disabled"><a class="page-link" href="#">Previous</a></li>
-            <li class="page-item active"><a class="page-link" href="#">1</a></li>
-            <li class="page-item"><a class="page-link" href="#">2</a></li>
-            <li class="page-item"><a class="page-link" href="#">3</a></li>
-            <li class="page-item"><a class="page-link" href="#">Next</a></li>
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">&laquo; Previous</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">&laquo; Previous</span>
+            </li>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% else %}
+                <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next &raquo;</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Next &raquo;</span>
+            </li>
+            {% endif %}
         </ul>
     </nav>
+    {% endif %}
 </div>
 
 <!-- New Resource Request Modal -->
@@ -166,27 +219,18 @@
                 <form id="newRequestForm">
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label for="hostname" class="form-label">System Name*</label>
-                            <input type="text" class="form-control" id="hostname" placeholder="e.g. PC-ITL6-001" required>
+                            <label for="systemName" class="form-label">System Name*</label>
+                            <input type="text" class="form-control" id="systemName" placeholder="e.g. PC-ITL6-001" required>
                         </div>
                         <div class="col-md-6">
-                            <label for="location" class="form-label">Location*</label>
-                            <input type="text" class="form-control" id="location" placeholder="e.g. IT Lab 6" required>
+                            <label for="resourceType" class="form-label">Resource Type*</label>
+                            <select class="form-select" id="resourceType" required>
+                                <option value="">Select resource type</option>
+                                <option value="Hardware">Hardware</option>
+                                <option value="Software">Software</option>
+                                <option value="Network">Network</option>
+                            </select>
                         </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="requesterName" class="form-label">Requested By*</label>
-                            <input type="text" class="form-control" id="requesterName" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="lab" class="form-label">Lab*</label>
-                            <input type="text" class="form-control" id="lab" required>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="resourceType" class="form-label">Resource Type*</label>
-                        <input type="text" class="form-control" id="resourceType" placeholder="e.g. RAM, Mouse, Keyboard" required>
                     </div>
                     <div class="mb-3">
                         <label for="requestDescription" class="form-label">Description*</label>

@@ -1,416 +1,260 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Get the user's role from the body attribute
-    var userRole = document.body.getAttribute("data-user-role")?.trim();
+    // Get DOM elements
+    const elements = {
+        timeFilter: document.getElementById('timeFilter'),
+        customDateRange: document.querySelector('.custom-date-range'),
+        searchInput: document.getElementById('searchInput'),
+        searchButton: document.getElementById('searchButton'),
+        faultCards: document.querySelectorAll('.fault-card'),
+        noResultsMessage: document.getElementById('noResultsMessage'),
+        resultsCount: document.getElementById('resultsCount'),
+        statusFilter: document.getElementById('statusFilter'),
+        applyFiltersButton: document.getElementById('applyFilters'),
+        resetFiltersButton: document.getElementById('resetFilters'),
+        startDateInput: document.getElementById('startDate'),
+        endDateInput: document.getElementById('endDate'),
+        sortBySelect: document.getElementById('sortBy'),
+        submitFaultButton: document.getElementById('submitFault'),
+        newFaultForm: document.getElementById('newFaultForm'),
+        systemNameInput: document.getElementById('systemName'),
+        labLocationInput: document.getElementById('labLocation'),
+        systemSuggestions: document.getElementById('systemSuggestions'),
+        labSuggestions: document.getElementById('labSuggestions')
+    };
 
+    // User role management
+    const userRole = document.body.getAttribute("data-user-role")?.trim();
     if (userRole) {
         document.querySelectorAll("[data-role]").forEach(el => {
             el.style.display = (el.getAttribute("data-role") === userRole) ? 
                 (el.closest(".sidebar") ? "flex" : "block") : "none";
         });
-    } else {
-        console.warn("User role is missing!");
     }
 
-    // Show/hide custom date range based on time filter selection
-    const timeFilter = document.getElementById('timeFilter');
-    const customDateRange = document.querySelector('.custom-date-range');
-    
-    timeFilter.addEventListener('change', function() {
-        if (this.value === 'custom') {
-            customDateRange.style.display = 'flex';
-        } else {
-            customDateRange.style.display = 'none';
-        }
+    // Show/hide custom date range
+    elements.timeFilter.addEventListener('change', function() {
+        elements.customDateRange.style.display = this.value === 'custom' ? 'flex' : 'none';
     });
-    
-    // Search functionality
-    const searchInput = document.getElementById('searchInput');
-    const searchButton = document.getElementById('searchButton');
-    const faultCards = document.querySelectorAll('.fault-card');
-    const noResultsMessage = document.getElementById('noResultsMessage');
-    const resultsCount = document.getElementById('resultsCount');
-    
-    // Search function
-    function performSearch() {
-        const searchTerm = searchInput.value.toLowerCase();
-        let visibleCount = 0;
-        
-        faultCards.forEach(card => {
-            const hostname = card.querySelector('.hostname').textContent.toLowerCase();
-            const location = card.querySelector('.location').textContent.toLowerCase();
-            const title = card.querySelector('.fault-title').textContent.toLowerCase();
-            const description = card.querySelector('.fault-description').textContent.toLowerCase();
-            
-            if (hostname.includes(searchTerm) || 
-                location.includes(searchTerm) || 
-                title.includes(searchTerm) || 
-                description.includes(searchTerm)) {
-                card.style.display = 'block';
-                visibleCount++;
-            } else {
-                card.style.display = 'none';
-            }
-        });
-        
-        // Update results count and show/hide no results message
-        if (visibleCount === 0) {
-            noResultsMessage.style.display = 'block';
-            resultsCount.textContent = 'No fault reports found';
-        } else {
-            noResultsMessage.style.display = 'none';
-            resultsCount.textContent = `Showing ${visibleCount} fault report${visibleCount !== 1 ? 's' : ''}`;
-        }
-    }
-    
-    // Event listeners for search
-    searchButton.addEventListener('click', performSearch);
-    searchInput.addEventListener('keyup', function(event) {
-        if (event.key === 'Enter') {
-            performSearch();
-        }
+
+    // Search event listeners
+    elements.searchButton.addEventListener('click', performSearch);
+    elements.searchInput.addEventListener('keyup', function(event) {
+        if (event.key === 'Enter') performSearch();
     });
-    
-    // Filter functionality
-    const statusFilter = document.getElementById('statusFilter');
-    const applyFiltersButton = document.getElementById('applyFilters');
-    const resetFiltersButton = document.getElementById('resetFilters');
-    const startDateInput = document.getElementById('startDate');
-    const endDateInput = document.getElementById('endDate');
-    const sortBySelect = document.getElementById('sortBy');
-    
-    // Apply filters function
-    function applyFilters() {
-        const statusValue = statusFilter.value;
-        const timeValue = timeFilter.value;
-        const sortValue = sortBySelect.value;
-        
-        let startDate = null;
-        let endDate = null;
-        
-        // Set date range based on selected time filter
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        
-        if (timeValue === 'custom') {
-            startDate = startDateInput.value ? new Date(startDateInput.value) : null;
-            endDate = endDateInput.value ? new Date(endDateInput.value) : null;
-        } else if (timeValue === 'today') {
-            startDate = today;
-            endDate = new Date(today);
-            endDate.setDate(endDate.getDate() + 1);
-        } else if (timeValue === 'week') {
-            startDate = new Date(today);
-            startDate.setDate(startDate.getDate() - 7);
-            endDate = new Date(today);
-            endDate.setDate(endDate.getDate() + 1);
-        } else if (timeValue === 'month') {
-            startDate = new Date(today);
-            startDate.setMonth(startDate.getMonth() - 1);
-            endDate = new Date(today);
-            endDate.setDate(endDate.getDate() + 1);
-        }
-        
-        // Filter cards
-        let visibleCount = 0;
-        let cardsArray = Array.from(faultCards);
-        
-        // Sort cards
-        if (sortValue === 'newest') {
-            cardsArray.sort((a, b) => {
-                return new Date(b.dataset.date) - new Date(a.dataset.date);
-            });
-        } else if (sortValue === 'oldest') {
-            cardsArray.sort((a, b) => {
-                return new Date(a.dataset.date) - new Date(b.dataset.date);
-            });
-        }
-        
-        // Reorder DOM elements
-        const container = document.getElementById('faultReportsContainer');
-        cardsArray.forEach(card => container.appendChild(card));
-        
-        // Filter cards
-        cardsArray.forEach(card => {
-            const cardStatus = card.dataset.status;
-            const cardDate = new Date(card.dataset.date);
-            let showCard = true;
-            
-            // Filter by status
-            if (statusValue !== 'all' && cardStatus !== statusValue) {
-                showCard = false;
-            }
-            
-            // Filter by date
-            if (showCard && timeValue !== 'all' && (startDate || endDate)) {
-                if (startDate && cardDate < startDate) {
-                    showCard = false;
-                }
-                if (endDate && cardDate > endDate) {
-                    showCard = false;
-                }
-            }
-            
-            // Apply visibility
-            if (showCard) {
-                card.style.display = 'block';
-                visibleCount++;
-            } else {
-                card.style.display = 'none';
-            }
-        });
-        
-        // Update results count and show/hide no results message
-        if (visibleCount === 0) {
-            noResultsMessage.style.display = 'block';
-            resultsCount.textContent = 'No fault reports found';
-        } else {
-            noResultsMessage.style.display = 'none';
-            resultsCount.textContent = `Showing ${visibleCount} fault report${visibleCount !== 1 ? 's' : ''}`;
-        }
-    }
-    
-    // Reset filters function
+
+    // Reset filters
     function resetFilters() {
-        searchInput.value = '';
-        statusFilter.value = 'all';
-        timeFilter.value = 'all';
-        sortBySelect.value = 'newest';
-        startDateInput.value = '';
-        endDateInput.value = '';
-        customDateRange.style.display = 'none';
-        
-        // Show all cards
-        faultCards.forEach(card => {
-            card.style.display = 'block';
-        });
-        
-        // Update results count
-        noResultsMessage.style.display = 'none';
-        resultsCount.textContent = `Showing all fault reports (${faultCards.length})`;
+        window.location.search = '';
     }
+
+    // Filter event listeners  
+    elements.applyFiltersButton.addEventListener('click', applyFilters);
+    elements.resetFiltersButton.addEventListener('click', resetFilters);
+
+    // Autocomplete functionality
+    let searchTimeout;
     
-    // Add event listeners for filter buttons
-    applyFiltersButton.addEventListener('click', applyFilters);
-    resetFiltersButton.addEventListener('click', resetFilters);
-    
-    // Status update functionality
-    const updateStatusButtons = document.querySelectorAll('.update-status');
-    
-    updateStatusButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const card = this.closest('.fault-card');
-            const statusSelect = card.querySelector('.status-selector');
-            const statusBadge = card.querySelector('.status-badge');
-            const selectedStatus = statusSelect.value;
+    function setupAutocomplete(input, suggestionsContainer, endpoint) {
+        input.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value.trim();
             
-            // Update card data attribute
-            card.dataset.status = selectedStatus;
-            
-            // Update card class
-            card.classList.remove('unaddressed', 'in-progress', 'scheduled', 'resolved', 'ignored');
-            card.classList.add(selectedStatus);
-            
-            // Update status badge
-            statusBadge.classList.remove('bg-danger', 'bg-warning', 'bg-info', 'bg-success', 'bg-secondary');
-            statusBadge.textContent = statusSelect.options[statusSelect.selectedIndex].text;
-            
-            if (selectedStatus === 'unaddressed') {
-                statusBadge.classList.add('bg-danger');
-            } else if (selectedStatus === 'in-progress') {
-                statusBadge.classList.add('bg-warning', 'text-dark');
-            } else if (selectedStatus === 'scheduled') {
-                statusBadge.classList.add('bg-info');
-            } else if (selectedStatus === 'resolved') {
-                statusBadge.classList.add('bg-success');
-            } else if (selectedStatus === 'ignored') {
-                statusBadge.classList.add('bg-secondary');
+            if (query.length < 2) {
+                suggestionsContainer.innerHTML = '';
+                return;
             }
             
-            // Show success alert (temporary)
-            const alertDiv = document.createElement('div');
-            alertDiv.classList.add('alert', 'alert-success', 'alert-dismissible', 'fade', 'show', 'position-fixed', 'top-0', 'start-50', 'translate-middle-x', 'mt-3');
-            alertDiv.setAttribute('role', 'alert');
-            alertDiv.innerHTML = `
-                <strong>Success!</strong> Status updated to ${statusSelect.options[statusSelect.selectedIndex].text}.
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            `;
-            document.body.appendChild(alertDiv);
-            
-            // Remove alert after 3 seconds
-            setTimeout(() => {
-                alertDiv.classList.remove('show');
-                setTimeout(() => alertDiv.remove(), 150);
-            }, 3000);
+            searchTimeout = setTimeout(() => {
+                fetch(`${endpoint}?q=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        displaySuggestions(suggestionsContainer, data.results, input);
+                    })
+                    .catch(error => console.error('Error:', error));
+            }, 300);
         });
-    });
-    
-    // New fault report submission
-    const submitFaultButton = document.getElementById('submitFault');
-    const newFaultForm = document.getElementById('newFaultForm');
-    const newFaultModal = document.getElementById('newFaultModal');
-    const modalInstance = bootstrap.Modal.getInstance(newFaultModal);
-    
-    submitFaultButton.addEventListener('click', function() {
-        // Check form validity
-        if (newFaultForm.checkValidity()) {
-            // Get form values
-            const hostname = document.getElementById('hostname').value;
-            const location = document.getElementById('location').value;
-            const faultTitle = document.getElementById('faultTitle').value;
-            const faultDescription = document.getElementById('faultDescription').value;
-            const reporterName = document.getElementById('reporterName').value;
-            
-            // Create new fault card
-            const now = new Date();
-            const formattedDate = now.toLocaleString('en-US', { 
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-            });
-            
-            const newCard = document.createElement('div');
-            newCard.className = 'fault-card unaddressed';
-            newCard.dataset.status = 'unaddressed';
-            newCard.dataset.date = now.toISOString();
-            
-            newCard.innerHTML = `
-                <div class="row g-0">
-                    <div class="col-md-1 d-flex align-items-center justify-content-center">
-                        <i class="fas fa-desktop computer-icon"></i>
-                    </div>
-                    <div class="col-md-11">
-                        <div class="fault-details">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <div>
-                                    <div class="hostname">${hostname}</div>
-                                    <div class="location"><i class="fas fa-map-marker-alt me-1"></i>${location}</div>
-                                </div>
-                                <span class="badge bg-danger status-badge">Unaddressed</span>
-                            </div>
-                            <h5 class="fault-title">${faultTitle}</h5>
-                            <p class="fault-description">${faultDescription}</p>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="timestamp"><i class="far fa-clock me-1"></i>Reported: ${formattedDate}</span>
-                                <div class="d-flex">
-                                    <select class="status-selector me-2">
-                                        <option value="unaddressed" selected>Unaddressed</option>
-                                        <option value="in-progress">In Progress</option>
-                                        <option value="scheduled">Scheduled for Later</option>
-                                        <option value="resolved">Resolved</option>
-                                        <option value="ignored">Ignored - Not Actionable</option>
-                                    </select>
-                                    <button class="btn btn-sm btn-outline-primary update-status">Update</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            // Add new fault card to container
-            const container = document.getElementById('faultReportsContainer');
-            container.insertBefore(newCard, container.firstChild);
-            
-            // Update fault count
-            resultsCount.textContent = `Showing all fault reports (${faultCards.length + 1})`;
-            
-            // Reset form
-            newFaultForm.reset();
-            
-            // Close modal
-            const bsModal = bootstrap.Modal.getInstance(newFaultModal);
-            bsModal.hide();
-            
-            // Add event listener to new update status button
-            const newUpdateButton = newCard.querySelector('.update-status');
-            newUpdateButton.addEventListener('click', function() {
-                const card = this.closest('.fault-card');
-                const statusSelect = card.querySelector('.status-selector');
-                const statusBadge = card.querySelector('.status-badge');
-                const selectedStatus = statusSelect.value;
-                
-                // Update card data attribute
-                card.dataset.status = selectedStatus;
-                
-                // Update card class
-                card.classList.remove('unaddressed', 'in-progress', 'scheduled', 'resolved', 'ignored');
-                card.classList.add(selectedStatus);
-                
-                // Update status badge
-                statusBadge.classList.remove('bg-danger', 'bg-warning', 'bg-info', 'bg-success', 'bg-secondary');
-                statusBadge.textContent = statusSelect.options[statusSelect.selectedIndex].text;
-                
-                if (selectedStatus === 'unaddressed') {
-                    statusBadge.classList.add('bg-danger');
-                } else if (selectedStatus === 'in-progress') {
-                    statusBadge.classList.add('bg-warning', 'text-dark');
-                } else if (selectedStatus === 'scheduled') {
-                    statusBadge.classList.add('bg-info');
-                } else if (selectedStatus === 'resolved') {
-                    statusBadge.classList.add('bg-success');
-                } else if (selectedStatus === 'ignored') {
-                    statusBadge.classList.add('bg-secondary');
+    }
+
+    function displaySuggestions(container, suggestions, input) {
+        container.innerHTML = suggestions.map(item => 
+            `<div class="suggestion-item" data-value="${item.name}" data-lab="${item.lab || ''}">
+                ${item.display || item.name}
+            </div>`
+        ).join('');
+        
+        container.querySelectorAll('.suggestion-item').forEach(item => {
+            item.addEventListener('click', function() {
+                input.value = this.dataset.value;
+                if (this.dataset.lab && input.id === 'systemName') {
+                    elements.labLocationInput.value = this.dataset.lab;
                 }
-                
-                // Show success alert
-                const alertDiv = document.createElement('div');
-                alertDiv.classList.add('alert', 'alert-success', 'alert-dismissible', 'fade', 'show', 'position-fixed', 'top-0', 'start-50', 'translate-middle-x', 'mt-3');
-                alertDiv.setAttribute('role', 'alert');
-                alertDiv.innerHTML = `
-                    <strong>Success!</strong> Status updated to ${statusSelect.options[statusSelect.selectedIndex].text}.
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                `;
-                document.body.appendChild(alertDiv);
-                
-                // Remove alert after 3 seconds
-                setTimeout(() => {
-                    alertDiv.classList.remove('show');
-                    setTimeout(() => alertDiv.remove(), 150);
-                }, 3000);
+                container.innerHTML = '';
+                validateInput(input);
             });
-            
-            // Show success message
-            const alertDiv = document.createElement('div');
-            alertDiv.classList.add('alert', 'alert-success', 'alert-dismissible', 'fade', 'show', 'position-fixed', 'top-0', 'start-50', 'translate-middle-x', 'mt-3');
-            alertDiv.setAttribute('role', 'alert');
-            alertDiv.innerHTML = `
-                <strong>Success!</strong> New fault report created.
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            `;
-            document.body.appendChild(alertDiv);
-            
-            // Remove alert after 3 seconds
-            setTimeout(() => {
-                alertDiv.classList.remove('show');
-                setTimeout(() => alertDiv.remove(), 150);
-            }, 3000);
-        } else {
-            // Trigger browser's form validation
-            const firstInvalid = newFaultForm.querySelector(':invalid');
-            if (firstInvalid) {
-                firstInvalid.focus();
-            }
+        });
+    }
+
+    function validateInput(input) {
+        const errorElement = document.getElementById(input.id + 'Error');
+        // Add validation logic here
+        input.classList.remove('is-invalid');
+        errorElement.textContent = '';
+    }
+
+    function buildQueryParams() {
+        const params = new URLSearchParams();
+        if (elements.searchInput.value.trim()) params.set('search', elements.searchInput.value.trim());
+        if (elements.statusFilter.value !== 'all') params.set('status', elements.statusFilter.value);
+        if (elements.timeFilter.value !== 'all') params.set('time', elements.timeFilter.value);
+        if (elements.sortBySelect.value !== 'newest') params.set('sort', elements.sortBySelect.value);
+        if (elements.timeFilter.value === 'custom') {
+            if (elements.startDateInput.value) params.set('start', elements.startDateInput.value);
+            if (elements.endDateInput.value) params.set('end', elements.endDateInput.value);
+        }
+        return params.toString();
+    }
+
+    function applyFilters() {
+        const query = buildQueryParams();
+        window.location.search = query;
+    }
+
+    function performSearch() {
+        applyFilters();
+    }
+
+    // Setup autocomplete
+    setupAutocomplete(elements.systemNameInput, elements.systemSuggestions, '/faults/systems-autocomplete/');
+    setupAutocomplete(elements.labLocationInput, elements.labSuggestions, '/faults/labs-autocomplete/');
+
+    // Hide suggestions when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.suggestions-dropdown') && !e.target.matches('input')) {
+            elements.systemSuggestions.innerHTML = '';
+            elements.labSuggestions.innerHTML = '';
         }
     });
-    
-    // Initialize tooltips and popovers if needed
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.map(function(tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-    
-    // Initialize pagination
-    const paginationLinks = document.querySelectorAll('.pagination .page-link');
-    paginationLinks.forEach(link => {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            // Pagination logic would go here in a real application
-            // For this demo, just highlight the clicked page
-            document.querySelector('.page-item.active').classList.remove('active');
-            this.closest('.page-item').classList.add('active');
+
+    // Submit fault report
+    elements.submitFaultButton.addEventListener('click', function() {
+        if (!elements.newFaultForm.checkValidity()) {
+            elements.newFaultForm.reportValidity();
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        formData.append('system_name', elements.systemNameInput.value);
+        formData.append('lab_location', elements.labLocationInput.value);
+        formData.append('fault_type', document.getElementById('faultType').value);
+        formData.append('description', document.getElementById('faultDescription').value);
+
+        fetch('/faults/create/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', data.message);
+                elements.newFaultForm.reset();
+                bootstrap.Modal.getInstance(document.getElementById('newFaultModal')).hide();
+                // Refresh page or add new card dynamically
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showAlert('danger', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('danger', 'An error occurred while submitting the fault report');
         });
     });
+
+    // Intercept status update for "resolved"
+    document.querySelectorAll('.status-form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            const select = form.querySelector('.status-selector');
+            if (select.value === 'resolved') {
+                e.preventDefault();
+                const faultId = form.closest('.fault-card').dataset.faultId;
+                // Show the modal for resolution summary
+                document.getElementById('resolvedFaultId').value = faultId;
+                document.getElementById('resolutionSummary').value = '';
+                const modal = new bootstrap.Modal(document.getElementById('resolutionModal'));
+                modal.show();
+
+                // Store the form for later use
+                window._pendingResolveForm = form;
+            }
+        });
+    });
+
+    // Handle resolution summary submission
+    document.getElementById('resolutionForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const faultId = document.getElementById('resolvedFaultId').value;
+        const summary = document.getElementById('resolutionSummary').value;
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        // 1. First, update the status to resolved
+        fetch(`/faults/update_status/${faultId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new URLSearchParams({status: 'resolved'})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 2. Then, submit the resolution summary
+                return fetch(`/faults/resolve/${faultId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ resolution_summary: summary })
+                });
+            } else {
+                throw new Error(data.message || 'Failed to update status.');
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', data.message);
+                bootstrap.Modal.getInstance(document.getElementById('resolutionModal')).hide();
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showAlert('danger', data.message);
+            }
+        })
+        .catch(error => {
+            showAlert('danger', error.message || 'Failed to submit resolution.');
+        });
+    });
+
+    // Show alert function
+    function showAlert(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+        alertDiv.style.zIndex = '9999';
+        alertDiv.innerHTML = `
+            <strong>${type === 'success' ? 'Success!' : 'Error!'}</strong> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            alertDiv.classList.remove('show');
+            setTimeout(() => alertDiv.remove(), 150);
+        }, 3000);
+    }
+
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
 });

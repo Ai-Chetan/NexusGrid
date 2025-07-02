@@ -8,18 +8,11 @@ class ResourceRequest(models.Model):
         ('Approved', 'Approved'),
         ('Rejected', 'Rejected'),
     ]
-    RESOURCE_CHOICES = [
-        ('Hardware', 'Hardware'),
-        ('Software', 'Software'),
-        ('Network', 'Network'),
-    ]
 
     resource_id = models.AutoField(primary_key=True)
     system_name = models.ForeignKey(LayoutItem, on_delete=models.CASCADE)
     requested_by = models.ForeignKey(User, on_delete=models.CASCADE)
-    resource_type = models.CharField(
-        max_length=20, choices=RESOURCE_CHOICES, db_index=True
-    )
+    resource_name = models.TextField()
     description = models.TextField()
     status = models.CharField(
         max_length=30, choices=STATUS_CHOICES, db_index=True
