@@ -39,15 +39,15 @@
         </h1>
         
         <div id="layoutControls" class="button-container role-panel" style="display:flex;">
-            <button id="editLayoutButton" class="btns btn-primary">Edit Layout</button>
-            <button id="backButton" class="btns btn-secondary" {% if not parent %}style="display:none;"{% endif %}>
+            <button id="editLayoutButton" class="btn btn-primary">Edit Layout</button>
+            <button id="backButton" class="btn btn-outline-secondary" {% if not parent %}style="display:none;"{% endif %}>
                 <i class="fas fa-arrow-left"></i> Back
             </button>
         </div>
         
         <div id="editControls" class="button-container" style="display:none;">
             <div class="dropdown add-dropdown">
-                <button id="addBlockButton" class="btns btn-success dropdown-toggle" data-bs-toggle="dropdown">
+                <button id="addBlockButton" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown">
                     Add Item
                 </button>
                 <ul class="dropdown-menu">
@@ -68,10 +68,10 @@
                     {% endif %}
                 </ul>
             </div>
-            <button id="removeBlockButton" class="btns btn-danger">Remove</button>
-            <button id="resetLayoutButton" class="btns btn-warning">Reset</button>
-            <button id="saveLayoutButton" class="btns btn-primary">Save</button>
-            <button id="cancelEditButton" class="btns btn-secondary">Cancel</button>
+            <button id="removeBlockButton" class="btn btn-outline-danger">Remove</button>
+            <button id="resetLayoutButton" class="btn btn-outline-info">Reset</button>
+            <button id="saveLayoutButton" class="btn btn-outline-primary">Save</button>
+            <button id="cancelEditButton" class="btn btn-outline-secondary">Cancel</button>
         </div>
     </div>
     <div class="col-md-12 ps-5">

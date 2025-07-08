@@ -63,23 +63,50 @@ class LayoutItem(models.Model):
 
 
 class Lab(models.Model):
-    layout_item = models.OneToOneField(
-        LayoutItem,
-        on_delete=models.CASCADE,
-        limit_choices_to={'item_type': 'room'},
-        null=True,
-        blank=True,
-        related_name='lab'
-    )
-    lab_name = models.CharField(max_length=100, unique=True)
-    instructor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    location = models.CharField(max_length=200, null=True)
+    layout_item = models.OneToOneField(LayoutItem, on_delete=models.CASCADE, limit_choices_to={'item_type': 'room'}, related_name='lab' )
+    lab_name = models.CharField(max_length=100)
+    location = models.CharField(max_length=100, null=True)
+    instructors = models.ManyToManyField(User, blank=True, related_name='instructor_labs')
+    assistants = models.ManyToManyField(User, blank=True, related_name='assistant_labs')
     capacity = models.IntegerField(null=True)
     dimension = models.CharField(max_length=50, null=True)
+    parent = models.ForeignKey(LayoutItem, on_delete=models.CASCADE, related_name='lab_children' )
 
     def __str__(self):
         return self.lab_name
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['lab_name', 'parent'],
+                name='unique_lab_name_per_floor'
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        # Automatically set parent to the parent of the layout_item (the floor)
+        if self.layout_item and self.layout_item.parent:
+            self.parent = self.layout_item.parent
+        else:
+            self.parent = None
+        super().save(*args, **kwargs)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.lab_name,
+            'location': self.location,
+            'capacity': self.capacity,
+            'dimension': self.dimension,
+            'instructors': [{'id': u.id, 'username': u.username} for u in self.instructors.all()],
+            'assistants': [{'id': u.id, 'username': u.username} for u in self.assistants.all()],
+        }
+    
+    def stats(self):
+        return {
+            'capacity': self.capacity,
+            'dimension': self.dimension,
+        }
 
 class System(models.Model):
     STATUS_CHOICES = [

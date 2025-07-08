@@ -21,7 +21,7 @@
         </p>
 
         <div class="scanner-container mb-3 animate__animated animate__fadeInUp">
-            <div id="reader"></div>
+            <div id="qr-reader"></div>
             <div class="overlay">
                 <div class="corner top-left"></div>
                 <div class="corner top-right"></div>
@@ -42,21 +42,6 @@
 {% endblock main_content %}
 
 {% block scripts %}
-<script>
-    // Get the user's role from the body attribute
-    var userRole = document.body.getAttribute("data-user-role")?.trim();
-
-    if (userRole) {
-        document.querySelectorAll("[data-role]").forEach(el => {
-            el.style.display = (el.getAttribute("data-role") === userRole) ? 
-                (el.closest(".sidebar") ? "flex" : "block") : "none";
-        });
-    } else {
-        console.warn("User role is missing!");
-    }
-
-    initQRScanner()
-</script>
 {% compress js %}
 <script src="{% static 'dashboard/js/dashboard.js' %}"></script>
 {% endcompress %}

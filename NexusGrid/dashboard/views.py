@@ -237,7 +237,7 @@ def get_recent_activity():
             'type': 'resource',
             'icon': 'fas fa-box',
             'color': 'primary',
-            'title': f'Resource Request - {resource.resource_type}',
+            'title': f'Resource Request - {resource.resource_name}',
             'description': resource.description[:50] + '...' if len(resource.description) > 50 else resource.description,
             'timestamp': resource.requested_at,
             'time_ago': get_time_ago(resource.requested_at)

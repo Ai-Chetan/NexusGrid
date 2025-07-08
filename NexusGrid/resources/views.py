@@ -3,18 +3,18 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.db.models import Q
+from .models import ResourceRequest, Provided
 from .models import ResourceRequest
-from system_layout.models import LayoutItem
+from system_layout.models import LayoutItem, Lab, System
 from django.utils import timezone
 from django.core.paginator import Paginator
+import json
 
 @login_required
 def resource_requests(request):
     qs = ResourceRequest.objects.select_related(
         'system_name',
         'requested_by',
-        'system_name__system',
-        'system_name__system__lab'
     )
 
     # Filtering
@@ -29,7 +29,7 @@ def resource_requests(request):
         qs = qs.filter(
             Q(system_name__system__host_name__icontains=search) |
             Q(system_name__system__lab__lab_name__icontains=search) |
-            Q(resource_type__icontains=search) |
+            Q(resource_name__icontains=search) |
             Q(description__icontains=search)
         )
     if status and status != 'all':
@@ -65,33 +65,73 @@ def resource_requests(request):
 def update_resource_status(request, resource_id):
     resource_request = get_object_or_404(ResourceRequest, resource_id=resource_id)
     new_status = request.POST.get('status')
-    valid_statuses = ['Pending', 'In Progress', 'Approved', 'Fulfilled', 'Denied']
+    provision_summary = request.POST.get('provision_summary', '').strip()
+    valid_statuses = ['Pending', 'Fulfilled', 'Denied']
+
     if new_status in valid_statuses:
+        if new_status == 'Fulfilled':
+            if not provision_summary:
+                # Optionally, show an error message or redirect back with error
+                return redirect('resource_requests')  # Or handle error
+            Provided.objects.update_or_create(
+                resource_request=resource_request,
+                defaults={
+                    'provision_summary': provision_summary,
+                    'provided_by': request.user,
+                }
+            )
         resource_request.status = new_status
-        if new_status == 'Approved':
-            resource_request.provided_at = timezone.now()
         resource_request.save()
-    return redirect('resource_request')
+    return redirect('resource_requests')
 
 @login_required
 @require_POST
 def create_resource_request(request):
-    import json
     data = json.loads(request.body)
     system_name = data.get('system_name', '').strip()
-    resource_type = data.get('resource_type', '').strip()
+    lab_location = data.get('lab_location', '').strip()
+    resource_name = data.get('resource_name', '').strip()
     description = data.get('description', '').strip()
-    if not (system_name and resource_type and description):
+    if not (system_name and lab_location and resource_name and description):
         return JsonResponse({'success': False, 'message': 'All fields required.'})
     try:
-        layout_item = LayoutItem.objects.get(name=system_name)
+        # Find the system by name and lab
+        system = System.objects.select_related('lab', 'layout_item').get(
+            layout_item__name=system_name,
+            lab__lab_name=lab_location
+        )
         req = ResourceRequest.objects.create(
-            system_name=layout_item,
+            system_name=system,  # <-- FIXED
             requested_by=request.user,
-            resource_type=resource_type,
+            resource_name=resource_name,
             description=description,
             status='Pending'
         )
         return JsonResponse({'success': True})
-    except LayoutItem.DoesNotExist:
-        return JsonResponse({'success': False, 'message': 'System not found.'})
+    except (System.DoesNotExist, LayoutItem.DoesNotExist):
+        return JsonResponse({'success': False, 'message': 'System not found in the specified location.'})
+
+@login_required
+def get_systems_autocomplete(request):
+    query = request.GET.get('q', '')
+    systems = System.objects.select_related('layout_item', 'lab') \
+        .filter(
+            layout_item__name__icontains=query
+        )[:10]
+
+    results = [
+        {
+            'name': system.layout_item.name,
+            'lab': system.lab.lab_name if system.lab else '',
+            'display': f"{system.layout_item.name} - {system.lab.lab_name}" if system.lab else system.layout_item.name
+        }
+        for system in systems
+    ]
+    return JsonResponse({'results': results})
+
+@login_required
+def get_labs_autocomplete(request):
+    query = request.GET.get('q', '')
+    labs = Lab.objects.filter(lab_name__icontains=query)[:10]
+    results = [{'name': lab.lab_name} for lab in labs]
+    return JsonResponse({'results': results})

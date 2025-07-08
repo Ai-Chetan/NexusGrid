@@ -239,7 +239,7 @@ function processScanResult(qrData) {
     showScanLoading("Processing QR code...");
     
     // Send to server for processing
-    fetch('/dashboard/process-qr/', {
+    fetch('/dashboard/scan-result/', { // <-- changed from /dashboard/process-qr/
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json',

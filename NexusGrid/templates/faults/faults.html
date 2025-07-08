@@ -255,23 +255,23 @@
                     {% csrf_token %}
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label for="labLocation" class="form-label">Lab Location*</label>
-                            <input type="text" class="form-control" id="labLocation" 
-                                   placeholder="Enter Lab Name" required>
-                            <div id="labSuggestions" class="suggestions-dropdown"></div>
-                            <div class="invalid-feedback" id="labError"></div>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="systemName" class="form-label">System Name*</label>
+                            <label for="systemName" class="form-label">System Name</label>
                             <input type="text" class="form-control" id="systemName" 
                                    placeholder="Enter System Name" required>
                             <div id="systemSuggestions" class="suggestions-dropdown"></div>
                             <div class="invalid-feedback" id="systemError"></div>
                         </div>
+                        <div class="col-md-6">
+                            <label for="labLocation" class="form-label">Lab Location</label>
+                            <input type="text" class="form-control" id="labLocation" 
+                                   placeholder="Enter Lab Name" required>
+                            <div id="labSuggestions" class="suggestions-dropdown"></div>
+                            <div class="invalid-feedback" id="labError"></div>
+                        </div>
                     </div>
 
                     <div class="mb-3">
-                        <label for="faultType" class="form-label">Fault Type*</label>
+                        <label for="faultType" class="form-label">Fault Type</label>
                         <select class="form-select" id="faultType" required>
                             <option value="">Select fault type</option>
                             <option value="Hardware">Hardware</option>
@@ -281,7 +281,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="faultDescription" class="form-label">Fault Description*</label>
+                        <label for="faultDescription" class="form-label">Fault Description</label>
                         <textarea class="form-control" id="faultDescription" rows="4" 
                                   placeholder="Describe the fault in detail..." required></textarea>
                     </div>
@@ -309,7 +309,7 @@
         <div class="modal-body">
             <input type="hidden" id="resolvedFaultId" name="fault_id">
             <div class="mb-3">
-            <label for="resolutionSummary" class="form-label">Summary*</label>
+            <label for="resolutionSummary" class="form-label">Summary</label>
             <textarea class="form-control" id="resolutionSummary" name="resolution_summary" rows="4" required></textarea>
             </div>
         </div>

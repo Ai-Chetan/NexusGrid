@@ -1,10 +1,24 @@
+# urls.py
 from django.urls import path
 from . import views
 
+app_name = 'user_privileges'
+
 urlpatterns = [
-    path('', views.user_privileges, name='admin_lab_privileges'),
-    path('assign-role/', views.assign_role, name='assign_role'),
-    path('update-lab/<str:lab_name>/', views.update_lab_assignment, name='update_lab_assignment'),
-    path('remove-role/<int:user_id>/', views.remove_role, name='remove_role'),
-    path('userprivileges/remove/<str:lab_name>/<str:user_type>/<int:user_id>/', views.remove_lab_user, name='remove_lab_user'),
+    # Main template view
+    path('', views.UserPrivilegesView.as_view(), name='index'),
+    
+    # API endpoints
+    path('api/stats/', views.stats_api, name='stats_api'),
+    path('api/buildings/', views.buildings_api, name='buildings_api'),
+    path('api/floors/<int:building_id>/', views.floors_api, name='floors_api'),
+    path('api/labs/<int:floor_id>/', views.labs_api, name='labs_api'),
+    path('api/users/', views.users_api, name='users_api'),
+    path('api/users/<int:user_id>/', views.user_detail_api, name='user_detail_api'),
+    path('api/available-instructors/', views.available_instructors_api, name='available_instructors_api'),
+    path('api/available-assistants/', views.available_assistants_api, name='available_assistants_api'),
+    path('api/assign-staff/', views.assign_staff_api, name='assign_staff_api'),
+    path('api/remove-staff/', views.remove_staff_api, name='remove_staff_api'),
+    path('api/settings/', views.settings_api, name='settings_api'),
+    path('api/save/', views.capacity_and_dimension_api, name='capacity_and_dimension_api'),
 ]
