@@ -62,7 +62,7 @@ INSTALLED_APPS = [
     # Authentication (django-allauth)
     'allauth',
     'allauth.account',
-    # 'allauth.socialaccount',
+    'allauth.socialaccount',
     # Add specific social auth providers if needed, e.g.:
     # 'allauth.socialaccount.providers.google',
     # 'allauth.socialaccount.providers.facebook',

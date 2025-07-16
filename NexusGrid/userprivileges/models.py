@@ -1,7 +1,7 @@
 from django.db import models
 
 class LabAssignmentSetting(models.Model):
-    instructor_limit = models.PositiveIntegerField(default=3)
+    instructor_limit = models.PositiveIntegerField(default=5)
     assistant_limit = models.PositiveIntegerField(default=5)
 
     class Meta:
