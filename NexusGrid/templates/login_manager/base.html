@@ -17,12 +17,12 @@
     {% compress css %}
     <link href="{% static 'login_manager/css/landing-page.css' %}" rel="stylesheet">
     <link href="{% static 'login_manager/css/sigin-signup-page.css' %}" rel="stylesheet">
+    <link href="{% static 'common/style.css' %}" rel="stylesheet">
     {% endcompress %}
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container-fluid">
-            <!-- Brand Logo -->
             <a class="navbar-brand" href="/#section-home">
                 <img loading="lazy" src="{% static 'login_manager/images/Logo+Text Light.png' %}" alt="Nexus Grid" class="logo">
             </a>
@@ -55,6 +55,7 @@
 
     {% compress js %}
     <script src="{% static 'login_manager/js/app.js' %}"></script>
+    <script src="{% static 'common/script.js' %}"></script>
     {% endcompress %}
 </body>
 </html>

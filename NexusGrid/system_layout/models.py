@@ -1,7 +1,7 @@
 # models.py - Fixed version
 from django.db import models
 from login_manager.models import User
-
+import json
 
 class LayoutItem(models.Model):
     ITEM_TYPES = [
@@ -71,6 +71,7 @@ class Lab(models.Model):
     capacity = models.IntegerField(null=True)
     dimension = models.CharField(max_length=50, null=True)
     parent = models.ForeignKey(LayoutItem, on_delete=models.CASCADE, related_name='lab_children' )
+    quick_info = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return self.lab_name
@@ -102,11 +103,11 @@ class Lab(models.Model):
             'assistants': [{'id': u.id, 'username': u.username} for u in self.assistants.all()],
         }
     
-    def stats(self):
-        return {
-            'capacity': self.capacity,
-            'dimension': self.dimension,
-        }
+    def get_quick_info(self):
+        try:
+            return json.loads(self.quick_info) if self.quick_info else {}
+        except json.JSONDecodeError:
+            return {}
 
 class System(models.Model):
     STATUS_CHOICES = [

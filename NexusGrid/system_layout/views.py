@@ -10,6 +10,7 @@ from .models import LayoutItem, Lab, System
 from login_manager.models import User
 from faults.models import FaultReport
 from resources.models import ResourceRequest
+from django.views.decorators.http import require_http_methods
 
 @login_required(login_url="/login/")
 def layout_view(request, item_id=None):
@@ -106,6 +107,7 @@ def get_layout_items(request):
     items = LayoutItem.objects.filter(parent_id=parent_id) if parent_id else LayoutItem.objects.filter(parent__isnull=True)
 
     item_list = []
+    quick_info = ''
     for item in items:
         item_dict = item.to_dict()
         
@@ -115,6 +117,11 @@ def get_layout_items(request):
             item_dict['status'] = system.status if system else None  # Could be 'active', 'inactive', etc.
         else:
             item_dict['status'] = None
+
+        if item.item_type == 'room':
+            lab = Lab.objects.filter(layout_item_id=item.id).first()
+            quick_info = lab.get_quick_info() if lab else {}
+            item_dict['quick_info'] = quick_info
 
         item_list.append(item_dict)
 

@@ -149,6 +149,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 state.layoutItems = data.items;
                 state.originalLayout = JSON.parse(JSON.stringify(data.items));
                 renderer.renderLayout();
+
+                const roomItem = data.items.find(i => i.item_type === 'room' && i.quick_info);
+                if (roomItem && roomItem.quick_info) {
+                    renderQuickInfo(roomItem.quick_info);
+                }
             } catch (error) {
                 utils.showError('Failed to load layout items');
             }
@@ -165,6 +170,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     window.location.href = '/layout/';
                 }
+
+                // if (item_type === 'lab') {
+                //     const kvDisplay = document.getElementById('kv-display');
+                //     kvDisplay.innerHTML = '';
+                // }
             } catch {
                 window.location.href = '/layout/';
             }
@@ -674,3 +684,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Start the application
     init();
 });
+
+function renderQuickInfo(info) {
+    const container = document.getElementById('kv-display');
+    if (!container) return;
+
+    container.innerHTML = Object.entries(info)
+        .map(([key, value]) => `<li><strong>${key}:</strong> ${value}</li>`)
+        .join('');
+}
