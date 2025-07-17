@@ -223,11 +223,14 @@
 {% csrf_token %}
 {% endblock main_content %}
 
-{% block page_scripts %}
+{% block scripts %}
 <script src="https://cdn.plot.ly/plotly-3.0.1.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-<!-- In your template -->
+{% compress js %}
+<script src="{% static 'dashboard/js/dashboard.js' %}" defer></script>
+{% endcompress %}
+
 {{ chart_data|json_script:"chart-data" }}
 {{ scanner_config|json_script:"scanner-config" }}
 
@@ -235,8 +238,4 @@
     window.chartData = JSON.parse(document.getElementById('chart-data').textContent);
     window.scannerConfig = JSON.parse(document.getElementById('scanner-config').textContent);
 </script>
-
-{% compress js %}
-<script src="{% static 'dashboard/js/dashboard.js' %}" defer></script>
-{% endcompress %}
-{% endblock page_scripts %}
+{% endblock scripts %}

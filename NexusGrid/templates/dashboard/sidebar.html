@@ -26,7 +26,6 @@
     <!-- Custom compressed CSS -->
     {% compress css %}
     <link href="{% static 'dashboard/css/sidebar.css' %}" rel="stylesheet">
-    <link href="{% static 'common/style.css' %}" rel="stylesheet">
     {% endcompress %}
 
     <!-- Favicon -->
@@ -78,9 +77,6 @@
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" crossorigin="anonymous" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous" defer></script>
 
-    {% compress js %}
-    <script src="{% static 'common/script.js' %}" defer></script>
-    {% endcompress %}   
     {% block scripts %}{% endblock scripts %}
 </body>
 </html>

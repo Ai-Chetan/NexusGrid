@@ -181,7 +181,10 @@ COMPRESS_ENABLED = True
 
 # If True, `manage.py compress` must be run to generate compressed files
 # otherwise, compression happens on-the-fly (not recommended for production)
-COMPRESS_OFFLINE = False
+COMPRESS_OFFLINE = True
+COMPRESS_OFFLINE_CONTEXT = {
+    'STATIC_URL': STATIC_URL,
+}
 
 # Where compressor should look for source static files (usually same as STATIC_ROOT)
 COMPRESS_ROOT = STATIC_ROOT
