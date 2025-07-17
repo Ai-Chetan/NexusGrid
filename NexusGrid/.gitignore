@@ -40,7 +40,7 @@ db.sqlite3
 *.pot
 *.mo
 media/
-staticfiles/
+# staticfiles/
 local_settings.py
 
 # Environment variables

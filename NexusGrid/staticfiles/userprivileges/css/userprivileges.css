@@ -1,0 +1,258 @@
+/* static/css/style.css */
+
+body {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.stats-card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+}
+
+.stats-card:hover {
+    transform: translateY(-5px);
+}
+
+.nav-tabs {
+    border-bottom: 3px solid #dee2e6;
+}
+
+.nav-tabs .nav-link {
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #6c757d;
+    font-weight: 500;
+    padding: 12px 20px;
+    transition: all 0.3s ease;
+}
+
+.nav-tabs .nav-link:hover {
+    border-color: transparent;
+    color: #007bff;
+}
+
+.nav-tabs .nav-link.active {
+    background-color: transparent;
+    border-bottom-color: #007bff;
+    color: #007bff;
+}
+
+.card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.building-card, .floor-card, .lab-card {
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.building-card:hover, .floor-card:hover {
+    border-color: #007bff;
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2);
+}
+
+.lab-card {
+    cursor: default;
+    background-color: #f8f9fa;
+}
+
+.lab-card:hover {
+    border-color: #28a745;
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.2);
+}
+
+.staff-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    margin: 2px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 500;
+}
+
+.instructor-badge {
+    background-color: #007bff;
+    color: white;
+}
+
+.assistant-badge {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-assign {
+    background-color: #17a2b8;
+    border-color: #17a2b8;
+    color: white;
+    border-radius: 20px;
+    padding: 5px 15px;
+    font-size: 0.9em;
+}
+
+.btn-assign:hover {
+    background-color: #138496;
+    border-color: #117a8b;
+}
+
+.staff-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.staff-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    margin: 5px 0;
+    border-radius: 6px;
+    background-color: #f8f9fa;
+}
+
+.staff-item:hover {
+    background-color: #e9ecef;
+}
+
+.btn-sm {
+    padding: 4px 8px;
+    font-size: 0.8em;
+}
+
+.breadcrumb {
+    background-color: #e9ecef;
+    border-radius: 8px;
+    padding: 10px 15px;
+}
+
+.breadcrumb-item {
+    cursor: pointer;
+}
+
+.breadcrumb-item:hover {
+    color: #007bff;
+}
+
+.table {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.table th {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    font-weight: 500;
+}
+
+.table td {
+    vertical-align: middle;
+    border-color: #dee2e6;
+}
+
+.input-group {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.form-control {
+    border-radius: 8px;
+}
+
+.btn {
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-warning {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #212529;
+}
+
+.modal-content {
+    border-radius: 15px;
+    border: none;
+}
+
+.modal-header {
+    border-bottom: 1px solid #dee2e6;
+    border-radius: 15px 15px 0 0;
+}
+
+.modal-footer {
+    border-top: 1px solid #dee2e6;
+    border-radius: 0 0 15px 15px;
+}
+
+.alert {
+    border-radius: 8px;
+    border: none;
+}
+
+.text-primary {
+    color: #007bff !important;
+}
+
+.text-success {
+    color: #28a745 !important;
+}
+
+.text-danger {
+    color: #dc3545 !important;
+}
+
+.text-warning {
+    color: #ffc107 !important;
+}
+
+.text-info {
+    color: #17a2b8 !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .stats-card {
+        margin-bottom: 15px;
+    }
+    
+    .nav-tabs .nav-link {
+        padding: 10px 15px;
+        font-size: 0.9em;
+    }
+    
+    .building-card, .floor-card, .lab-card {
+        padding: 10px;
+    }
+    
+    .staff-badge {
+        display: block;
+        margin: 2px 0;
+    }
+}
