@@ -1,37 +1,171 @@
 {% extends "dashboard/sidebar.html" %}
 {% load static %}
+{% load compress %}
 
-{% block title %}| Layout System{% endblock title %}
+{% block title %}| System Detail{% endblock title %}
 
 {% block head %}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+{% compress css %}
 <link href="{% static 'system_layout/css/system-layout.css' %}" rel="stylesheet">
+{% endcompress %}
 {% endblock head %}
 
 {% block main_content %}
 <div class="container">
+    
     <h1 class="text-center my-4">Computer System Details</h1>
+
+    <!-- Buttons -->
+    <div class="d-flex justify-content-between mb-3 align-items-center">
+        <button id="backButton" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back
+        </button>
+        
+        <!-- JS (in a script tag at bottom of body or in DOMContentLoaded) -->
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const backBtn = document.getElementById('backButton');
+                if (backBtn) {
+                    backBtn.addEventListener('click', function () {
+                        console.log("Referrer:", document.referrer);
+                        if (document.referrer) {
+                            window.history.back();
+                        } else {
+                            window.location.href = '/';
+                        }
+                    });
+                }
+            });
+        </script>
+    
+        <!-- Right-side Buttons -->
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newResourceRequestModal">
+                <i class="fas fa-plus-circle me-2"></i>New Resource Request
+            </button>
+            <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#newFaultModal">
+                <i class="fas fa-plus me-2"></i>New Fault Report
+            </button>
+        </div>
+    </div>
 
     {% if system_info %}
     <div class="row">
-        {% for category, details in system_info.items %}
+        <!-- System Info -->
         <div class="col-md-6 mb-4">
             <div class="card shadow">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="fa fa-desktop"></i> {{ category }}</h5>
+                    <i class="fa fa-laptop-code me-2"></i>System Info
                 </div>
                 <div class="card-body">
                     <ul class="list-group list-group-flush">
-                        {% for key, value in details.items %}
-                        <li class="list-group-item">
-                            <strong>{{ key }}:</strong> {{ value }}
-                        </li>
-                        {% endfor %}
+                        <li class="list-group-item"><strong>Hostname:</strong> {{ system_info.hostname }}</li>
+                        <li class="list-group-item"><strong>System:</strong> {{ system_info.system }}</li>
+                        <li class="list-group-item"><strong>Version:</strong> {{ system_info.version }}</li>
+                        <li class="list-group-item"><strong>Release:</strong> {{ system_info.release }}</li>
+                        <li class="list-group-item"><strong>Machine:</strong> {{ system_info.machine }}</li>
+                        <li class="list-group-item"><strong>Architecture:</strong> {{ system_info.architecture }}</li>
                     </ul>
                 </div>
             </div>
         </div>
-        {% endfor %}
+
+        <!-- CPU Info -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-danger text-white">
+                    <i class="fa fa-microchip me-2"></i>CPU Info
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Processor:</strong> {{ system_info.processor }}</li>
+                        <li class="list-group-item"><strong>Physical Cores:</strong> {{ system_info.cpu_physical_cores }}</li>
+                        <li class="list-group-item"><strong>Total Cores:</strong> {{ system_info.cpu_total_cores }}</li>
+                        <li class="list-group-item"><strong>Max Frequency:</strong> {{ system_info.cpu_max_freq }}</li>
+                        <li class="list-group-item"><strong>Min Frequency:</strong> {{ system_info.cpu_min_freq }}</li>
+                        <li class="list-group-item"><strong>Current Frequency:</strong> {{ system_info.cpu_current_freq }}</li>
+                        <li class="list-group-item"><strong>CPU Usage:</strong> {{ system_info.cpu_usage }}%</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Memory Info -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <i class="fa fa-memory me-2"></i>Memory Info
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Total Memory:</strong> {{ system_info.memory_total }}</li>
+                        <li class="list-group-item"><strong>Available Memory:</strong> {{ system_info.memory_available }}</li>
+                        <li class="list-group-item"><strong>Used Memory:</strong> {{ system_info.memory_used }}</li>
+                        <li class="list-group-item"><strong>Memory Usage %:</strong> {{ system_info.memory_usage_percent }}%</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Disk Info -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">
+                    <i class="fa fa-hdd me-2"></i>Disk Info
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Total Disk:</strong> {{ system_info.disk_total }}</li>
+                        <li class="list-group-item"><strong>Used Disk:</strong> {{ system_info.disk_used }}</li>
+                        <li class="list-group-item"><strong>Free Disk:</strong> {{ system_info.disk_free }}</li>
+                        <li class="list-group-item"><strong>Disk Usage %:</strong> {{ system_info.disk_usage_percent }}%</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Network Info -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <i class="fa fa-network-wired me-2"></i>Network Info
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>IP Address:</strong> {{ system_info.ip_address }}</li>
+                        <li class="list-group-item"><strong>Bytes Sent:</strong> {{ system_info.bytes_sent }}</li>
+                        <li class="list-group-item"><strong>Bytes Received:</strong> {{ system_info.bytes_received }}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Info -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-secondary text-white">
+                    <i class="fa fa-users me-2"></i>User Info
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Users Count:</strong> {{ system_info.users_count }}</li>
+                        <li class="list-group-item"><strong>Logged In Users:</strong> {{ system_info.logged_in_users }}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timestamp -->
+        <div class="col-12 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-dark text-white">
+                    <i class="fa fa-clock me-2"></i>Timestamp
+                </div>
+                <div class="card-body">
+                    <p class="mb-0"><strong>Recorded At:</strong> {{ system_info.timestamp }}</p>
+                </div>
+            </div>
+        </div>
     </div>
     {% else %}
     <div class="alert alert-warning text-center" role="alert">
@@ -39,14 +173,189 @@
     </div>
     {% endif %}
 </div>
+
+<!-- New Fault Modal -->
+<div class="modal fade" id="newFaultModal" tabindex="-1" aria-labelledby="newFaultModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="newFaultModalLabel">Report New Fault</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newFaultForm">
+                    <input type="hidden" id="layoutItemId" value="{{ layout_item.id }}">
+                    <div class="mb-3">
+                        <label for="faultType" class="form-label">Fault Type*</label>
+                        <select class="form-select" id="faultType" required>
+                            <option value="" disabled selected>Select a fault type</option>
+                            <option value="Software">Software</option>
+                            <option value="Hardware">Hardware</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="faultTitleGroup" style="display: none;">
+                        <label for="faultTitle" class="form-label">Fault Title*</label>
+                        <input type="text" class="form-control" id="faultTitle" placeholder="Enter fault title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="faultDescription" class="form-label">Fault Description*</label>
+                        <textarea class="form-control" id="faultDescription" rows="4" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="submitFault">Submit Fault Report</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Resource Request Modal -->
+<div class="modal fade" id="newResourceRequestModal" tabindex="-1" aria-labelledby="newResourceRequestModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="newResourceRequestModalLabel">New Resource Request</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newResourceRequestForm">
+                    <input type="hidden" id="resourceLayoutItemId" value="{{ layout_item.id }}">
+                    <div class="mb-3">
+                        <label for="resourceType" class="form-label">Resource Type*</label>
+                        <select class="form-select" id="resourceType" required>
+                            <option value="" disabled selected>Select a resource type</option>
+                            <option value="Hardware">Hardware</option>
+                            <option value="Software">Software</option>
+                            <option value="Peripheral">Peripheral</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="resourceName" class="form-label">Resource Name*</label>
+                        <input type="text" class="form-control" id="resourceName" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary" form="newResourceRequestForm">Submit Request</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock main_content %}
 
 {% block scripts %}
 <script>
-    const PARENT_ID = "{% if parent_id %}{{ parent_id }}{% else %}null{% endif %}";
-    const CSRF_TOKEN = "{{ csrf_token }}";
-    const STATIC_URL = "{% static '' %}";
-    const PARENT_TYPE = "{% if parent %}{{ parent.item_type }}{% else %}null{% endif %}";
+    document.addEventListener("DOMContentLoaded", function () {
+        const CSRF_TOKEN = "{{ csrf_token }}";
+        const faultType = document.getElementById("faultType");
+        const titleGroup = document.getElementById("faultTitleGroup");
+
+        faultType.addEventListener("change", function () {
+            if (this.value === "Other") {
+                titleGroup.style.display = "block";
+                document.getElementById("faultTitle").required = true;
+            } else {
+                titleGroup.style.display = "none";
+                document.getElementById("faultTitle").required = false;
+            }
+        });
+
+        document.getElementById("submitFault").addEventListener("click", async function () {
+            const selectedFaultType = document.getElementById("faultType").value;
+            const title = document.getElementById("faultTitle").value;
+            const description = document.getElementById("faultDescription").value;
+            const systemId = document.getElementById("layoutItemId").value;
+
+            if (!selectedFaultType || !description || !systemId) {
+                alert("Please fill out all required fields.");
+                return;
+            }
+
+            try {
+                const response = await fetch("/layout/report_fault/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": CSRF_TOKEN,
+                    },
+                    body: JSON.stringify({
+                        fault_type: selectedFaultType,
+                        title: selectedFaultType === "Other" ? title : null,
+                        description: description,
+                        system_id: systemId
+                    }),
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    alert("Fault reported successfully!");
+                    document.getElementById("newFaultForm").reset();
+                    titleGroup.style.display = "none";
+                    var modal = bootstrap.Modal.getInstance(document.getElementById("newFaultModal"));
+                    modal.hide();
+                } else {
+                    alert(data.error || "Something went wrong.");
+                }
+            } catch (error) {
+                console.error(error);
+                alert("Request failed.");
+            }
+        });
+    });
+
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const CSRF_TOKEN = "{{ csrf_token }}";
+
+        document.getElementById("newResourceRequestForm").addEventListener("submit", async function (e) {
+            e.preventDefault(); // Prevent actual form submission
+
+            const resourceType = document.getElementById("resourceType").value;
+            const resourceName = document.getElementById("resourceName").value;
+            const layoutItemId = document.getElementById("resourceLayoutItemId").value;
+
+            if (!resourceType || !resourceName || !layoutItemId) {
+                alert("Please fill out all required fields.");
+                return;
+            }
+
+            try {
+                const response = await fetch("/layout/resource_requests/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": CSRF_TOKEN,
+                    },
+                    body: JSON.stringify({
+                        resource_type: resourceType,
+                        resource_name: resourceName,
+                        system_id: layoutItemId,
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert("Resource request submitted successfully!");
+                    document.getElementById("newResourceRequestForm").reset();
+                    var modal = bootstrap.Modal.getInstance(document.getElementById("newResourceRequestModal"));
+                    modal.hide();
+                } else {
+                    alert(data.error || "Something went wrong.");
+                }
+            } catch (error) {
+                console.error(error);
+                alert("Request failed.");
+            }
+        });
+    });
 </script>
+
+{% compress js %}
 <script src="{% static 'system_layout/js/system-layout.js' %}"></script>
+{% endcompress %}
 {% endblock scripts %}

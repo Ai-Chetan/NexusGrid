@@ -1,115 +1,21 @@
 {% extends "dashboard/sidebar.html" %}
 {% load static %}
+{% load compress %}
 
 {% block title %}| Layout System{% endblock title %}
 
 {% block head %}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+{% compress css %}
 <link href="{% static 'system_layout/css/system-layout.css' %}" rel="stylesheet">
+{% endcompress %}
 {% endblock head %}
 
 {% block main_content %}
 <div class="layout-container ps-5">
-    <!-- Assistant -->
-    <div class="layout-header ps-4" style="display:none;">
+    <div class="layout-header ps-5" style="display:block;">
         <h1 class="layout-title">
             {% if parent %}
-                <div class="current-view-info">
-                    <span>Viewing: <strong>{{ parent.name }}</strong> ({{ parent.get_item_type_display }})</span>
-                </div>
-            {% else %}
-                <div class="current-view-info">
-                    <span>Viewing: <strong>System Layout Level</strong></span>
-                </div>
-            {% endif %}
-        </h1>
-    </div>
-
-    <div class="row">
-        <div class="col-md-12 ps-5 mb-4">
-            <h6><i class="fas fa-search"></i> System Overview</h6>
-            <div class="overview-section d-flex flex-wrap justify-content-around">
-                <!-- Functional Systems -->
-                <div class="overview-card functional">
-                    <i class="fas fa-desktop text-secondary"></i>
-                    <div class="overview-details">
-                        <h5>Functional Systems</h5>
-                        <span class="count text-secondary">48 / 50</span>
-                        <div class="progress">
-                            <div class="progress-bar bg-secondary"></div>
-                        </div>
-                    </div>
-                </div>
-    
-                <!-- Active Systems -->
-                <div class="overview-card active">
-                    <i class="fas fa-desktop text-success"></i>
-                    <div class="overview-details">
-                        <h5>Active Systems</h5>
-                        <span class="count text-success">22 / 50</span>
-                        <div class="progress">
-                            <div class="progress-bar bg-success"></div>
-                        </div>
-                    </div>
-                </div>
-    
-                <!-- System Utilization -->
-                <div class="overview-card utilization">
-                    <i class="fas fa-microchip text-secondary"></i>
-                    <div class="overview-details">
-                        <h5>System Utilization</h5>
-                        <span class="count text-secondary">75%</span>
-                        <div class="progress">
-                            <div class="progress-bar"></div>
-                        </div>
-                    </div>
-                </div>
-    
-                <!-- Critical Systems -->
-                <div class="overview-card critical">
-                    <i class="fas fa-exclamation-circle text-danger"></i>
-                    <div class="overview-details">
-                        <h5>Critical Systems</h5>
-                        <span class="count text-danger">01</span>
-                        <div class="progress">
-                            <div class="progress-bar bg-danger"></div>
-                        </div>
-                    </div>
-                </div>
-    
-                <!-- Fault Reports -->
-                <div class="overview-card fault">
-                    <i class="fas fa-exclamation-triangle text-warning"></i>
-                    <div class="overview-details">
-                        <h5>Fault Reports</h5>
-                        <span class="count text-warning">01</span>
-                        <div class="progress">
-                            <div class="progress-bar bg-warning"></div>
-                        </div>
-                    </div>
-                </div>
-    
-                <!-- Resource Requests -->
-                <div class="overview-card resource">
-                    <i class="fas fa-box text-info"></i>
-                    <div class="overview-details">
-                        <h5>Resource Requests</h5>
-                        <span class="count text-info">02</span>
-                        <div class="progress">
-                            <div class="progress-bar bg-info"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-
-    <!-- Admin -->
-    <div class="layout-header ps-5">
-        <h1 class="layout-title">
-            {% if parent %}
-                <div class="breadcrumb-container">
+                <div class="breadcrumb-container role-panel">
                     <a class="current-location" href="{% url 'layout:root' %}">System Layout</a>
                     {% for item in breadcrumb %}
                         {% if forloop.last %}
@@ -125,23 +31,23 @@
                     <span>Viewing: <strong>{{ parent.name }}</strong> ({{ parent.get_item_type_display }})</span>
                 </div>
             {% else %}
-                <span class="current-location">System Layout</span>
+                <span class="current-location role-panel">System Layout</span>
                 <div class="current-view-info">
                     <span>Viewing: <strong>System Layout Level</strong></span>
                 </div>
             {% endif %}
         </h1>
         
-        <div id="layoutControls" class="button-container">
-            <button id="editLayoutButton" class="btns btn-primary">Edit Layout</button>
-            <button id="backButton" class="btns btn-secondary" {% if not parent %}style="display:none;"{% endif %}>
+        <div id="layoutControls" class="button-container role-panel" style="display:flex;">
+            <button id="editLayoutButton" class="btn btn-primary">Edit Layout</button>
+            <button id="backButton" class="btn btn-outline-secondary" {% if not parent %}style="display:none;"{% endif %}>
                 <i class="fas fa-arrow-left"></i> Back
             </button>
         </div>
         
         <div id="editControls" class="button-container" style="display:none;">
             <div class="dropdown add-dropdown">
-                <button id="addBlockButton" class="btns btn-success dropdown-toggle" data-bs-toggle="dropdown">
+                <button id="addBlockButton" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown">
                     Add Item
                 </button>
                 <ul class="dropdown-menu">
@@ -162,28 +68,70 @@
                     {% endif %}
                 </ul>
             </div>
-            <button id="removeBlockButton" class="btns btn-danger">Remove</button>
-            <button id="resetLayoutButton" class="btns btn-warning">Reset</button>
-            <button id="saveLayoutButton" class="btns btn-primary">Save</button>
-            <button id="cancelEditButton" class="btns btn-secondary">Cancel</button>
+            <button id="removeBlockButton" class="btn btn-outline-danger">Remove</button>
+            <button id="resetLayoutButton" class="btn btn-outline-info">Reset</button>
+            <button id="saveLayoutButton" class="btn btn-outline-primary">Save</button>
+            <button id="cancelEditButton" class="btn btn-outline-secondary">Cancel</button>
         </div>
     </div>
+    <div class="col-md-12 ps-5">
+        <h6><i class="fas fa-search"></i> Lab Overview</h6>
+        <div class="overview-section d-flex flex-wrap justify-content-around">
+            <div class="overview-card functional">
+                <i class="fas fa-desktop text-secondary"></i>
+                <div class="overview-details">
+                    <h5>Functional Systems</h5>
+                    <span class="count text-secondary">{{ functional_count }} / {{ total_systems }}</span>
+                </div>
+            </div>
 
+            <div class="overview-card active">
+                <i class="fas fa-desktop text-success"></i>
+                <div class="overview-details">
+                    <h5>Active Systems</h5>
+                    <span class="count text-success">{{ active_count }} / {{ total_systems }}</span>
+                </div>
+            </div>
+
+            <div class="overview-card utilization">
+                <i class="fas fa-microchip text-secondary"></i>
+                <div class="overview-details">
+                    <h5>System Utilization</h5>
+                    <span class="count text-secondary">{{ system_utilization }}%</span>
+                </div>
+            </div>
+
+            <div class="overview-card critical">
+                <i class="fas fa-exclamation-circle text-danger"></i>
+                <div class="overview-details">
+                    <h5>Critical Systems</h5>
+                    <span class="count text-danger">{{ critical_count }}</span>
+                </div>
+            </div>
+
+            <div class="overview-card fault">
+                <i class="fas fa-exclamation-triangle text-warning"></i>
+                <div class="overview-details">
+                    <h5>Fault Reports</h5>
+                    <span class="count text-warning">01</span>
+                </div>
+            </div>
+
+            <div class="overview-card resource">
+                <i class="fas fa-box text-info"></i>
+                <div class="overview-details">
+                    <h5>Resource Requests</h5>
+                    <span class="count text-info">02</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <ul id="kv-display"></ul>
     <h6><i class="fas fa-map ps-5"></i> System Layout</h6>
     <div id="layout" class="layout-grid">
         <!-- Layout items will be added here dynamically -->
     </div>
 
-    {% comment %} <h6><i class="fas fa-file-alt ps-5 mt-4"></i> Information</h6>
-    <div class="info-card ps-5">
-        <ul>
-            <li><i class="fas fa-wifi"></i> WiFi: IT_LAB_5G</li>
-            <li><i class="fas fa-server"></i> Gateway: 192.168.1.1</li>
-            <li><i class="fas fa-database"></i> Database IP: 192.168.1.51</li>
-            <li><i class="fas fa-code"></i> Installed Languages: Python, Java, C++</li>
-            <li><i class="fas fa-hdd"></i> Storage: 512GB SSD + 1TB HDD</li>
-          </ul>
-    </div> {% endcomment %}
     
     <!-- Modal for renaming items -->
     <div class="modal fade" id="renameModal" tabindex="-1">
@@ -231,10 +179,10 @@
 
 {% block scripts %}
 <script>
-    const PARENT_ID = "{% if parent_id %}{{ parent_id }}{% else %}null{% endif %}";
-    const CSRF_TOKEN = "{{ csrf_token }}";
-    const STATIC_URL = "{% static '' %}";
-    const PARENT_TYPE = "{% if parent %}{{ parent.item_type }}{% else %}null{% endif %}";
+    window.USER_ID = "{{ user.id|default:'null' }}";
+    window.PARENT_ID = "{{ parent_id|default:'null' }}";
 </script>
+{% compress js %}
 <script src="{% static 'system_layout/js/system-layout.js' %}"></script>
+{% endcompress %}
 {% endblock scripts %}

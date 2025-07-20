@@ -1,106 +1,141 @@
 {% extends "dashboard/sidebar.html" %}
 {% load static %}
+{% load compress %}
 
 {% block title %}| Dashboard{% endblock title %}
 
 {% block head %}
+{% compress css %}
 <link href="{% static 'dashboard/css/dashboard.css' %}" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.18.2/plotly.min.js"></script>
+{% endcompress %}
 {% endblock head %}
 
 {% block main_content %}
-    <div class="content">
-        <div class="row">
-            <!-- Left Column: Two System Overview Containers -->
-            <div class="col-md-8">
-                <h2 class="overview-title mt-2"><i class="fas fa-search"></i> System Overview</h2>
-                <div class="row overview-section">
-                    <!-- System Overview - Set 1 -->
-                    <div class="col-md-4">
-                        <div class="overview-container">
-                            <div class="overview-card functional">
-                                <i class="fas fa-desktop text-secondary"></i>
-                                <div class="overview-details">
-                                    <h5>Functional Systems</h5>
-                                    <span class="count text-secondary">48 / 50</span>
-                                    <div class="progress">
-                                        <div class="progress-bar bg-secondary"></div>
-                                    </div>
-                                </div>
-                            </div>
+<div class="content">
+    <!-- Error Display -->
+    {% if error_message %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i>{{ error_message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- Left Column: System Overview -->
+        <div class="col-md-8">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="overview-title mt-2">
+                    <i class="fas fa-search"></i> System Overview
+                </h2>
+                <button id="refresh-dashboard" class="btn btn-outline-secondary btn-sm" title="Refresh Dashboard">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
             
-                            <div class="overview-card critical mt-2">
-                                <i class="fas fa-exclamation-circle text-danger"></i>
-                                <div class="overview-details">
-                                    <h5>Critical Systems</h5>
-                                    <span class="count text-danger">01</span>
-                                    <div class="progress">
-                                        <div class="progress-bar bg-danger"></div>
-                                    </div>
-                                </div>
+            <div class="row overview-section">
+                <!-- System Overview - Set 1 -->
+                <div class="col-md-4">
+                    <div class="overview-container">
+                        <div class="overview-card functional">
+                            <i class="fas fa-desktop text-secondary"></i>
+                            <div class="overview-details">
+                                <h5>Functional Systems</h5>
+                                <span class="count text-secondary">
+                                    <span id="functional-count">{{ dashboard_data.functional_count|default:0 }}</span>
+                                    <span> / </span>
+                                    <span id="total-systems">{{ dashboard_data.total_systems|default:0 }}</span>
+                                </span>
+                                <div class="progress-bar bg-secondary functional-bar" data-percentage="{{ dashboard_data.functional_percent|default:0 }}"></div>
+                            </div>
+                        </div>
+        
+                        <div class="overview-card critical mt-2">
+                            <i class="fas fa-exclamation-circle text-danger"></i>
+                            <div class="overview-details">
+                                <h5>Critical Systems</h5>
+                                <span class="count text-danger">
+                                    <span id="critical-count">{{ dashboard_data.critical_count|default:0 }}</span>
+                                </span>
+                                <div class="progress-bar bg-danger critical-bar" data-percentage="{{ dashboard_data.critical_percent|default:0 }}"></div>
                             </div>
                         </div>
                     </div>
-            
-                    <!-- System Overview - Set 2 -->
-                    <div class="col-md-4">
-                        <div class="overview-container">
-                            <div class="overview-card active">
-                                <i class="fas fa-desktop text-success"></i>
-                                <div class="overview-details">
-                                    <h5>Active Systems</h5>
-                                    <span class="count text-success">22 / 50</span>
-                                    <div class="progress">
-                                        <div class="progress-bar bg-success"></div>
-                                    </div>
-                                </div>
+                </div>
+
+                <!-- System Overview - Set 2 -->
+                <div class="col-md-4">
+                    <div class="overview-container">
+                        <div class="overview-card active">
+                            <i class="fas fa-desktop text-success"></i>
+                            <div class="overview-details">
+                                <h5>Active Systems</h5>
+                                <span class="count text-success">
+                                    <span id="active-count">{{ dashboard_data.active_count|default:0 }}</span>
+                                    <span> / </span>
+                                    <span>{{ dashboard_data.total_systems|default:0 }}</span>
+                                </span>
+                                <div class="progress-bar bg-success active-bar" data-percentage="{{ dashboard_data.active_percent|default:0 }}"></div>
                             </div>
-            
-                            <div class="overview-container">
-                                <div class="overview-card fault  mt-2">
-                                    <i class="fas fa-exclamation-triangle text-warning"></i>
-                                    <div class="overview-details">
-                                        <h5>Fault Reports</h5>
-                                        <span class="count text-warning">01</span>
-                                        <div class="progress">
-                                            <div class="progress-bar bg-warning"></div>
-                                        </div>
-                                    </div>
-                                </div>
+                        </div>
+        
+                        <div class="overview-card fault mt-2">
+                            <i class="fas fa-exclamation-triangle text-warning"></i>
+                            <div class="overview-details">
+                                <h5>Fault Reports</h5>
+                                <span class="count text-warning">
+                                    {{ dashboard_data.fault_reports_count|default:0 }}
+                                </span>
+                                <div class="progress-bar bg-warning fault-bar" data-percentage="75"></div>
                             </div>
                         </div>
                     </div>
-            
-                    <!-- System Overview - Set 3 (Newly Added) -->
-                    <div class="col-md-4">
+                </div>
+        
+                <!-- System Overview - Set 3 -->
+                <div class="col-md-4">
+                    <div class="overview-container">
                         <div class="overview-card utilization">
                             <i class="fas fa-microchip text-secondary"></i>
                             <div class="overview-details">
                                 <h5>System Utilization</h5>
-                                <span class="count text-secondary">75%</span>
-                                <div class="progress">
-                                    <div class="progress-bar"></div>
-                                </div>
+                                <span class="count text-secondary">
+                                    <span id="system-utilization">{{ dashboard_data.system_utilization|default:0 }}</span>%
+                                </span>
+                                <div class="progress-bar bg-info utilization-bar" data-percentage="{{ dashboard_data.system_utilization|default:0 }}"></div>
                             </div>
                         </div>
+                        
                         <div class="overview-card resource mt-2">
                             <i class="fas fa-box text-info"></i>
                             <div class="overview-details">
                                 <h5>Resource Requests</h5>
-                                <span class="count text-info">02</span>
-                                <div class="progress">
-                                    <div class="progress-bar bg-info"></div>
-                                </div>
+                                <span class="count text-info">
+                                    {{ dashboard_data.resource_requests_count|default:0 }}
+                                </span>
+                                <div class="progress-bar bg-primary resource-bar" data-percentage="60"></div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        
-            <!-- Right Column: Recent History -->
-            <div class="col-md-4">
-                <h2 class="overview-title mt-2"><i class="fas fa-history"></i> Recent History</h2>
-                <div class="history-container">
+        </div>
+    
+        <!-- Right Column: Recent History -->
+        <div class="col-md-4">
+            <h2 class="overview-title mt-2"><i class="fas fa-history"></i> Recent History</h2>
+            <div class="history-container">
+                {% if recent_activity %}
+                    {% for activity in recent_activity %}
+                    <div class="history-card">
+                        <i class="{{ activity.icon }} text-{{ activity.color }}"></i>
+                        <div class="text-container">
+                            <h6>{{ activity.title }} <span class="time">{{ activity.time_ago }}</span></h6>
+                            <span class="text-{{ activity.color }}">{{ activity.description }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <!-- Fallback static content -->
                     <div class="history-card">
                         <i class="fas fa-box text-primary"></i>
                         <div class="text-container">
@@ -132,53 +167,76 @@
                             <span class="text-danger">High Temperature</span>
                         </div>
                     </div>
-                    <div class="text-end">
-                        <a class="text-dark" href="#">View More <i class="fas fa-arrow-right"></i></a>
-                    </div>
-                </div>
-            </div>   
-                    
-            <h2 class="overview-title mt-5"><i class="fas fa-laptop"></i> WORKPLACE</h2>
-            <div class="row d-flex flex-row justify-content-between p-4 pt-0">
-                <div onclick="window.location.href=window.location.origin + '/layout/54/'" class="col-md-6 workspace-card d-flex flex-row align-items-center justify-content-center">
-                    <i class="fas fa-chalkboard icon-large text-secondary"></i>
-                    <div class="text-center">
-                        <h5>IT Lab 4</h5>
-                        <span class="text-muted">Wing A, Floor 3</span>
-                    </div>
-                </div>
-            
-                <div onclick="window.location.href=window.location.origin + '/layout/56/'" class="col-md-6 workspace-card d-flex flex-row align-items-center justify-content-center">
-                    <i class="fas fa-chalkboard icon-large text-secondary"></i>
-                    <div class="text-center">
-                        <h5>IT Lab 6</h5>
-                        <span class="text-muted">Wing A, Floor 3</span>
-                    </div>
+                {% endif %}
+                
+                <div class="text-end">
+                    <a class="text-dark" href="#">View More <i class="fas fa-arrow-right"></i></a>
                 </div>
             </div>
-            
+        </div>   
 
-            <h2 class="overview-title mt-3"><i class="fas fa-chart-line"></i> Performance & Fault Trends</h2>
-            <div class="row">
-                <div class="col-md-6">
-                    <div id="performanceChart" class="graph-box"></div>
+        <!-- Workplace Section (Role-based) -->
+        <div class="role-panel" data-role="Lab Assistant" style="width: 100%;">
+            {% if request.user.role == 'Lab Assistant' and assistant_labs %}
+                <h2 class="overview-title mt-4"><i class="fas fa-laptop"></i> WORKPLACE</h2>
+                <div class="row d-flex flex-row justify-content-between p-4 pt-0">
+                    {% for lab in assistant_labs %}
+                        <div onclick="window.location.href='{{ request.scheme }}://{{ request.get_host }}/layout/{{ lab.layout_item.id }}/'" 
+                            class="col-md-6 workspace-card d-flex flex-row align-items-center justify-content-center mb-4">
+                            <i class="fas fa-chalkboard icon-large text-secondary"></i>
+                            <div class="text-center">
+                                <h5>{{ lab.lab_name }}</h5>
+                                <span class="text-muted">{{ lab.location }}</span>
+                            </div>
+                        </div>
+                    {% endfor %}
                 </div>
-                <div class="col-md-6">
-                    <div id="faultTrendChart" class="graph-box"></div>
-                </div>
-                <div class="col-md-6">
-                    <div id="faultDistributionChart" class="graph-box"></div>
-                </div>
-                <div class="col-md-6">
-                    <div id="resourceRequestChart" class="graph-box"></div>
-                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Charts Section -->
+        <h2 class="overview-title mt-3"><i class="fas fa-chart-line"></i> Performance and Fault Trends</h2>
+        <div class="row">
+            <div class="col-md-6">
+                <div id="faultTrendChart" class="graph-box loading-skeleton loading-graph"></div>
             </div>
-            
+            <div class="col-md-6">
+                <div id="faultDistributionChart" class="graph-box loading-skeleton loading-graph"></div>
+            </div>
+            <div class="col-md-6">
+                <div id="resourceRequestChart" class="graph-box loading-skeleton loading-graph"></div>
+            </div>
+            <div class="col-md-6">
+                <div id="systemStatusChart" class="graph-box loading-skeleton loading-graph"></div>
+            </div>
         </div>
     </div>
+</div>
+
+<!-- Toast Notifications Container -->
+<div id="toast-container"
+     class="toast-container position-fixed top-0 end-0 p-3"
+     style="z-index: 2000;">
+</div>
+
+<!-- CSRF Token for AJAX requests -->
+{% csrf_token %}
 {% endblock main_content %}
-{% block scripts %}
-<script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
-<script src="{% static 'dashboard/js/dashboard.js' %}"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-{% endblock scripts %}
+
+{% block page_scripts %}
+<script src="https://cdn.plot.ly/plotly-3.0.1.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- In your template -->
+{{ chart_data|json_script:"chart-data" }}
+{{ scanner_config|json_script:"scanner-config" }}
+
+<script>
+    window.chartData = JSON.parse(document.getElementById('chart-data').textContent);
+    window.scannerConfig = JSON.parse(document.getElementById('scanner-config').textContent);
+</script>
+
+{% compress js %}
+<script src="{% static 'dashboard/js/dashboard.js' %}" defer></script>
+{% endcompress %}
+{% endblock page_scripts %}

@@ -1,0 +1,289 @@
+{% extends "dashboard/sidebar.html" %}
+{% load static %}
+{% load compress %}
+
+{% block title %}| Resource Requests{% endblock title %}
+
+{% block head %}
+{% compress css %}
+<link href="{% static 'resources/css/resources.css' %}" rel="stylesheet">
+{% endcompress %}
+{% endblock head %}
+
+{% block main_content %}
+<div class="container">
+    <!-- Search Container -->
+    <div class="mb-4">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="input-group mt-4">
+                    <span class="input-group-text bg-primary text-white">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input type="text" id="searchInput" class="form-control form-control-lg" 
+                        placeholder="Search for Resource Requests by hostname, location or type...">
+                    <button class="btn btn-primary" type="button" id="searchButton">Search</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section mb-4">
+        <div class="row">
+            <div class="col-md-4 mb-2">
+                <label for="timeFilter" class="form-label">
+                    <i class="fas fa-clock me-2"></i>Time Range:
+                </label>
+                <select class="form-select" id="timeFilter">
+                    <option value="all">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                    <option value="custom">Custom Range</option>
+                </select>
+            </div>
+            <div class="col-md-4 mb-2">
+                <label for="statusFilter" class="form-label">
+                    <i class="fas fa-filter me-2"></i>Status:
+                </label>
+                <select class="form-select" id="statusFilter">
+                    <option value="all">All Statuses</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Fulfilled">Fulfilled</option>
+                    <option value="Denied">Denied</option>
+                </select>
+            </div>
+            <div class="col-md-4 mb-2">
+                <label for="sortBy" class="form-label">
+                    <i class="fas fa-sort me-2"></i>Sort By:
+                </label>
+                <select class="form-select" id="sortBy">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="priority">By Priority</option>
+                </select>
+            </div>
+        </div>
+        <div class="row mt-2 custom-date-range" style="display: none;">
+            <div class="col-md-6">
+                <label for="startDate" class="form-label">Start Date:</label>
+                <input type="date" class="form-control" id="startDate">
+            </div>
+            <div class="col-md-6">
+                <label for="endDate" class="form-label">End Date:</label>
+                <input type="date" class="form-control" id="endDate">
+            </div>
+        </div>
+        <div class="row mt-3">
+            <div class="col-12">
+                <button class="btn btn-primary" id="applyFilters">
+                    <i class="fas fa-check me-2"></i>Apply Filters
+                </button>
+                <button class="btn btn-outline-secondary ms-2" id="resetFilters">
+                    <i class="fas fa-undo me-2"></i>Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Header -->
+    <div class="d-flex justify-content-between mb-3">
+        <h4 id="resultsCount">Showing all resource requests</h4>
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#newRequestModal">
+            <i class="fas fa-plus me-2"></i>New Resource Request
+        </button>
+    </div>
+
+    <!-- No Results Message -->
+    <div id="noResultsMessage" style="display: none;">
+        <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+        <h4>No resource requests found</h4>
+        <p class="text-muted">Try adjusting your search or filters</p>
+    </div>
+
+    <!-- Resource Requests Container -->
+    <div id="requestsContainer">
+    {% for resource in resource_requests %}
+    <div class="resource-card {{ resource.status|lower }}" 
+        data-status="{{ resource.status|lower }}" 
+        data-date="{{ resource.requested_at|date:"Y-m-d\\TH:i:s" }}">
+        <div class="row g-3">
+            <div class="col-md-8 col-12">
+                <div class="hostname fw-bold ms-5 mb-3">
+                    <i class="fas fa-cubes fa-3x me-3 text-success"></i>
+                    <div>
+                        <span class="fs-4">{{ resource.system_name.host_name }}</span>
+                        <div class="location text-muted">
+                            <i class="fas fa-map-marker-alt me-1 text-secondary"></i>
+                            {{ resource.system_name.lab.lab_name }}
+                        </div>
+                    </div>
+                </div>
+                <div class="ms-5">
+                    <h5 class="resource-title mb-1">{{ resource.resource_name }}</h5>
+                    <p class="resource-description mb-2 text-justify">{{ resource.description }}</p>
+                </div>
+            </div>
+            <div class="col-md-4 col-12 text-md-end">
+                <span class="badge mb-2 bg-{% if resource.status == 'Pending' %}warning{% elif resource.status == 'Fulfilled' %}success{% elif resource.status == 'Denied' %}secondary{% else %}secondary{% endif %} status-badge">
+                    {{ resource.status }}
+                </span>
+                {% if resource.status != 'Fulfilled' and resource.status != 'Denied' %}
+                <form method="post" action="{% url 'update_resource_status' resource_id=resource.resource_id %}" class="d-flex justify-content-md-end align-items-center mt-4">
+                    {% csrf_token %}
+                    <select class="status-selector me-2" name="status">
+                        <option value="Pending" {% if resource.status == 'Pending' %}selected{% endif %}>Pending</option>
+                        <option value="Fulfilled" {% if resource.status == 'Fulfilled' %}selected{% endif %}>Fulfilled</option>
+                        <option value="Denied" {% if resource.status == 'Denied' %}selected{% endif %}>Denied</option>
+                    </select>
+                    <button class="btn btn-outline-success btn-sm" type="submit">Update</button>
+                </form>
+                {% endif %}
+                <div class="d-flex flex-wrap align-items-center text-primary small mt-4 mb-4 ms-3">
+                    <div>
+                        <i class="far fa-clock me-1"></i>
+                        <span class="me-3">Requested: {{ resource.requested_at|date:"F d, Y (h:i A)" }}</span>
+                    </div>
+                    <div>
+                        <i class="fas fa-user me-1"></i>
+                        <span>By: {{ resource.requested_by.username }}</span>
+                    </div>
+                </div>
+                {% if resource.status == 'Fulfilled' and resource.provided %}
+                <div class="d-flex flex-wrap align-items-center text-success small mb-4 ms-3">
+                    <div>
+                        <i class="far fa-check-circle me-1"></i>
+                        <span class="me-3">Provided: {{ resource.provided.provided_at|date:"F d, Y (h:i A)" }}</span>
+                    </div>
+                    <div>
+                        <i class="fas fa-user me-1"></i>
+                        <span>By: {{ resource.provided.provided_by }}</span>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="text-center text-muted my-5">
+        <i class="fas fa-search fa-3x mb-3"></i>
+        <h4>No resource requests found</h4>
+        <p class="text-muted">Try adjusting your search or filters</p>
+    </div>
+    {% endfor %}
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">&laquo; Previous</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">&laquo; Previous</span>
+            </li>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% else %}
+                <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next &raquo;</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Next &raquo;</span>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- New Resource Request Modal -->
+<div class="modal fade" id="newRequestModal" tabindex="-1" aria-labelledby="newRequestModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="newRequestModalLabel">New Resource Request</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newRequestForm">
+                    {% csrf_token %}
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="systemName" class="form-label">System Name</label>
+                            <input type="text" class="form-control" id="systemName" 
+                                   placeholder="Enter System Name" required>
+                            <div id="systemSuggestions" class="suggestions-dropdown"></div>
+                            <div class="invalid-feedback" id="systemError"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="labLocation" class="form-label">Lab Location</label>
+                            <input type="text" class="form-control" id="labLocation" 
+                                   placeholder="Enter Lab Name" required>
+                            <div id="labSuggestions" class="suggestions-dropdown"></div>
+                            <div class="invalid-feedback" id="labError"></div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="resourceName" class="form-label">Resource Name</label>
+                        <input type="text" class="form-control" id="resourceName" 
+                                placeholder="Enter Resource Name" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="resourceDescription" class="form-label">Resource Description</label>
+                        <textarea class="form-control" id="resourceDescription" rows="4" 
+                                  placeholder="Describe the need for the resource" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="submitRequest">Submit Request</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Modal -->
+<div class="modal fade" id="provisionSummaryModal" tabindex="-1" aria-labelledby="provisionSummaryModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="provisionSummaryForm" method="post">
+      {% csrf_token %}
+      <div class="modal-content">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title" id="provisionSummaryModalLabel">Provision Summary</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="provisionSummary" class="form-label">Summary</label>
+            <textarea class="form-control" id="provisionSummary" name="provision_summary" rows="4" required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success">Submit</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock main_content %}
+
+{% block scripts %}
+{% compress js %}
+<script src="{% static 'resources/js/resources.js' %}"></script>
+{% endcompress %}
+{% endblock scripts %}

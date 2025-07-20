@@ -1,296 +1,301 @@
 {% extends "login_manager/base.html" %}
 {% load static %}
+
 {% block main_content %}
-<head>
-    <link href= "{% static 'login_manager/css/landing-page.css' %}"  rel="stylesheet" type="text/css">
-</head>
-<body>
-    <!-- Navigation Bar -->
-    {% block navbar_button %}
-    <a class="nav-link login-btn text-white" href="login">Sign In / Sign Up <i class="fas fa-sign-in-alt"></i></a>
-    {% endblock navbar_button %}
+<!-- Navigation Bar -->
+{% block navbar_button %}
+<a class="nav-link bg-primary rounded text-white p-2" href="login">Sign In / Sign Up <i class="fas fa-sign-in-alt"></i></a>
+{% endblock navbar_button %}
 
-    <!-- Hero Section -->
-    <section id="section-home" class="hero">
-        <div class="container">
-            <div class="text-center">
-                <h1>Nexus Grid</h1>
-                <p class="subtitle">Intelligent System Monitoring & Management<br/>for Seamless Workspace Operations!</p>
-                <div class="floating-icons mt-4">
-                    <i class="fas fa-users icon"></i>
-                    <i class="fas fa-cloud icon"></i>
-                    <i class="fas fa-wifi icon"></i>
-                    <i class="fas fa-chart-line icon"></i>
-                    <i class="fas fa-chart-bar icon"></i>
-                    <i class="fas fa-cogs icon"></i>
-                    <i class="fas fa-heartbeat icon"></i>
-                    <i class="fas fa-plus icon"></i>
-                    <i class="fas fa-server icon"></i>
-                    <i class="fas fa-shield-alt icon"></i>
-                    <i class="fas fa-sync-alt icon"></i>
-                    <i class="fas fa-database icon"></i>
-                    <i class="fas fa-network-wired icon"></i>
-                    <i class="fas fa-bolt icon"></i>
-                    <i class="fas fa-signal icon"></i>
-                    <i class="fas fa-code-branch icon"></i>
-                </div>
+<!-- Hero Section -->
+<section id="section-home" class="hero">
+    <div class="container">
+        <div class="text-center">
+            <h1>Nexus Grid</h1>
+            <p class="subtitle">Intelligent System Monitoring & Management<br/>for Seamless Workspace Operations!</p>
+            <div class="floating-icons mt-4">
+                <i class="fas fa-users icon"></i>
+                <i class="fas fa-cloud icon"></i>
+                <i class="fas fa-wifi icon"></i>
+                <i class="fas fa-chart-line icon"></i>
+                <i class="fas fa-chart-bar icon"></i>
+                <i class="fas fa-cogs icon"></i>
+                <i class="fas fa-heartbeat icon"></i>
+                <i class="fas fa-plus icon"></i>
+                <i class="fas fa-server icon"></i>
+                <i class="fas fa-shield-alt icon"></i>
+                <i class="fas fa-sync-alt icon"></i>
+                <i class="fas fa-database icon"></i>
+                <i class="fas fa-network-wired icon"></i>
+                <i class="fas fa-bolt icon"></i>
+                <i class="fas fa-signal icon"></i>
+                <i class="fas fa-code-branch icon"></i>
             </div>
         </div>
-    </section>
+    </div>
+</section>
 
-    <!-- What We Deliver Section -->
-    <section id="section-what-we-deliver" class="what-we-deliver py-5">
-        <div class="container">
-            <h1 class="text-center mb-5"><b>What We Deliver</b></h1>
-            <div id="deliveryCarousel" class="carousel slide" data-bs-ride="carousel">
-                <div class="carousel-inner delivery-card p-5">
-                    <div class="carousel-item active w-100">
-                        <div class="d-flex flex-column flex-md-row align-items-center">
-                            <div class="p-4 text-center text-md-start">
-                                <h1>Real-Time System Monitoring</h1>
-                                <p>Keep your network running smoothly with automated health checks, live tracking, and instant issue detection. Prevent failures before they impact performance.</p>
-                            </div>
-                            <img src="static/login_manager/images/analytics crausel.png" class="carousel-img" alt="Monitoring">
+<!-- What We Deliver Section -->
+<section id="section-what-we-deliver" class="what-we-deliver py-5">
+    <div class="container">
+        <h1 class="text-center mb-5"><b>What We Deliver</b></h1>
+        <div id="deliveryCarousel" class="carousel slide" data-bs-ride="carousel">
+            <div class="carousel-inner delivery-card p-5">
+                <div class="carousel-item active w-100">
+                    <div class="d-flex flex-column flex-md-row align-items-center">
+                        <div class="p-4 text-center text-md-start">
+                            <h1>Real-Time System Monitoring</h1>
+                            <p>Keep your network running smoothly with automated health checks, live tracking, and instant issue detection. Prevent failures before they impact performance.</p>
                         </div>
+                        <img loading="lazy" src="{% static 'login_manager/images/analytics crausel.png' %}" class="carousel-img" alt="Monitoring">
                     </div>
-                    <div class="carousel-item w-100">
-                        <div class="d-flex flex-column flex-md-row align-items-center">
-                            <div class="p-4 text-center text-md-start">
-                                <h1>Interactive System Layout</h1>
-                                <p>Navigate an fully customizable interactive map of your systems with real-time color coding. Instantly locate faulty systems and prioritize repairs with ease.</p>
-                            </div>
-                            <img src="static/login_manager/images/analytics crausel.png" class="carousel-img" alt="Monitoring">
+                </div>
+                <div class="carousel-item w-100">
+                    <div class="d-flex flex-column flex-md-row align-items-center">
+                        <div class="p-4 text-center text-md-start">
+                            <h1>Interactive System Layout</h1>
+                            <p>Navigate a fully customizable interactive map of your systems with real-time color coding. Instantly locate faulty systems and prioritize repairs with ease.</p>
                         </div>
+                        <img loading="lazy" src="{% static 'login_manager/images/analytics crausel.png' %}" class="carousel-img" alt="Monitoring">
                     </div>
-                    <div class="carousel-item w-100">
-                        <div class="d-flex flex-column flex-md-row align-items-center">
-                            <div class="p-4 text-center text-md-start">
-                                <h1>Seamless Fault Reporting</h1>
-                                <p>Users and Systems themselves can report issues effortlessly with categorized fault types (hardware, software, network).</p>
-                            </div>
-                            <img src="static/login_manager/images/analytics crausel.png" class="carousel-img" alt="Monitoring">
+                </div>
+                <div class="carousel-item w-100">
+                    <div class="d-flex flex-column flex-md-row align-items-center">
+                        <div class="p-4 text-center text-md-start">
+                            <h1>Seamless Fault Reporting</h1>
+                            <p>Users and Systems themselves can report issues effortlessly with categorized fault types (hardware, software, network).</p>
                         </div>
+                        <img loading="lazy" src="{% static 'login_manager/images/analytics crausel.png' %}" class="carousel-img" alt="Monitoring">
                     </div>
-                    <div class="carousel-item w-100">
-                        <div class="d-flex flex-column flex-md-row align-items-center">
-                            <div class="p-4 text-center text-md-start">
-                                <h1>Smart Resource Request</h1>
-                                <p>Users and Systems themselves can request resource (hardware requirement, software requirement).</p>
-                            </div>
-                            <img src="static/login_manager/images/analytics crausel.png" class="carousel-img" alt="Monitoring">
+                </div>
+                <div class="carousel-item w-100">
+                    <div class="d-flex flex-column flex-md-row align-items-center">
+                        <div class="p-4 text-center text-md-start">
+                            <h1>Smart Resource Request</h1>
+                            <p>Users and Systems themselves can request resource (hardware requirement, software requirement).</p>
                         </div>
+                        <img loading="lazy" src="{% static 'login_manager/images/analytics crausel.png' %}" class="carousel-img" alt="Monitoring">
                     </div>
-                    <div class="carousel-item w-100">
-                        <div class="d-flex flex-column flex-md-row align-items-center">
-                            <div class="p-4 text-center text-md-start">
-                                <h1>QR-Based System Tracking</h1>
-                                <p>Scan QR codes to access repair history, performance logs, and warranty details—ensuring fast issue resolution.</p>
-                            </div>
-                            <img src="static/login_manager/images/analytics crausel.png" class="carousel-img" alt="Monitoring">
+                </div>
+                <div class="carousel-item w-100">
+                    <div class="d-flex flex-column flex-md-row align-items-center">
+                        <div class="p-4 text-center text-md-start">
+                            <h1>QR-Based System Tracking</h1>
+                            <p>Scan QR codes to access repair history, performance logs, and warranty details—ensuring fast issue resolution.</p>
                         </div>
+                        <img loading="lazy" src="{% static 'login_manager/images/analytics crausel.png' %}" class="carousel-img" alt="Monitoring">
                     </div>
-                    <div class="carousel-item w-100">
-                        <div class="d-flex flex-column flex-md-row align-items-center">
-                            <div class="p-4 text-center text-md-start">
-                                <h1>Efficient Bulk Software Deployment</h1>
-                                <p>Install, update, and remove software across multiple systems simultaneously—ensuring security, compliance, and efficiency at scale.</p>
-                            </div>
-                            <img src="static/login_manager/images/analytics crausel.png" class="carousel-img" alt="Monitoring">
+                </div>
+                <div class="carousel-item w-100">
+                    <div class="d-flex flex-column flex-md-row align-items-center">
+                        <div class="p-4 text-center text-md-start">
+                            <h1>Efficient Bulk Software Deployment</h1>
+                            <p>Install, update, and remove software across multiple systems simultaneously—ensuring security, compliance, and efficiency at scale.</p>
                         </div>
+                        <img loading="lazy" src="{% static 'login_manager/images/analytics crausel.png' %}" class="carousel-img" alt="Monitoring">
                     </div>
-                    <div class="carousel-item w-100">
-                        <div class="d-flex flex-column flex-md-row align-items-center">
-                            <div class="p-4 text-center text-md-start">
-                                <h1>Detailed Analysis and Comparison</h1>
-                                <p>Provides detailed Analysis of Workspaces and allow Users to compare and act accordingly.</p>
-                            </div>
-                            <img src="static/login_manager/images/analytics crausel.png" class="carousel-img" alt="Monitoring">
+                </div>
+                <div class="carousel-item w-100">
+                    <div class="d-flex flex-column flex-md-row align-items-center">
+                        <div class="p-4 text-center text-md-start">
+                            <h1>Detailed Analysis and Comparison</h1>
+                            <p>Provides detailed Analysis of Workspaces and allow Users to compare and act accordingly.</p>
                         </div>
+                        <img loading="lazy" src="{% static 'login_manager/images/analytics crausel.png' %}" class="carousel-img" alt="Monitoring">
                     </div>
-                    <div class="carousel-item w-100">
-                        <div class="d-flex flex-column flex-md-row align-items-center">
-                            <div class="p-4 text-center text-md-start">
-                                <h1>Smart Energy Optimization</h1>
-                                <p>Track power consumption, automatically shut down idle systems, and generate energy-saving reports to reduce operational costs.</p>
-                            </div>
-                            <img src="static/login_manager/images/analytics crausel.png" class="carousel-img" alt="Monitoring">
+                </div>
+                <div class="carousel-item w-100">
+                    <div class="d-flex flex-column flex-md-row align-items-center">
+                        <div class="p-4 text-center text-md-start">
+                            <h1>Smart Energy Optimization</h1>
+                            <p>Track power consumption, automatically shut down idle systems, and generate energy-saving reports to reduce operational costs.</p>
                         </div>
-                    </div>
-                </div>
-                <!-- Previous Button (Move More Left) -->
-                <button class="carousel-control-prev" style="left: -40px;" type="button" data-bs-target="#deliveryCarousel" data-bs-slide="prev">
-                    <span><i class="fas fa-chevron-left text-black fa-2x"></i></span>
-                </button>
-
-                <!-- Next Button (Move More Right) -->
-                <button class="carousel-control-next" style="right: -40px;" type="button" data-bs-target="#deliveryCarousel" data-bs-slide="next">
-                    <span><i class="fas fa-chevron-right text-black fa-2x"></i></span>
-                </button>
-            </div>
-        </div>
-    </section>      
-
-    <!-- Why Choose Section -->
-    <section id="section-why-choose-nexusgrid" class="why-choose py-5">
-        <div class="container">
-            <h1 class="text-center mb-5"><b>Why Choose NexusGrid</b></h1>
-            <div class="row g-4">
-                <div class="col-md-6">
-                    <div class="feature-card">
-                        <h4>🚀 Proactive Monitoring</h4>
-                        <p>Real-time health checks to detect and resolve issues before they affect system performance.</p>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="feature-card">
-                        <h4>⚡ Quick Fault Resolution</h4>
-                        <p>Easily report and track faults with automated updates and streamlined repair workflows.</p>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="feature-card">
-                        <h4>📊 Intelligent Analytics</h4>
-                        <p>Advanced reporting and insights to optimize resource allocation and performance.</p>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="feature-card">
-                        <h4>🖥️ Centralized Control</h4>
-                        <p>Admins can manage multiple groups, assign tasks, and oversee system health from a single dashboard.</p>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="feature-card">
-                        <h4>🔍 Visual System Layout</h4>
-                        <p>Interactive system map with color-coded statuses for quick fault identification and resolution.</p>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="feature-card">
-                        <h4>🔔 Instant Notifications</h4>
-                        <p>Stay updated with fault alerts, repair progress, and system health reports via real-time notifications.</p>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="feature-card">
-                        <h4>📡 Remote Management</h4>
-                        <p>Monitor and manage systems from anywhere, ensuring minimal downtime and optimal performance.</p>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="feature-card">
-                        <h4>🛠️ Bulk Software Deployment</h4>
-                        <p>Automate software installations, updates, and removals across multiple systems efficiently.</p>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="feature-card">
-                        <h4>📱 QR Code Functionality</h4>
-                        <p>Scan QR codes on devices to access repair history, performance logs, and fault reporting instantly.</p>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="feature-card">
-                        <h4>🌍 Energy-Efficient Operations</h4>
-                        <p>Automated power management to reduce energy consumption and optimize usage.</p>
+                        <img loading="lazy" src="{% static 'login_manager/images/analytics crausel.png' %}" class="carousel-img" alt="Monitoring">
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
+            <!-- Previous Button -->
+            <button class="carousel-control-prev" style="left: -40px;" type="button" data-bs-target="#deliveryCarousel" data-bs-slide="prev">
+                <span><i class="fas fa-chevron-left text-black fa-2x"></i></span>
+            </button>
 
-    <!-- Contact Section -->
-    <section id="section-contact-us" class="contact">
-        <div class="container">
-            <h1 class="text-center mb-5"><b>Contact Us</b></h1>
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="contact-info">
-                        <h3>Get in Touch</h3>
-                        <p>Transform your IT operations with NexusGrid. Contact us today to learn how we can help streamline your system monitoring and management.</p>
-                        <div class="contact-details">
-                            <p><i class="fas fa-envelope"></i> info@nexusgrid.com</p>
-                            <p><i class="fas fa-phone"></i> +91 98765 43210</p>
-                            <p><i class="fas fa-map-marker-alt"></i> NexusGrid, NG Road, Vidyavihar - 400070, Maharashtra, India</p>
-                        </div>
-                        <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3770.601328736602!2d72.88602117428505!3d19.081258251809256!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be7c8866a456c9f%3A0x8d1745d15baac575!2sDon%20Bosco%20Institute%20of%20Technology%2C%20Mumbai!5e0!3m2!1sen!2sin!4v1742573931204!5m2!1sen!2sin" width="100%" height="450" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
-                    </div>
+            <!-- Next Button -->
+            <button class="carousel-control-next" style="right: -40px;" type="button" data-bs-target="#deliveryCarousel" data-bs-slide="next">
+                <span><i class="fas fa-chevron-right text-black fa-2x"></i></span>
+            </button>
+        </div>
+    </div>
+</section>      
+
+<!-- Why Choose Section -->
+<section id="section-why-choose-nexusgrid" class="why-choose py-5">
+    <div class="container">
+        <h1 class="text-center mb-5"><b>Why Choose NexusGrid</b></h1>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="feature-card">
+                    <h4>🚀 Proactive Monitoring</h4>
+                    <p>Real-time health checks to detect and resolve issues before they affect system performance.</p>
                 </div>
-                <div class="col-md-6">
-                    <form class="contact-form" method="POST">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <input type="text" class="form-control" placeholder="Your Name">
-                        </div>
-                        <div class="mb-3">
-                            <input type="email" class="form-control" placeholder="Your Email">
-                        </div>
-                        <div class="mb-3">
-                            <input type="text" class="form-control" placeholder="Your Subject">
-                        </div>
-                        <div class="mb-3">
-                            <textarea class="form-control" rows="4" placeholder="Your Message"></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-dark w-100">Send Message</button>
-                    </form>
+            </div>
+            <div class="col-md-6">
+                <div class="feature-card">
+                    <h4>⚡ Quick Fault Resolution</h4>
+                    <p>Easily report and track faults with automated updates and streamlined repair workflows.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="feature-card">
+                    <h4>📊 Intelligent Analytics</h4>
+                    <p>Advanced reporting and insights to optimize resource allocation and performance.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="feature-card">
+                    <h4>🖥️ Centralized Control</h4>
+                    <p>Admins can manage multiple groups, assign tasks, and oversee system health from a single dashboard.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="feature-card">
+                    <h4>🔍 Visual System Layout</h4>
+                    <p>Interactive system map with color-coded statuses for quick fault identification and resolution.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="feature-card">
+                    <h4>🔔 Instant Notifications</h4>
+                    <p>Stay updated with fault alerts, repair progress, and system health reports via real-time notifications.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="feature-card">
+                    <h4>📡 Remote Management</h4>
+                    <p>Monitor and manage systems from anywhere, ensuring minimal downtime and optimal performance.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="feature-card">
+                    <h4>🛠️ Bulk Software Deployment</h4>
+                    <p>Automate software installations, updates, and removals across multiple systems efficiently.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="feature-card">
+                    <h4>📱 QR Code Functionality</h4>
+                    <p>Scan QR codes on devices to access repair history, performance logs, and fault reporting instantly.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="feature-card">
+                    <h4>🌍 Energy-Efficient Operations</h4>
+                    <p>Automated power management to reduce energy consumption and optimize usage.</p>
                 </div>
             </div>
         </div>
-    </section>
+    </div>
+</section>
 
-    <!-- About Section -->
-    <section id="section-about-us" class="about py-5">
-        <div class="container">
-            <h1 class="text-center mb-5"><b>About NexusGrid</b></h1>
-            <div class="row align-items-center">
-                <div class="col-md-6">
-                    <div class="about-content">
-                        <h3>Our Mission</h3>
-                        <p>At NexusGrid, we're passionate about transforming system monitoring and IT management for educational institutions and organizations. Our innovative solutions help streamline operations and enhance performance.</p>
-                        <h3>Our Vision</h3>
-                        <p>We envision a future where IT management is seamless, efficient, and accessible to organizations of all sizes. Through cutting-edge technology and dedicated support, we're making this vision a reality.</p>
+<!-- Contact Section -->
+<section id="section-contact-us" class="contact">
+    <div class="container">
+        <h1 class="text-center mb-5"><b>Contact Us</b></h1>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="contact-info">
+                    <h3>Get in Touch</h3>
+                    <p>Transform your IT operations with NexusGrid. Contact us today to learn how we can help streamline your system monitoring and management.</p>
+                    <div class="contact-details">
+                        <p><i class="fas fa-envelope"></i> info@nexusgrid.com</p>
+                        <p><i class="fas fa-phone"></i> +91 98765 43210</p>
+                        <p><i class="fas fa-map-marker-alt"></i> NexusGrid, NG Road, Vidyavihar - 400070, Maharashtra, India</p>
                     </div>
+                    <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3770.601328736602!2d72.88602117428505!3d19.081258251809256!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be7c8866a456c9f%3A0x8d1745d15baac575!2sDon%20Bosco%20Institute%20of%20Technology%2C%20Mumbai!5e0!3m2!1sen!2sin!4v1742573931204!5m2!1sen!2sin" width="100%" height="450" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
                 </div>
-                <div class="col-md-6">
-                    <div class="about-stats">
-                        <div class="stat-item">
-                            <i class="fas fa-users"></i>
-                            <h4>1+</h4>
-                            <p>Happy Clients</p>
-                        </div>
-                        <div class="stat-item">
-                            <i class="fas fa-project-diagram"></i>
-                            <h4>4+</h4>
-                            <p>Systems Monitoring</p>
-                        </div>
-                        <div class="stat-item">
-                            <i class="fas fa-clock"></i>
-                            <h4>24/7</h4>
-                            <p>Support Available</p>
-                        </div>
+            </div>
+            <div class="col-md-6">
+                <form class="contact-form" method="POST">
+                    {% csrf_token %}
+                    <div class="mb-3 w-100">
+                        <input type="text" class="form-control" placeholder="Your Name">
+                    </div>
+                    <div class="mb-3 w-100">
+                        <input type="email" class="form-control" placeholder="Your Email">
+                    </div>
+            
+                    <!-- Subject Dropdown -->
+                    <div class="mb-3 w-100">
+                        <select class="form-control" id="subject-select" onchange="toggleOtherSubject(this)">
+                            <option value="">Select Subject</option>
+                            <option value="Feedback">Feedback</option>
+                            <option value="Implementation">Implementing our system in your organization</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+            
+                    <!-- Optional Subject Text Input -->
+                    <div class="mb-3 w-100" id="other-subject-container" style="display: none;">
+                        <input type="text" class="form-control" placeholder="Enter your subject">
+                    </div>
+            
+                    <div class="mb-3 w-100">
+                        <textarea class="form-control" rows="4" placeholder="Your Message"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-dark w-100">Send Message</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- About Section -->
+<section id="section-about-us" class="about py-5">
+    <div class="container">
+        <h1 class="text-center mb-5"><b>About NexusGrid</b></h1>
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <div class="about-content">
+                    <h3>Our Mission</h3>
+                    <p>At NexusGrid, we're passionate about transforming system monitoring and IT management for educational institutions and organizations. Our innovative solutions help streamline operations and enhance performance.</p>
+                    <h3>Our Vision</h3>
+                    <p>We envision a future where IT management is seamless, efficient, and accessible to organizations of all sizes. Through cutting-edge technology and dedicated support, we're making this vision a reality.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="about-stats">
+                    <div class="stat-item border shadow">
+                        <i class="fas fa-users"></i>
+                        <h4>1+</h4>
+                        <p>Happy Clients</p>
+                    </div>
+                    <div class="stat-item border shadow">
+                        <i class="fas fa-project-diagram"></i>
+                        <h4>4+</h4>
+                        <p>Systems Monitoring</p>
+                    </div>
+                    <div class="stat-item border shadow">
+                        <i class="fas fa-clock"></i>
+                        <h4>24/7</h4>
+                        <p>Support Available</p>
                     </div>
                 </div>
             </div>
         </div>
-    </section>
+    </div>
+</section>
 
-    <!-- Footer -->
-    <footer class="footer py-4">
-        <div class="container text-center">
-            <p><i class="fa-regular fa-copyright"></i> Created in 2025 by Parth, Chetan and Nischay</p>
-            <hr class="text-white"/>
-            <div class="social-icons">
-                <a href="#"><i class="fas fa-envelope"></i></a>
-                <a href="#"><i class="fab fa-github"></i></a>
-                <a href="#"><i class="fab fa-facebook"></i></a>
-                <a href="#"><i class="fab fa-instagram"></i></a>
-                <a href="#"><i class="fab fa-youtube"></i></a>
-            </div>
+<!-- Footer -->
+<footer class="footer py-4">
+    <div class="container text-center">
+        <p><i class="fa-regular fa-copyright"></i> Created in 2025 by Chetan, Nischay and Parth.</p>
+        <hr class="text-white"/>
+        <div class="social-icons">
+            <a href="#"><i class="fas fa-envelope"></i></a>
+            <a href="#"><i class="fab fa-github"></i></a>
+            <a href="#"><i class="fab fa-facebook"></i></a>
+            <a href="#"><i class="fab fa-instagram"></i></a>
+            <a href="#"><i class="fab fa-youtube"></i></a>
         </div>
-    </footer>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="static/login_manager/js/app.js"></script>
-</body>
-</html>
+    </div>
+</footer>
 {% endblock main_content %}

@@ -1,116 +1,266 @@
-/*Sign In to Sign Up Toggle*/
-const sign_in_btn = document.querySelector("#sign-in-btn");
-const sign_up_btn = document.querySelector("#sign-up-btn");
-const container = document.querySelector(".main-container");
-
-sign_up_btn.addEventListener('click', () => {
-    container.classList.add("sign-up-mode");
-});
-
-sign_in_btn.addEventListener('click', () => {
-    container.classList.remove("sign-up-mode");
-});
-
-/*Password visibility*/
-const passwordInputs = document.querySelectorAll("#signin-password, #signup-password, #confirm-password");
-const togglePasswords = document.querySelectorAll("#toggle-password-signin, #toggle-password-signup, #toggle-password-confirm");
-const toggleIcons = document.querySelectorAll("#toggle-password-signin i, #toggle-password-signup i, #toggle-password-confirm i");
-
-/*Show or hide the eye icon based on the input's value*/
-passwordInputs.forEach((passwordInput, index) => {
-  passwordInput.addEventListener("input", () => {
-    if (passwordInput.value.length > 0) {
-      togglePasswords[index].style.display = "inline";
-    } else {
-      togglePasswords[index].style.display = "none";
+// Minimal core utilities - Always loaded
+const Core = {
+    csrf: null,
+    getCSRFToken() {
+        return this.csrf ??= document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+    },
+    
+    showMessage: (id, msg, type = 'danger') => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.innerHTML = `<p class="text-${type} mb-2">${msg}</p>`;
+            setTimeout(() => el.innerHTML = '', 5000);
+        }
     }
-  });
-});
+};
 
-/*Toggle the password visibility and the icon*/
-togglePasswords.forEach((togglePassword, index) => {
-  togglePassword.addEventListener("click", () => {
-    const isPassword = passwordInputs[index].type === "password";
-    passwordInputs[index].type = isPassword ? "text" : "password";
-    toggleIcons[index].classList.toggle("fa-eye-slash");
-    toggleIcons[index].classList.toggle("fa-eye");
-  });
-});
+// Lazy-loaded modules - Only created when needed
+const Modules = {
+    // Landing page form handler
+    landingForm: null,
+    getLandingForm() {
+        return this.landingForm ??= {
+            init: () => {
+                const select = document.querySelector('[onchange*="toggleOtherSubject"]');
+                select?.addEventListener('change', (e) => {
+                    const container = document.getElementById('other-subject-container');
+                    if (container) container.style.display = e.target.value === "Other" ? "block" : "none";
+                });
+            }
+        };
+    },
 
-function getOTP() {
-  const email = document.getElementById("signup-email").value;
-  const username = document.getElementById("signup-username").value;
-  const password = document.getElementById("signup-password").value;
-  const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    // Auth toggle
+    authToggle: null,
+    getAuthToggle() {
+        return this.authToggle ??= {
+            init: () => {
+                const [signIn, signUp, container] = [
+                    document.getElementById('sign-in-btn'),
+                    document.getElementById('sign-up-btn'),
+                    document.querySelector('.main-container')
+                ];
+                
+                if (signIn && signUp && container) {
+                    signUp.onclick = () => container.classList.add('sign-up-mode');
+                    signIn.onclick = () => container.classList.remove('sign-up-mode');
+                }
+            }
+        };
+    },
 
-  fetch('/get-otp/', {
-      method: 'POST',
-      headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': csrftoken
-      },
-      body: JSON.stringify({ email: email, username: username, password: password })
-  })
-  .then(response => response.json())
-  .then(data => {
-      if (data.success) {
-          let otpModal = new bootstrap.Modal(document.getElementById("otpModal"));
-          otpModal.show();
-          console.log("OTP sent successfully!");
-      } else {
-          alert(data.message); // Show error message
-      }
-  })
-  .catch(error => console.error("Request failed:", error));
-}
+    // Password visibility
+    passwordToggle: null,
+    getPasswordToggle() {
+        return this.passwordToggle ??= {
+            init: () => {
+                document.querySelectorAll('#signin-password, #signup-password, #confirm-password')
+                    .forEach(input => {
+                        const type = input.id.includes('signin') ? 'signin' : 
+                                   input.id.includes('confirm') ? 'confirm' : 'signup';
+                        const toggle = document.querySelector(`#toggle-password-${type}`);
+                        
+                        if (toggle) {
+                            // Debounced input handler
+                            let timeout;
+                            input.oninput = () => {
+                                clearTimeout(timeout);
+                                timeout = setTimeout(() => {
+                                    toggle.style.display = input.value ? 'inline' : 'none';
+                                }, 100);
+                            };
+                            
+                            // Toggle visibility
+                            toggle.onclick = () => {
+                                const isPassword = input.type === 'password';
+                                input.type = isPassword ? 'text' : 'password';
+                                const icon = toggle.querySelector('i');
+                                if (icon) {
+                                    icon.className = icon.className.replace(
+                                        isPassword ? 'fa-eye' : 'fa-eye-slash',
+                                        isPassword ? 'fa-eye-slash' : 'fa-eye'
+                                    );
+                                }
+                            };
+                        }
+                    });
+            }
+        };
+    },
 
-document.getElementById("verifyOtpBtn").addEventListener("click", function () {
-  const otpInput = document.getElementById("otpInput").value;
-  const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    // OTP handler - Most complex, fully lazy
+    otpHandler: null,
+    getOTPHandler() {
+        return this.otpHandler ??= {
+            countdown: null,
+            timeLeft: 300,
 
-  fetch('/verify-otp/', {
-      method: 'POST',
-      headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': csrftoken
-      },
-      body: JSON.stringify({ otp: otpInput })
-  })
-  .then(response => response.json())
-  .then(data => {
-      if (data.success) {
-          alert("✅ OTP Verified! Account Created Successfully! Redirecting to Login Page...");
-          window.location.href = "/login/";
-      } else {
-          document.getElementById("otpError").classList.remove("d-none");
-          document.getElementById("otpError").innerText = data.message;
-      }
-  })
-  .catch(error => console.error("Error:", error));
-});
+            init() {
+                const handlers = {
+                    'signup-btn': () => this.requestOTP(),
+                    'verifyOtpBtn': () => this.verifyOTP(),
+                    'resend-otp-btn': () => this.resendOTP()
+                };
 
-/* Sign In Validation */
-document.getElementById("login-button").addEventListener("click", function () {
-  const username = document.getElementById("signin-username").value.trim();
-  const password = document.getElementById("signin-password").value.trim();
-  const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                Object.entries(handlers).forEach(([id, handler]) => {
+                    const el = document.getElementById(id);
+                    if (el) el.onclick = handler.bind(this);
+                });
 
-  fetch('/user-login/', {
-      method: 'POST',
-      headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': csrftoken
-      },
-      body: JSON.stringify({ username: username, password: password })
-  })
-  .then(response => response.json())
-  .then(data => {
-      if (data.success) {
-          alert("✅ Login Successful! Redirecting...");
-          window.location.href = data.redirect_url;  // Redirect on success
-      } else {
-          alert(data.message);  // Show error message
-      }
-  })
-  .catch(error => console.error("Login request failed:", error));
+                const otpInput = document.getElementById('otpInput');
+                if (otpInput) {
+                    otpInput.oninput = (e) => {
+                        e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                        if (e.target.value.length === 6) {
+                            document.getElementById('verifyOtpBtn')?.focus();
+                        }
+                    };
+                    otpInput.onkeypress = (e) => e.key === 'Enter' && this.verifyOTP();
+                }
+            },
+
+            validatePasswords() {
+                const [pass, confirm] = ['signup-password', 'confirm-password']
+                    .map(id => document.getElementById(id)?.value || '');
+                
+                if (pass !== confirm) {
+                    Core.showMessage('signup-messages', 'Passwords do not match');
+                    return false;
+                }
+                if (pass.length < 8) {
+                    Core.showMessage('signup-messages', 'Password must be at least 8 characters long');
+                    return false;
+                }
+                return true;
+            },
+
+            startTimer() {
+                this.timeLeft = 300;
+                const countdown = document.getElementById('countdown');
+                if (!countdown) return;
+
+                this.countdown = setInterval(() => {
+                    const mins = Math.floor(this.timeLeft / 60);
+                    const secs = this.timeLeft % 60;
+                    countdown.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+                    
+                    if (this.timeLeft <= 0) {
+                        clearInterval(this.countdown);
+                        countdown.textContent = 'Expired';
+                        Core.showMessage('otp-messages', 'OTP has expired. Please request a new one.', 'warning');
+                    }
+                    this.timeLeft--;
+                }, 1000);
+            },
+
+            async requestOTP() {
+                const [username, email, password] = ['signup-username', 'signup-email', 'signup-password']
+                    .map(id => document.getElementById(id)?.value.trim() || '');
+
+                if (!username || !email || !password || !this.validatePasswords()) return;
+
+                const btn = document.getElementById('signup-btn');
+                this.toggleButton(btn, true);
+
+                try {
+                    const response = await fetch('/get-otp/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': Core.getCSRFToken()
+                        },
+                        body: JSON.stringify({ username, email, password })
+                    });
+
+                    const data = await response.json();
+                    if (data.success) {
+                        document.getElementById('otp-email').textContent = email;
+                        new bootstrap.Modal(document.getElementById('otpModal')).show();
+                        this.startTimer();
+                        document.getElementById('otpInput')?.focus();
+                    } else {
+                        Core.showMessage('signup-messages', data.message);
+                    }
+                } catch (error) {
+                    Core.showMessage('signup-messages', 'An error occurred. Please try again.');
+                } finally {
+                    this.toggleButton(btn, false);
+                }
+            },
+
+            async verifyOTP() {
+                const otp = document.getElementById('otpInput')?.value.trim() || '';
+                if (!otp || otp.length !== 6) {
+                    Core.showMessage('otp-messages', 'Please enter a valid 6-digit OTP');
+                    return;
+                }
+
+                const btn = document.getElementById('verifyOtpBtn');
+                this.toggleButton(btn, true);
+
+                try {
+                    const response = await fetch('/verify-otp/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': Core.getCSRFToken()
+                        },
+                        body: JSON.stringify({ otp })
+                    });
+
+                    const data = await response.json();
+                    if (data.success) {
+                        clearInterval(this.countdown);
+                        Core.showMessage('otp-messages', 'Account created successfully! Redirecting...', 'success');
+                        setTimeout(() => window.location.href = "/login/", 2000);
+                    } else {
+                        Core.showMessage('otp-messages', data.message);
+                        const input = document.getElementById('otpInput');
+                        if (input) {
+                            input.value = '';
+                            input.focus();
+                        }
+                    }
+                } catch (error) {
+                    Core.showMessage('otp-messages', 'An error occurred. Please try again.');
+                } finally {
+                    this.toggleButton(btn, false);
+                }
+            },
+
+            resendOTP() {
+                clearInterval(this.countdown);
+                this.requestOTP();
+            },
+
+            toggleButton(btn, loading) {
+                if (!btn) return;
+                const [text, loader] = ['.btn-text', '.btn-loading'].map(s => btn.querySelector(s));
+                if (text && loader) {
+                    text.classList.toggle('d-none', loading);
+                    loader.classList.toggle('d-none', !loading);
+                }
+                btn.disabled = loading;
+            }
+        };
+    }
+};
+
+// Ultra-minimal initialization
+document.addEventListener('DOMContentLoaded', () => {
+    // Auto-remove messages
+    const topMsg = document.getElementById('top-messages');
+    if (topMsg) setTimeout(() => topMsg.remove(), 3000);
+
+    // Lazy load only what exists on page
+    const loaders = [
+        ['[onchange*="toggleOtherSubject"]', () => Modules.getLandingForm().init()],
+        ['#sign-in-btn', () => Modules.getAuthToggle().init()],
+        ['#signin-password, #signup-password, #confirm-password', () => Modules.getPasswordToggle().init()],
+        ['#signup-btn, #otpInput', () => Modules.getOTPHandler().init()]
+    ];
+
+    loaders.forEach(([selector, loader]) => {
+        if (document.querySelector(selector)) loader();
+    });
 });

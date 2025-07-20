@@ -1,0 +1,90 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*$py.class
+
+# Backup and swap files
+*.swp
+*.bak
+*.bak.*
+*.orig
+*.rej
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Django specific
+db.sqlite3
+*.dump
+*.log
+*.pot
+*.mo
+media/
+staticfiles/
+local_settings.py
+
+# Environment variables
+.env
+.env.*
+
+# Node.js (if using with frontend tools)
+node_modules/
+
+# Vercel deployment
+.vercel
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Testing
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Type checkers
+.mypy_cache/
+.dmypy.json
+.pyre/
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Custom/Project specific
+.dst

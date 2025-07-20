@@ -1,0 +1,330 @@
+{% extends "dashboard/sidebar.html" %}
+{% load static %}
+{% load compress %}
+
+{% block title %}| Fault Reports{% endblock title %}
+
+{% block head %}
+{% compress css %}
+<link href="{% static 'faults/css/faults.css' %}" rel="stylesheet">
+{% endcompress %}
+{% endblock head %}
+
+{% block main_content %}
+<div class="container">
+    <!-- Search Container -->
+    <div class="mb-4">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="input-group mt-4">
+                    <span class="input-group-text bg-primary text-white">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input type="text" id="searchInput" class="form-control form-control-lg" 
+                           placeholder="Search for Fault Reports by hostname, location or title...">
+                    <button class="btn btn-primary" type="button" id="searchButton">Search</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section mb-4">
+        <div class="row">
+            <div class="col-md-4 mb-2">
+                <label for="timeFilter" class="form-label">
+                    <i class="fas fa-clock me-2"></i>Time Range:
+                </label>
+                <select class="form-select" id="timeFilter">
+                    <option value="all">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                    <option value="custom">Custom Range</option>
+                </select>
+            </div>
+            <div class="col-md-4 mb-2">
+                <label for="statusFilter" class="form-label">
+                    <i class="fas fa-filter me-2"></i>Status:
+                </label>
+                <select class="form-select" id="statusFilter">
+                    <option value="all">All Statuses</option>
+                    <option value="unaddressed">Unaddressed</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="ignored">Ignored</option>
+                </select>
+            </div>
+            <div class="col-md-4 mb-2">
+                <label for="sortBy" class="form-label">
+                    <i class="fas fa-sort me-2"></i>Sort By:
+                </label>
+                <select class="form-select" id="sortBy">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                </select>
+            </div>
+            <!-- Custom date range inputs -->
+            <div class="row mt-2 custom-date-range" style="display: none;">
+                <div class="col-md-6">
+                    <label for="startDate" class="form-label">Start Date:</label>
+                    <input type="date" class="form-control" id="startDate">
+                </div>
+                <div class="col-md-6">
+                    <label for="endDate" class="form-label">End Date:</label>
+                    <input type="date" class="form-control" id="endDate">
+                </div>
+            </div>
+        </div>
+        <div class="row mt-3">
+            <div class="col-12">
+                <button class="btn btn-primary" id="applyFilters">
+                    <i class="fas fa-check me-2"></i>Apply Filters
+                </button>
+                <button class="btn btn-outline-secondary ms-2" id="resetFilters">
+                    <i class="fas fa-undo me-2"></i>Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Stats -->
+    <div class="d-flex justify-content-between mb-3">
+        <h4 id="resultsCount">Showing all fault reports</h4>
+        <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#newFaultModal">
+            <i class="fas fa-plus me-2"></i>New Fault Report
+        </button>
+    </div>
+
+    <!-- No Results Message -->
+    <div id="noResultsMessage" style="display: none;">
+        <i class="fas fa-search fa-3x text-muted mb-3"></i>
+        <h4>No fault reports found</h4>
+        <p class="text-muted">Try adjusting your search criteria or filters</p>
+    </div>
+
+    <!-- Fault Reports Container -->
+    <div id="faultReportsContainer">
+    {% for report in fault_reports %}
+    <div class="fault-card {{ report.status|lower }}" 
+        data-status="{{ report.status|lower }}" 
+        data-date="{{ report.reported_at|date:"Y-m-d\\TH:i:s" }}"
+        data-fault-id="{{ report.fault_id }}">
+        
+        <div class="row g-3">
+            <!-- Left: System Info + Title + Desc -->
+            <div class="col-md-8 col-12">
+                <div class="hostname fw-bold ms-5 mb-3">
+                {% if report.system_name.layout_item.item_type == "server" %}
+                    <i class="fas fa-server fa-3x me-3 text-secondary"></i>
+                {% elif report.system_name.layout_item.item_type == "computer" %}
+                    <i class="fas fa-desktop fa-3x me-3 text-secondary"></i>
+                {% elif report.system_name.layout_item.item_type == "network_switch" %}
+                    <i class="fas fa-network-wired fa-3x me-3 text-secondary"></i>
+                {% elif report.system_name.layout_item.item_type == "router" %}
+                    <i class="fas fa-wifi fa-3x me-3 text-secondary"></i>
+                {% elif report.system_name.layout_item.item_type == "printer" %}
+                    <i class="fas fa-print fa-3x me-3 text-secondary"></i>
+                {% elif report.system_name.layout_item.item_type == "ups" %}
+                    <i class="fas fa-plug fa-3x me-3 text-secondary"></i>
+                {% elif report.system_name.layout_item.item_type == "rack" %}
+                    <i class="fas fa-hdd fa-3x me-3 text-secondary"></i>
+                {% else %}
+                    <i class="fas fa-question-circle fa-3x me-3 text-secondary"></i>
+                {% endif %}
+                <div>
+                    <span class="fs-4">{{ report.system_name.host_name }}</span>
+                    <div class="location text-muted">
+                        <i class="fas text-secondary fa-map-marker-alt me-1"></i>
+                        {{ report.system_name.lab.lab_name }}
+                    </div>
+                </div>
+            </div>
+            <div class="ms-5">
+                <h5 class="fault-title mb-1">{{ report.fault_type }}</h5>
+                <p class="fault-description mb-2 text-justify">{{ report.description }}</p>
+            </div>
+        </div>
+
+        <!-- Right: Badge, Status Update, Timestamps -->
+        <div class="col-md-4 col-12 text-md-end">
+            <!-- Status Badge -->
+            <span class="badge mb-2 bg-{% if report.status == 'unaddressed' %}danger{% elif report.status == 'resolved' %}success{% elif report.status == 'in-progress' %}warning text-dark{% elif report.status == 'scheduled' %}info{% else %}secondary{% endif %} status-badge">
+            {{ report.get_status_display }}
+            </span>
+
+            <!-- Status Update (if not resolved) -->
+            {% if report.status != 'resolved' %}
+            <form class="status-form d-flex justify-content-md-end align-items-center mt-4" method="post" action="{% url 'update_fault_status' fault_id=report.fault_id %}">
+            {% csrf_token %}
+            <select class="status-selector me-2" name="status">
+                {% for value, label in report.STATUS_CHOICES %}
+                <option value="{{ value }}" {% if report.status == value %}selected{% endif %}>
+                {{ label }}
+                </option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-outline-primary btn-sm" type="submit">Update</button>
+            </form>
+            {% endif %}
+
+            <!-- Reported Info -->
+            <div class="d-flex flex-wrap align-items-center text-primary small mt-4 mb-4 ms-3">
+                <div>
+                    <i class="far fa-clock me-1"></i>
+                    <span class="me-3">Reported: {{ report.reported_at|date:"F d, Y (h:i A)" }}</span>
+                </div>
+                <div>
+                    <i class="fas fa-user me-1"></i>
+                    <span>By: {{ report.reported_by.username }}</span>
+                </div>
+            </div>
+
+            <!-- Resolved Info -->
+            {% if report.status == 'resolved' and report.resolved %}
+            <div class="d-flex flex-wrap align-items-center text-success small mb-4 ms-3">
+                <div>
+                    <i class="far fa-check-circle me-1"></i>
+                    <span class="me-3">Resolved: {{ report.resolved.resolved_at|date:"F d, Y (h:i A)" }}</span>
+                </div>
+                <div>
+                    <i class="fas fa-user-check me-1"></i>
+                    <span>By: {{ report.resolved.resolved_by.username }}</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="text-center text-muted my-5">
+        <i class="fas fa-search fa-3x mb-3"></i>
+        <h4>No fault reports found</h4>
+        <p class="text-muted">Try adjusting your search criteria or filters</p>
+    </div>
+    {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav aria-label="Fault reports navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value|urlencode }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">&laquo; Previous</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">&laquo; Previous</span>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item"><a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value|urlencode }}&{% endif %}{% endfor %}page={{ num }}">{{ num }}</a></li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value|urlencode }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}">Next &raquo;</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Next &raquo;</span>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- New Fault Modal -->
+<div class="modal fade" id="newFaultModal" tabindex="-1" aria-labelledby="newFaultModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="newFaultModalLabel">Report New Fault</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newFaultForm">
+                    {% csrf_token %}
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="systemName" class="form-label">System Name</label>
+                            <input type="text" class="form-control" id="systemName" 
+                                   placeholder="Enter System Name" required>
+                            <div id="systemSuggestions" class="suggestions-dropdown"></div>
+                            <div class="invalid-feedback" id="systemError"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="labLocation" class="form-label">Lab Location</label>
+                            <input type="text" class="form-control" id="labLocation" 
+                                   placeholder="Enter Lab Name" required>
+                            <div id="labSuggestions" class="suggestions-dropdown"></div>
+                            <div class="invalid-feedback" id="labError"></div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="faultType" class="form-label">Fault Type</label>
+                        <select class="form-select" id="faultType" required>
+                            <option value="">Select fault type</option>
+                            <option value="Hardware">Hardware</option>
+                            <option value="Software">Software</option>
+                            <option value="Network">Network</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="faultDescription" class="form-label">Fault Description</label>
+                        <textarea class="form-control" id="faultDescription" rows="4" 
+                                  placeholder="Describe the fault in detail..." required></textarea>
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="submitFault">Submit Fault Report</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resolution Summary Modal -->
+<div class="modal fade" id="resolutionModal" tabindex="-1" aria-labelledby="resolutionModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+    <div class="modal-content">
+        <form id="resolutionForm" method="post">
+        {% csrf_token %}
+        <div class="modal-header bg-success text-white">
+            <h5 class="modal-title" id="resolutionModalLabel">Resolution Summary</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="resolvedFaultId" name="fault_id">
+            <div class="mb-3">
+            <label for="resolutionSummary" class="form-label">Summary</label>
+            <textarea class="form-control" id="resolutionSummary" name="resolution_summary" rows="4" required></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-success">Submit Resolution</button>
+        </div>
+        </form>
+    </div>
+    </div>
+</div>
+{% endblock main_content %}
+
+{% block scripts %}
+{% compress js %}
+<script src="{% static 'faults/js/faults.js' %}"></script>
+{% endcompress %}
+{% endblock scripts %}

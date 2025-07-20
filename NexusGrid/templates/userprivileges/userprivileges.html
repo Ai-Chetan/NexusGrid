@@ -1,0 +1,254 @@
+{% extends "dashboard/sidebar.html" %}
+{% load static %}
+{% load compress %}
+
+{% block title %}| User Privileges{% endblock title %}
+
+{% block head %}
+{% compress css %}
+<link href="{% static 'userprivileges/css/userprivileges.css' %}" rel="stylesheet">
+{% endcompress %}
+{% endblock head %}
+
+{% block main_content %}
+<div class="container-fluid ms-0 me-0 p-4">
+    <!-- Header -->
+    <div class="row mb-4 ms-5">
+        <div class="col-12">
+            <h1 class="text-center text-primary mb-4">User Privileges</h1>
+            
+            <!-- Stats Cards -->
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-users fa-2x text-primary mb-2"></i>
+                            <h4 class="card-title" id="totalUsers">0</h4>
+                            <p class="card-text">Total Users</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-user-slash fa-2x text-warning mb-2"></i>
+                            <h4 class="card-title" id="unassignedUsers">0</h4>
+                            <p class="card-text">Unassigned Users</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-flask fa-2x text-success mb-2"></i>
+                            <h4 class="card-title" id="totalLabs">0</h4>
+                            <p class="card-text">Total Labs</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-12 text-center mb-2">
+                                    <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                                </div>
+                                <div class="col-6 text-center border-end">
+                                    <h5 id="labsWithoutInstructor">0</h5>
+                                    <small>No Instructor</small>
+                                </div>
+                                <div class="col-6 text-center">
+                                    <h5 id="labsWithoutAssistant">0</h5>
+                                    <small>No Assistant</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="row ms-5">
+        <div class="col-12">
+            <nav>
+                <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                    <button class="nav-link active" id="nav-assign-tab" data-bs-toggle="tab" data-bs-target="#nav-assign" type="button" role="tab">
+                        <i class="fas fa-user-plus"></i> Assign Lab Staff
+                    </button>
+                    <button class="nav-link" id="nav-users-tab" data-bs-toggle="tab" data-bs-target="#nav-users" type="button" role="tab">
+                        <i class="fas fa-users"></i> All Users
+                    </button>
+                    <button class="nav-link" id="nav-settings-tab" data-bs-toggle="tab" data-bs-target="#nav-settings" type="button" role="tab">
+                        <i class="fas fa-cog"></i> Settings
+                    </button>
+                </div>
+            </nav>
+            
+            <div class="tab-content" id="nav-tabContent">
+                <!-- Assign Lab Staff Tab -->
+                <div class="tab-pane fade show active" id="nav-assign" role="tabpanel">
+                    <div class="card mt-3">
+                        <div class="card-body">
+                            <h5 class="card-title">Lab Assignment</h5>
+                            
+                            <!-- Breadcrumb -->
+                            <nav aria-label="breadcrumb">
+                                <ol class="breadcrumb" id="breadcrumb">
+                                    <li class="breadcrumb-item active">Buildings</li>
+                                </ol>
+                            </nav>
+                            
+                            <!-- Content Area -->
+                            <div id="assignmentContent">
+                                <div class="row" id="buildingsList">
+                                    <!-- Buildings will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- All Users Tab -->
+                <div class="tab-pane fade" id="nav-users" role="tabpanel">
+                    <div class="card mt-3">
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <h5 class="card-title">User Management</h5>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                        <input type="text" class="form-control" id="userSearch" placeholder="Search users...">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Username</th>
+                                            <th>Email</th>
+                                            <th>Role</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="usersTableBody">
+                                        <!-- Users will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Settings Tab -->
+                <div class="tab-pane fade" id="nav-settings" role="tabpanel">
+                    <div class="card mt-3">
+                        <div class="card-body">
+                            <h5 class="card-title">Lab Assignment Limits</h5>
+                            <form id="settingsForm">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="instructorLimit" class="form-label">Instructor Lab Limit</label>
+                                            <input type="number" class="form-control" id="instructorLimit" value="3" min="1" max="10">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="assistantLimit" class="form-label">Assistant Lab Limit</label>
+                                            <input type="number" class="form-control" id="assistantLimit" value="5" min="1" max="10">
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Save Settings</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editUserForm">
+                    <input type="hidden" id="editUserId">
+                    <div class="mb-3">
+                        <label for="editUsername" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="editUsername" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editEmail" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="editEmail" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editRole" class="form-label">Role</label>
+                        <select class="form-select" id="editRole">
+                            <option value="Administrator">Administrator</option>
+                            <option value="Lab Incharge">Lab Incharge</option>
+                            <option value="Lab Assistant">Lab Assistant</option>
+                            <option value="Students">Students</option>
+                            <option value="No Roles">No Roles</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveUser()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Staff Modal -->
+<div class="modal fade" id="assignStaffModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="assignStaffModalTitle">Assign Staff to Lab</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="assignLabId">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Available Instructors</h6>
+                        <div id="availableInstructors" class="staff-list">
+                            <!-- Available instructors will be loaded here -->
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Available Assistants</h6>
+                        <div id="availableAssistants" class="staff-list">
+                            <!-- Available assistants will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock main_content %}
+
+{% block page_scripts %}
+{% compress js %}
+<script src="{% static 'userprivileges/js/userprivileges.js' %}"></script>
+{% endcompress %}
+{% endblock page_scripts %}

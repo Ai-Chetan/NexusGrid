@@ -126,6 +126,7 @@
   border: 1px solid black;
   border-left: 5px solid #28a745;
 }
+
 .active .progress-bar {
   background-color: #28a745;
   width: 50%;
@@ -220,58 +221,25 @@
   margin-bottom: 10px;
 }
 
-.btns {
-  padding: 8px 15px;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
+.btn {
+  transition: all 0.3s ease;
+  border-radius: 8px;
   font-weight: 500;
-  transition: all 0.2s;
+  padding: 10px 20px;
 }
 
-.btn-primary {
-  background-color: #007bff;
-  color: white;
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.btn-primary:hover {
-  background-color: #0069d9;
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.875rem;
 }
 
-.btn-secondary {
-  background-color: #6c757d;
-  color: white;
-}
-
-.btn-secondary:hover {
-  background-color: #5a6268;
-}
-
-.btn-success {
-  background-color: #28a745;
-  color: white;
-}
-
-.btn-success:hover {
-  background-color: #218838;
-}
-
-.btn-danger {
-  background-color: #dc3545;
-  color: white;
-}
-
-.btn-danger:hover {
-  background-color: #c82333;
-}
-
-.btn-warning {
-  background-color: #ffc107;
-  color: #212529;
-}
-
-.btn-warning:hover {
-  background-color: #e0a800;
+.btn-outline-primary:hover {
+  transform: translateY(-1px);
 }
 
 /* Layout Grid */
@@ -295,6 +263,7 @@
 /* Layout Items */
 .layout-item {
   border-radius: 6px;
+  border: 1px solid black;
   padding: 10px;
   cursor: pointer;
   display: flex;
@@ -352,8 +321,8 @@
 
 .item-computer {
   background-color: #E8F0FE;
-  color: #1a56db;
 }
+
 
 .item-server {
   background-color: #F8D7DA;
@@ -375,6 +344,52 @@
   color: #383d41;
 }
 
+
+/* ACTIVE status */
+.item-computer.active,
+.item-server.active,
+.item-network_switch.active,
+.item-router.active,
+.item-printer.active,
+.item-ups.active,
+.item-rack.active {
+  border: 2px solid #198754; /* darker green */
+  background-color: #d1e7dd; /* soft green */
+  color: #0f5132; /* deep green text */
+}
+
+/* INACTIVE status */
+.item-computer.inactive,
+.item-server.inactive,
+.item-network_switch.inactive,
+.item-router.inactive,
+.item-printer.inactive,
+.item-ups.inactive,
+.item-rack.inactive {
+  border: 2px solid #6c757d; /* medium grey */
+  background-color: #e2e3e5; /* soft grey */
+  color: #41464b; /* dark grey text */
+}
+
+/* NON-FUNCTIONAL status */
+.item-computer.non-functional,
+.item-server.non-functional,
+.item-network_switch.non-functional,
+.item-router.non-functional,
+.item-printer.non-functional,
+.item-ups.non-functional,
+.item-rack.non-functional {
+  border: 2px solid #dc3545; /* red */
+  background-color: #f8d7da; /* soft red */
+  color: #842029; /* dark red text */
+}
+
+.item-computer .item-icon i,
+.item-computer .item-name,
+.item-computer .item-type {
+  color: inherit; /* match text/icon color to parent */
+}
+
 /* Dragging styles */
 .layout-item.dragging {
   opacity: 0.7;
@@ -386,13 +401,6 @@
   background-color: rgba(0, 123, 255, 0.2);
   border: 2px dashed #007bff;
   border-radius: 6px;
-}
-
-.info-card {
-  margin-left: 40px;
-  border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
-  padding: 10px 0px;
 }
 
 /* Responsive adjustments */
@@ -417,7 +425,7 @@
       align-items: stretch;
   }
   
-  .btns {
+  .btn {
       width: 100%;
   }
 }
