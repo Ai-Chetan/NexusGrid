@@ -1,100 +1,106 @@
-<!DOCTYPE html>
-<html>
-    <body>
-        <h1>NexusGrid - System Monitoring and Management System</h1>
-        <p>NexusGrid is an advanced system monitoring and management platform designed to streamline the administration of computer systems across departments. It ensures real-time fault detection, resource optimization, and effective communication between Admins, Instructors, and Users.</p>
-        <h2>Key Features</h2>
-        <ul>
-            <li>User Roles and Responsibilities
-        <ul>
-            <li>Admin: Centralized control, fault management, user delegation, and strategic decision-making.</li>
-            <li>Instructor: Fault reporting, resource requests, and group-specific monitoring.</li>
-            <li>User (Optional): Fault notification, resource requests, and usage tracking.</li>
-        </ul>
-        </li>
-            <li>Dashboards
-        <ul>
-            <li>Admin Dashboard: Comprehensive metrics, graphical insights, and recent activities.</li>
-            <li>Instructor Dashboard: Group-specific overviews, quick actions, and history logs.</li>
-            <li>User Dashboard (Optional): Real-time fault status and request tracking.</li>
-        </ul>
-        </li>
-            <li>Real-Time System Monitoring</li>
-        <ul>
-            li>Automated health checks for CPU, memory, network, and device drivers.</li>
-            <li>Visual system layouts with interactive maps (using Folium and Plotly).</li>
-        </ul>
-        </li>
-            <li>Notifications</li>
-        <ul>
-            <li>Fault reporting alerts, repair updates, and automated email notifications.</li>
-        </ul>
-        </li>
-            <li>Bulk Software Management</li>
-        <ul>
-            <li>Automate software deployment, updates, and uninstallation using tools like Ansible or Fabric.</li>
-        </ul>
-        </li>
-            <li>Energy Management</li>
-        <ul>
-            <li>Monitor power consumption, automate shutdowns, and generate energy-saving reports.</li>
-        </ul>
-        </li>
-            <li>Report Generation</li>
-        <ul>
-            <li>Export fault statistics, maintenance logs, and performance data in formats like PDF and CSV.</li>
-        </ul>
-        </li>
-        </ul>
-            <h2>Technology Stack</h2>
-            <h3>Libraries and Tools</h3>
-        <ul>
-            <li>Web Frameworks: Flask / Django</li>
-            <li>Real-Time Communication: Flask-SocketIO / Django Channels</li>
-            <li>Data Visualization: Plotly, Matplotlib, Seaborn</li>
-            <li>System Monitoring: psutil, pySMART, pynvml</li>
-            <li>Task Management: Celery</li>
-            <li>Database Management: SQLite, MySQL, PostgreSQL</li>
-            <li>Automation: Ansible, Fabric</li>
-        </ul>
-            <h3>Additional Features</h3>
-        <ul>
-            <li>Interactive Layouts: Folium and Plotly for system mapping.</li>
-            <li>QR Code Functionality: Generate and scan QR codes for quick fault reporting and system details.</li>
-            <li>Analytics: Usage patterns and trends with Pandas and Scikit-learn.</li>
-        </ul>
-        <h2>Installation</h2>
-        <ol>
-        <li><strong>Clone the repository:</strong>
-            <pre><code>
-            git clone https://github.com/username/nexusgrid.git
-            cd nexusgrid
-            </code></pre>
-        </li>
-        <li><strong>Create a virtual environment (recommended):</strong>
-            <pre><code>
-            python3 -m venv venv 
-            source venv/bin/activate 
-            </code></pre>
-        </li>
-        <li><strong>Install dependencies:</strong>
-            <pre><code>
-            pip install -r requirements.txt
-            </code></pre>
-        </li>
-        <li><strong>Configure the database (if using a database other than SQLite):</strong>
-            <p>Update the database connection settings in your project's settings file.</p>
-        </li>
-        <li><strong>Run migrations:</strong>
-            <pre><code>
-            python manage.py migrate 
-            </code></pre>
-        </li>
-        <li><strong>Start the development server:</strong>
-            <pre><code>
-            python manage.py runserver
-            </code></pre>
-        </li>
-        </ol>
-    </body>
-</html>
+# NexusGrid - System Monitoring and Management Platform
+
+NexusGrid is a full-stack, automated system monitoring and control platform designed for **real-time health checks**, **fault reporting**, and **resource management** in academic institutions and corporate IT environments.  
+
+It replaces outdated manual processes with an **interactive, role-based dashboard** for System Administrators, Operators / End-Users, and Technicians / IT Support Engineers, ensuring efficient management, reduced downtime, and improved operational efficiency.
+
+---
+
+## ✨ Features
+
+- **Real-Time System Monitoring** – Continuous health tracking using Python libraries like `psutil` and `pySMART`.  
+- **QR Code Fault Reporting** – Scan workspace-specific QR codes for instant issue logging.  
+- **Role-Based Dashboards** – Tailored access and tools for Admin, Manager, and Employee roles.  
+- **Interactive Workspace Layouts** – Built using PyGame for visual asset mapping.  
+- **Energy Management** – Automatic control of idle systems to save power.  
+- **Analytics & Reporting** – Visual insights powered by Plotly and Matplotlib.  
+- **Secure Authentication** – OTP verification, password rules, and multi-platform login support.  
+
+---
+
+## 🛠 Technology Stack
+
+- **Backend:** Django (Python)  
+- **Frontend:** HTML, CSS, Bootstrap, JavaScript  
+- **System Monitoring:** psutil, pySMART  
+- **Data Visualization:** Plotly  
+- **Database:** PostgreSQL  
+
+---
+
+## 📊 Key Outcomes
+
+- Reduced fault reporting time through QR code-based system identification.  
+- Improved uptime with continuous monitoring and proactive alerts.  
+- Secure and scalable system architecture with Django backend.  
+- User-friendly, responsive interface that works across devices.  
+
+---
+
+## 🚀 Future Roadmap
+
+Planned enhancements include:
+
+1. **Predictive Analytics & Machine Learning** – Detect hardware failures before they occur.  
+2. **Cloud-Native & Microservices** – Deploy modular services on Kubernetes/Docker Swarm.  
+3. **Mobile & Voice Assistants** – Native apps and Alexa/Google Assistant integration.  
+4. **IoT & SNMP Support** – Monitor routers, switches, and sensors in real-time.  
+5. **Advanced Energy Optimization** – Integrate with building management systems.  
+6. **Role-Based SLA Tracking** – Automatic uptime/downtime compliance reports.  
+7. **Third-Party Integrations** – Slack, Teams, Jira, PagerDuty plugins.  
+8. **Custom Dashboards** – Heat maps, geospatial mapping, and drill-down analytics.  
+
+---
+
+## 📌 Getting Started
+
+### Prerequisites
+- Python 3.9+  
+- PostgreSQL  
+
+### Installation
+```bash
+# Clone the repository
+git clone https://github.com/ai-chetan/nexusgrid.git
+cd nexusgrid
+
+# Create and activate virtual environment
+python -m venv venv
+
+# On Linux/Mac
+source venv/bin/activate
+# On Windows
+venv\Scripts\activate
+
+# Install Django and other dependencies
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# Setup environment variables
+cp .env.example .env
+# (Edit .env with your settings)
+
+# Setup database (SQLite by default) and run migrations
+python manage.py migrate
+
+# (Optional) Create a superuser account
+python manage.py createsuperuser
+
+# Start the development server
+python manage.py runserver
+```
+
+---
+
+## 👥 Contributors
+
+- [**Chetan Chaudhari**](https://github.com/Ai-Chetan)
+- [**Nischay Chavan**](https://github.com/Nischay-loq)
+- [**Parth Shikhare**](https://github.com/ParthShikhare19)
+
+---
+
+## 📜 License
+This project is licensed under the MIT License – see the [LICENSE](LICENSE) file for details.
+
+---
