@@ -181,7 +181,7 @@ COMPRESS_ENABLED = True
 
 # If True, `manage.py compress` must be run to generate compressed files
 # otherwise, compression happens on-the-fly (not recommended for production)
-COMPRESS_OFFLINE = True
+COMPRESS_OFFLINE = not DEBUG  # Disable offline compression in development
 COMPRESS_OFFLINE_CONTEXT = {
     'STATIC_URL': STATIC_URL,
 }
