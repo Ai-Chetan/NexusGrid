@@ -2,13 +2,15 @@ from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
-    path('admin/', admin.site.urls),  # Admin Panel
-    path('', include('login_manager.urls')),  # Login Manager (handles login & root page)
-    path('dashboard/', include('dashboard.urls')),  # Dashboard app
-    path('accounts/', include('allauth.urls')),  # Allauth
-    path('layout/', include('system_layout.urls')),  # System Layout app
-    path('faults/', include('faults.urls')),  # Fault Reports app
-    path('resources/', include('resources.urls')),  # Resource Requests app
+    path('admin/', admin.site.urls),
+    path('api/v1/', include('api_v1.urls')),
+    path('', include('login_manager.urls')),
+    path('dashboard/', include('dashboard.urls')),
+    path('accounts/', include('allauth.urls')),
+    path('layout/', include('system_layout.urls')),
+    path('faults/', include('faults.urls')),
+    path('resources/', include('resources.urls')),
+    path('reports/', include('reports.urls')),
     path("api/", include("monitoring.urls")),
     path("userprivileges/", include("userprivileges.urls")),
 ]

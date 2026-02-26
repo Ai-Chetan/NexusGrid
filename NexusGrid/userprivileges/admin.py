@@ -1,3 +1,4 @@
 from django.contrib import admin
+from .models import LabAssignmentSetting
 
-# Register your models here.
+admin.site.register(LabAssignmentSetting)

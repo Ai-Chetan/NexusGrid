@@ -36,7 +36,6 @@ def fault_reports(request):
     if status and status != 'all':
         fault_reports_qs = fault_reports_qs.filter(status=status)
     if time and time != 'all':
-        from django.utils import timezone
         now = timezone.now()
         if time == 'today':
             fault_reports_qs = fault_reports_qs.filter(reported_at__date=now.date())
@@ -87,14 +86,21 @@ def update_fault_status(request, fault_id):
 @login_required
 def create_fault_report(request):
     if request.method == 'POST':
-        system_name = request.POST.get('system_name')
-        lab_location = request.POST.get('lab_location')
-        fault_type = request.POST.get('fault_type')
-        description = request.POST.get('description')
+        try:
+            body = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'message': 'Invalid JSON'})
+        system_name = body.get('system_name', '').strip()
+        lab_location = body.get('lab_location', '').strip()
+        fault_type = body.get('fault_type', '').strip()
+        description = body.get('description', '').strip()
 
         system_types = [
             'computer', 'server', 'network_switch', 'router', 'printer', 'ups', 'rack'
         ]
+
+        if not (system_name and lab_location and fault_type and description):
+            return JsonResponse({'success': False, 'message': 'All fields are required.'})
 
         try:
             # Validate system exists using System model
@@ -118,15 +124,9 @@ def create_fault_report(request):
             })
 
         except System.DoesNotExist:
-            return JsonResponse({
-                'success': False,
-                'message': 'System not found in the specified location'
-            })
+            return JsonResponse({'success': False, 'message': 'System not found in the specified location'})
         except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'message': str(e)
-            })
+            return JsonResponse({'success': False, 'message': str(e)})
 
     return JsonResponse({'success': False, 'message': 'Invalid request method'})
 
@@ -183,7 +183,6 @@ def resolve_fault(request, fault_id):
             fault_report=fault_report,
             resolution_summary=summary,
             resolved_by=request.user,
-            resolved_at=timezone.now()
         )
         return JsonResponse({'success': True, 'message': 'Resolution summary saved.'})
     except Exception as e:

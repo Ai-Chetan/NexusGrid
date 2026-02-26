@@ -24,20 +24,19 @@ class UserPrivilegesView(TemplateView):
 
 @login_required
 def stats_api(request):
-    """API endpoint for dashboard statistics"""
-    total_users = User.objects.count()
-    unassigned_users = User.objects.filter(role='No Roles').count()
-    total_labs = Lab.objects.count()
-    
-    labs_without_instructor = Lab.objects.filter(instructors__isnull=True).count()
-    labs_without_assistant = Lab.objects.filter(assistants__isnull=True).count()
-    
+    """API endpoint for dashboard statistics."""
+    from django.db.models import Case, When, IntegerField
+    # User stats: single aggregate (no JOINs)
+    user_counts = User.objects.aggregate(
+        total_users=Count('id'),
+        unassigned_users=Count(Case(When(role='No Roles', then=1), output_field=IntegerField())),
+    )
+    # Lab stats: M2M fields can't safely be combined in one aggregate due to JOIN duplication
     return JsonResponse({
-        'total_users': total_users,
-        'unassigned_users': unassigned_users,
-        'total_labs': total_labs,
-        'labs_without_instructor': labs_without_instructor,
-        'labs_without_assistant': labs_without_assistant
+        **user_counts,
+        'total_labs': Lab.objects.count(),
+        'labs_without_instructor': Lab.objects.filter(instructors__isnull=True).count(),
+        'labs_without_assistant': Lab.objects.filter(assistants__isnull=True).count(),
     })
 
 
@@ -94,20 +93,13 @@ def labs_api(request, floor_id):
 
 
 @login_required
+@require_http_methods(["GET"])
 def users_api(request):
     """API endpoint for all users"""
-    if request.method == 'GET':
-        users = User.objects.all()
-        users_data = []
-        for user in users:
-            users_data.append({
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'role': user.role
-            })
-        return JsonResponse(users_data, safe=False)
+    users = User.objects.only('id', 'username', 'email', 'role').values('id', 'username', 'email', 'role')
+    return JsonResponse(list(users), safe=False)
 
+@login_required
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 def capacity_and_dimension_api(request):
@@ -169,6 +161,8 @@ def user_detail_api(request, user_id):
             return JsonResponse({'success': False, 'error': str(e)})
     
     elif request.method == 'DELETE':
+        if not request.user.is_staff and not getattr(request.user, 'role', None) == 'Administrator':
+            return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
         try:
             user.delete()
             return JsonResponse({'success': True})
@@ -179,7 +173,6 @@ def user_detail_api(request, user_id):
 @login_required
 def available_instructors_api(request):
     """API endpoint for available instructors"""
-    limits = LabAssignmentSetting.get_current_limits()
     instructors = User.objects.filter(
         Q(role='Lab Incharge') | Q(role='Administrator')
     ).annotate(
@@ -201,7 +194,6 @@ def available_instructors_api(request):
 @login_required
 def available_assistants_api(request):
     """API endpoint for available assistants"""
-    limits = LabAssignmentSetting.get_current_limits()
     assistants = User.objects.filter(
         role='Lab Assistant'
     ).annotate(

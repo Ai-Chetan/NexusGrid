@@ -4,7 +4,6 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.db.models import Q
 from .models import ResourceRequest, Provided
-from .models import ResourceRequest
 from system_layout.models import LayoutItem, Lab, System
 from django.utils import timezone
 from django.core.paginator import Paginator
@@ -27,8 +26,8 @@ def resource_requests(request):
 
     if search:
         qs = qs.filter(
-            Q(system_name__system__host_name__icontains=search) |
-            Q(system_name__system__lab__lab_name__icontains=search) |
+            Q(system_name__host_name__icontains=search) |
+            Q(system_name__lab__lab_name__icontains=search) |
             Q(resource_name__icontains=search) |
             Q(description__icontains=search)
         )
