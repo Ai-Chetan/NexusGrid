@@ -1,0 +1,203 @@
+// ─── User & Auth ──────────────────────────────────────────────────────────────
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  role: 'Administrator' | 'Lab Incharge' | 'Lab Assistant' | 'Students' | 'No Roles';
+  is_staff: boolean;
+  is_superuser: boolean;
+  date_joined: string;
+  last_login: string | null;
+}
+
+// ─── Layout ─────────────────────────────────────────────────────────────────
+export type ItemType =
+  | 'building'
+  | 'floor'
+  | 'room'
+  | 'computer'
+  | 'server'
+  | 'network_switch'
+  | 'router'
+  | 'printer'
+  | 'ups'
+  | 'rack';
+
+export type SystemStatus = 'active' | 'inactive' | 'non-functional';
+
+export interface LayoutItem {
+  id: number;
+  name: string;
+  item_type: ItemType;
+  parent: number | null;
+  parent_name: string | null;
+  position_x: number;
+  position_y: number;
+  width: number;
+  height: number;
+  created_at: string;
+  updated_at: string;
+  status: SystemStatus | null;
+  quick_info: Record<string, unknown> | null;
+}
+
+export interface System {
+  id: number;
+  layout_item: number;
+  layout_item_name: string;
+  layout_item_type: ItemType;
+  lab: number | null;
+  lab_name: string | null;
+  host_name: string;
+  status: SystemStatus;
+  updated_at: string;
+  updated_by_username: string | null;
+}
+
+export interface Lab {
+  id: number;
+  lab_name: string;
+  lab_code: string | null;
+  location: string | null;
+  capacity: number | null;
+  dimension: string | null;
+  quick_info: Record<string, unknown>;
+  instructors: User[];
+  assistants: User[];
+  layout_item_id: number;
+  layout_item_name: string;
+  parent_name: string | null;
+  systems_count: number;
+}
+
+export interface BreadcrumbItem {
+  id: number;
+  name: string;
+  item_type: ItemType;
+}
+
+// ─── Faults ─────────────────────────────────────────────────────────────────
+export type FaultType = 'Hardware' | 'Software' | 'Network';
+export type FaultStatus = 'unaddressed' | 'in-progress' | 'scheduled' | 'resolved' | 'ignored';
+
+export interface Resolved {
+  resolution_summary: string;
+  resolved_by_username: string;
+  resolved_at: string;
+}
+
+export interface FaultReport {
+  fault_id: number;
+  system_name: number;
+  system_host_name: string;
+  lab_name: string | null;
+  reported_by: number;
+  reported_by_username: string;
+  fault_type: FaultType;
+  description: string;
+  status: FaultStatus;
+  reported_at: string;
+  resolved: Resolved | null;
+}
+
+// ─── Resources ───────────────────────────────────────────────────────────────
+export type ResourceStatus = 'Pending' | 'Fulfilled' | 'Denied';
+
+export interface Provided {
+  provision_summary: string;
+  provided_by_username: string;
+  provided_at: string;
+}
+
+export interface ResourceRequest {
+  resource_id: number;
+  system_name: number;
+  system_host_name: string;
+  lab_name: string | null;
+  requested_by: number;
+  requested_by_username: string;
+  resource_name: string;
+  description: string;
+  status: ResourceStatus;
+  requested_at: string;
+  provided: Provided | null;
+}
+
+// ─── Monitoring ──────────────────────────────────────────────────────────────
+export interface SystemInfo {
+  hostname: string;
+  ip_address: string | null;
+  os_name: string | null;
+  os_version: string | null;
+  cpu_usage: number | null;
+  ram_usage: number | null;
+  disk_usage: number | null;
+  timestamp: string;
+}
+
+// ─── Dashboard ───────────────────────────────────────────────────────────────
+export interface DashboardMetrics {
+  systems: {
+    total: number;
+    functional: number;
+    critical: number;
+    active: number;
+    functional_pct: number;
+    critical_pct: number;
+    active_pct: number;
+    utilization_pct: number;
+  };
+  faults: { open: number; total: number };
+  resources: { pending: number; total: number };
+  labs_total: number;
+  fault_trend: { month: string; count: number }[];
+  resource_trend: { month: string; count: number }[];
+  fault_by_type: Record<string, number>;
+  fault_by_status: Record<string, number>;
+  recent_activity: ActivityItem[];
+}
+
+export interface ActivityItem {
+  type: 'fault' | 'resource';
+  id: number;
+  title: string;
+  subtitle: string;
+  status: string;
+  time: string;
+  user: string;
+}
+
+// ─── Pagination ───────────────────────────────────────────────────────────────
+export interface PaginatedResponse<T> {
+  count: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  results: T[];
+}
+
+// ─── Reports ─────────────────────────────────────────────────────────────────
+export interface ReportsData {
+  fault_by_status: Record<string, number>;
+  fault_by_type: Record<string, number>;
+  resource_by_status: Record<string, number>;
+  system_by_status: Record<string, number>;
+  fault_monthly: { month: string; type: string; count: number }[];
+  resource_monthly: { month: string; count: number }[];
+}
+
+// ─── Privileges ──────────────────────────────────────────────────────────────
+export interface PrivilegesStats {
+  total_users: number;
+  unassigned_users: number;
+  total_labs: number;
+  labs_without_instructor: number;
+  labs_without_assistant: number;
+}
+
+export interface SimpleSystem {
+  id: number;
+  host_name: string;
+  lab_name: string | null;
+  status: SystemStatus;
+}

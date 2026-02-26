@@ -1,25 +1,19 @@
-
 import json
 import logging
+import random
 from datetime import datetime, timedelta
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, get_user_model
 from django.conf import settings
 from django.views.decorators.http import require_http_methods
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
-from django.shortcuts import render,redirect
+from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.core.mail import send_mail
 from django.contrib.auth.hashers import make_password
-from NexusGrid import settings
-from login_manager.models import User
-import random
-from django.contrib.auth import get_user_model
 
 User = get_user_model()
-from NexusGrid.settings import EMAIL_HOST_USER
-from.models import *
 
 def landing_page(request):
     return render(request, 'login_manager/signin-signup-page.html')
@@ -320,41 +314,3 @@ def user_login(request):
     
     return render(request, 'login_manager/signin-signup-page.html')
 
-# Legacy signup handler (if still needed for fallback)
-def handle_signup(request):
-    """Legacy signup handler - consider removing if OTP is primary method"""
-    if request.method != 'POST':
-        return redirect('login_page')
-        
-    username = request.POST.get('username', '').strip()
-    email = request.POST.get('email', '').strip().lower()
-    password = request.POST.get('password', '')
-    confirm_password = request.POST.get('confirm-password', '')
-
-    # Validate passwords match
-    if password != confirm_password:
-        messages.error(request, 'Passwords do not match.')
-        return redirect('login_page')
-
-    # Validate input data
-    validation_errors = validate_signup_data(username, email, password)
-    if validation_errors:
-        for error in validation_errors:
-            messages.error(request, error)
-        return redirect('login_page')
-
-    try:
-        # Create user
-        user = User.objects.create_user(
-            username=username,
-            email=email,
-            password=password
-        )
-        messages.success(request, 'Account created successfully. Please log in.')
-        logger.info(f"User {username} created via legacy signup")
-        
-    except Exception as e:
-        logger.error(f"Error in legacy signup: {str(e)}")
-        messages.error(request, 'Failed to create account. Please try again.')
-    
-    return redirect('login_page')

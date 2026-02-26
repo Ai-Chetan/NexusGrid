@@ -1,7 +1,6 @@
-# models.py - Fixed version
+# models.py
 from django.db import models
 from login_manager.models import User
-import json
 
 class LayoutItem(models.Model):
     ITEM_TYPES = [
@@ -53,25 +52,29 @@ class LayoutItem(models.Model):
             'height': self.height,
         }
 
-    def get_ancestors(self):
+    def get_ancestors(self, max_depth=20):
         ancestors = []
         current = self.parent
-        while current:
+        depth = 0
+        while current and depth < max_depth:
             ancestors.insert(0, current)
             current = current.parent
+            depth += 1
         return ancestors
 
 
 class Lab(models.Model):
-    layout_item = models.OneToOneField(LayoutItem, on_delete=models.CASCADE, limit_choices_to={'item_type': 'room'}, related_name='lab' )
+    layout_item = models.OneToOneField(LayoutItem, on_delete=models.CASCADE, limit_choices_to={'item_type': 'room'}, related_name='lab')
     lab_name = models.CharField(max_length=100)
+    lab_code = models.CharField(max_length=20, unique=True, null=True, blank=True, db_index=True,
+                                help_text="Short unique code used for QR identification, e.g. LAB-A101")
     location = models.CharField(max_length=100, null=True)
     instructors = models.ManyToManyField(User, blank=True, related_name='instructor_labs')
     assistants = models.ManyToManyField(User, blank=True, related_name='assistant_labs')
     capacity = models.IntegerField(null=True)
     dimension = models.CharField(max_length=50, null=True)
-    parent = models.ForeignKey(LayoutItem, on_delete=models.CASCADE, related_name='lab_children' )
-    quick_info = models.TextField(blank=True, null=True)
+    parent = models.ForeignKey(LayoutItem, on_delete=models.CASCADE, related_name='lab_children', null=True, blank=True)
+    quick_info = models.JSONField(blank=True, null=True, default=dict)
 
     def __str__(self):
         return self.lab_name
@@ -104,10 +107,7 @@ class Lab(models.Model):
         }
     
     def get_quick_info(self):
-        try:
-            return json.loads(self.quick_info) if self.quick_info else {}
-        except json.JSONDecodeError:
-            return {}
+        return self.quick_info or {}
 
 class System(models.Model):
     STATUS_CHOICES = [
@@ -127,10 +127,12 @@ class System(models.Model):
     lab = models.ForeignKey(
         Lab,
         on_delete=models.CASCADE,
-        db_index=True
+        db_index=True,
+        null=True,
+        blank=True
     )
 
-    host_name = models.TextField(null=True, blank=True, default="")
+    host_name = models.CharField(max_length=255, null=True, blank=True, default="")
 
     status = models.CharField(
         max_length=20,

@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     # 'allauth.socialaccount.providers.facebook',
 
     # Custom Project Apps
+    'api_v1',
     'login_manager',
     'dashboard',
     'system_layout',
@@ -181,7 +182,7 @@ COMPRESS_ENABLED = True
 
 # If True, `manage.py compress` must be run to generate compressed files
 # otherwise, compression happens on-the-fly (not recommended for production)
-COMPRESS_OFFLINE = True
+COMPRESS_OFFLINE = not DEBUG  # False in local dev (DEBUG=True), True in production
 COMPRESS_OFFLINE_CONTEXT = {
     'STATIC_URL': STATIC_URL,
 }
@@ -219,12 +220,12 @@ COMPRESS_JS_FILTERS = [
 #     SESSION_COOKIE_SECURE = False
 #     CSRF_COOKIE_SECURE = False
 
-SECURE_SSL_REDIRECT = False
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
-SECURE_HSTS_SECONDS = 0
-SECURE_HSTS_INCLUDE_SUBDOMAINS = False
-SECURE_HSTS_PRELOAD = False
+SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=not DEBUG)
+SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=not DEBUG)
+CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=not DEBUG)
+SECURE_HSTS_SECONDS = env.int('SECURE_HSTS_SECONDS', default=31536000 if not DEBUG else 0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=not DEBUG)
+SECURE_HSTS_PRELOAD = env.bool('SECURE_HSTS_PRELOAD', default=not DEBUG)
 
 # ------------------------------------------------------------------------------
 # 9. AUTHENTICATION & ALLAUTH SETTINGS
@@ -244,9 +245,9 @@ ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']  # replaces all 3
 
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_SESSION_REMEMBER = True
-ACCOUNT_FORMS = {
-    'signup': 'login_manager.forms.CustomSignupForm', # Example if you have a custom signup form
-}
+# ACCOUNT_FORMS = {
+#     'signup': 'login_manager.forms.CustomSignupForm',
+# }
 
 AUTHENTICATION_BACKENDS = (
     # Needed to login by username in Django Admin, regardless of `allauth`
@@ -268,12 +269,12 @@ REST_FRAMEWORK = {
         'rest_framework.parsers.JSONParser',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny', # Change for authentication later
+        'rest_framework.permissions.IsAuthenticated',
     ],
-    # 'DEFAULT_AUTHENTICATION_CLASSES': [
-    #     'rest_framework.authentication.SessionAuthentication',
-    #     'rest_framework.authentication.BasicAuthentication',
-    # ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+    ],
 }
 
 # ------------------------------------------------------------------------------
@@ -281,6 +282,14 @@ REST_FRAMEWORK = {
 # ------------------------------------------------------------------------------
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[
+    "http://localhost:8000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+])
+CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
     "http://localhost:8000",
 ])
 # CORS_ALLOW_ALL_ORIGINS = True # Be careful with this in production!

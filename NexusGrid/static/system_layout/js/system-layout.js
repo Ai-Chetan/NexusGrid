@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 state.hasChanges = false;
                 editMode.exit();
             } catch (error) {
-                utils.showError('Failed to save layout');
+                utils.showError('Failed to save layout: ' + error.message);
             }
         },
 
@@ -533,11 +533,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (state.editMode) {
                     itemSelection.select(itemElement);
                 } else {
-                    if (itemType === 'computer') {
-                        window.location.href = `/layout/details/${itemId}/`;
-                    } else {
-                        window.location.href = `/layout/${itemId}/`;
-                    }
+                    // /layout/<id>/ handles all item types; a dedicated details view is not yet implemented
+                    window.location.href = `/layout/${itemId}/`;
                 }
             });
 

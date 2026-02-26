@@ -1,12 +1,11 @@
 from django.shortcuts import redirect, render
 from django.http import JsonResponse
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
-from django.urls import reverse
 from django.core.cache import cache
 from django.db.models.functions import TruncMonth
-from django.db.models import Count, Q
+from django.db.models import Count, Case, When, IntegerField
 from django.utils.timezone import now
 from datetime import timedelta
 import json
@@ -67,13 +66,17 @@ def get_dashboard_metrics():
     if cached_data:
         return cached_data
     
-    # System counts
-    total_systems = System.objects.count()
-    functional_count = System.objects.filter(
-        status__in=['active', 'inactive']
-    ).count()
-    critical_count = System.objects.filter(status='non-functional').count()
-    active_count = System.objects.filter(status='active').count()
+    # System counts — single aggregate query instead of four separate hits
+    counts = System.objects.aggregate(
+        total=Count('id'),
+        functional=Count(Case(When(status__in=['active', 'inactive'], then=1), output_field=IntegerField())),
+        critical=Count(Case(When(status='non-functional', then=1), output_field=IntegerField())),
+        active=Count(Case(When(status='active', then=1), output_field=IntegerField())),
+    )
+    total_systems = counts['total']
+    functional_count = counts['functional']
+    critical_count = counts['critical']
+    active_count = counts['active']
     
     # Calculate percentages
     if total_systems > 0:
@@ -86,13 +89,13 @@ def get_dashboard_metrics():
     else:
         functional_percent = critical_percent = active_percent = system_utilization = 0
 
-    # Recent counts
+    # Recent counts: statuses match FaultReport.STATUS_CHOICES and ResourceRequest.STATUS_CHOICES
     fault_reports_count = FaultReport.objects.filter(
-        status__in=['open', 'in_progress']
+        status__in=['unaddressed', 'in-progress']
     ).count()
-    
+
     resource_requests_count = ResourceRequest.objects.filter(
-        status='pending'
+        status='Pending'
     ).count()
 
     metrics = {
@@ -228,10 +231,10 @@ def get_recent_activity():
             'icon': 'fas fa-exclamation-triangle',
             'title': f'New Fault Report - {fault.fault_type}',
             'description': fault.description[:50] + '...' if len(fault.description) > 50 else fault.description,
-            'timestamp': fault.reported_at,
+            'timestamp': fault.reported_at.isoformat(),
             'time_ago': get_time_ago(fault.reported_at)
         })
-    
+
     for resource in recent_resources:
         activities.append({
             'type': 'resource',
@@ -239,11 +242,11 @@ def get_recent_activity():
             'color': 'primary',
             'title': f'Resource Request - {resource.resource_name}',
             'description': resource.description[:50] + '...' if len(resource.description) > 50 else resource.description,
-            'timestamp': resource.requested_at,
+            'timestamp': resource.requested_at.isoformat(),
             'time_ago': get_time_ago(resource.requested_at)
         })
     
-    # Sort by timestamp and limit to 10
+    # Sort by timestamp (ISO strings sort correctly) and limit to 10
     activities.sort(key=lambda x: x['timestamp'], reverse=True)
     activities = activities[:10]
     
@@ -368,12 +371,11 @@ def determine_qr_redirect(qr_data, user):
             # Check user permissions based on role
             if user.role == 'Lab Assistant':
                 # Check if user is assigned to the lab containing this system
-                user_labs = Lab.objects.filter(assistants=user)
-                if system.lab in user_labs:
-                    return f'/layout/details/{system_id}/'
+                if Lab.objects.filter(assistants=user, system=system).exists():
+                    return f'/layout/{system.layout_item_id}/'
             elif user.role in ['Administrator', 'Technician']:
                 # Full access
-                return f'/layout/details/{system_id}/'
+                return f'/layout/{system.layout_item_id}/'
                 
         except System.DoesNotExist:
             return None
@@ -383,7 +385,7 @@ def determine_qr_redirect(qr_data, user):
         lab_code = qr_data.replace('LAB-', '')
         try:
             lab = Lab.objects.get(lab_code=lab_code)
-            return f'/lab/{lab.id}/'
+            return f'/layout/{lab.layout_item.id}/'
         except Lab.DoesNotExist:
             return None
     
@@ -406,16 +408,3 @@ def user_logout(request):
     
     return redirect('/login/')
 
-# Utility function for error handling
-def handle_dashboard_error(request, error_message):
-    """
-    Centralized error handling for dashboard views
-    """
-    logger.error(f"Dashboard error for user {request.user.username}: {error_message}")
-    
-    context = {
-        'error_message': error_message,
-        'show_retry': True
-    }
-    
-    return render(request, "dashboard/error.html", context)
