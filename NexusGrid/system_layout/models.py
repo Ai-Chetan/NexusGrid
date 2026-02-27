@@ -52,15 +52,66 @@ class LayoutItem(models.Model):
             'height': self.height,
         }
 
-    def get_ancestors(self, max_depth=20):
-        ancestors = []
-        current = self.parent
-        depth = 0
-        while current and depth < max_depth:
-            ancestors.insert(0, current)
-            current = current.parent
-            depth += 1
-        return ancestors
+    # ── Ancestor queries (PostgreSQL recursive CTE) ─────────────────────────
+    #
+    # Both methods issue a single SQL query regardless of tree depth, replacing
+    # the old Python while-loop that fired one DB round-trip per ancestor level.
+    #
+    # The CTE walks upward through the self-referential parent FK:
+    #   base case  : the starting node (parent of self, or self)
+    #   recursive  : follow parent_id one level up per iteration
+    #   termination: parent_id IS NULL  OR  depth reaches max_depth
+    # Results are ordered depth DESC so the root always comes first.
+
+    _ANCESTOR_CTE_SQL = """
+        WITH RECURSIVE anc(id, name, item_type, parent_id, depth) AS (
+            SELECT id, name, item_type, parent_id, 0
+            FROM   system_layout_layoutitem
+            WHERE  id = %s
+            UNION ALL
+            SELECT li.id, li.name, li.item_type, li.parent_id, anc.depth + 1
+            FROM   system_layout_layoutitem li
+            JOIN   anc ON li.id = anc.parent_id
+            WHERE  anc.depth < %s
+        )
+        SELECT id, name, item_type, parent_id
+        FROM   anc
+        ORDER  BY depth DESC
+    """
+
+    def get_ancestors(self, max_depth: int = 20) -> list:
+        """
+        Return a list of ancestor LayoutItems ordered root-first.
+
+        Fires exactly ONE SQL query (recursive CTE) regardless of tree depth.
+        Returns an empty list immediately if this node has no parent,
+        without touching the database.
+        """
+        if not self.parent_id:
+            return []
+        return list(
+            LayoutItem.objects.raw(
+                LayoutItem._ANCESTOR_CTE_SQL,
+                [self.parent_id, max_depth - 1],
+            )
+        )
+
+    @classmethod
+    def get_breadcrumb(cls, pk: int, max_depth: int = 20) -> list:
+        """
+        Return the full breadcrumb path for the given pk — inclusive of the
+        node itself — ordered root-first, e.g.:
+            [Building, Floor, Room, Computer]
+
+        Fires exactly ONE SQL query (recursive CTE).  Returns an empty list
+        when pk does not exist (callers should treat this as a 404).
+        """
+        return list(
+            cls.objects.raw(
+                cls._ANCESTOR_CTE_SQL,
+                [pk, max_depth],
+            )
+        )
 
 
 class Lab(models.Model):
@@ -73,27 +124,15 @@ class Lab(models.Model):
     assistants = models.ManyToManyField(User, blank=True, related_name='assistant_labs')
     capacity = models.IntegerField(null=True)
     dimension = models.CharField(max_length=50, null=True)
-    parent = models.ForeignKey(LayoutItem, on_delete=models.CASCADE, related_name='lab_children', null=True, blank=True)
     quick_info = models.JSONField(blank=True, null=True, default=dict)
 
     def __str__(self):
         return self.lab_name
 
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['lab_name', 'parent'],
-                name='unique_lab_name_per_floor'
-            )
-        ]
-
-    def save(self, *args, **kwargs):
-        # Automatically set parent to the parent of the layout_item (the floor)
-        if self.layout_item and self.layout_item.parent:
-            self.parent = self.layout_item.parent
-        else:
-            self.parent = None
-        super().save(*args, **kwargs)
+    @property
+    def floor_item(self):
+        """The parent LayoutItem (floor) — derived from layout_item.parent."""
+        return self.layout_item.parent if self.layout_item_id else None
 
     def to_dict(self):
         return {

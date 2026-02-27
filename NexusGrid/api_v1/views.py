@@ -1,20 +1,18 @@
 from django.contrib.auth import authenticate, login, logout
-from django.db.models import Count, Case, When, IntegerField, Max, Q
-from django.db.models.functions import TruncMonth
+from django.db.models import Count, Case, When, IntegerField, Q
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
-from django.middleware.csrf import get_token
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.pagination import PageNumberPagination
 
 from login_manager.models import User
 from system_layout.models import LayoutItem, Lab, System
-from faults.models import FaultReport, Resolved
-from resources.models import ResourceRequest, Provided
+from faults.models import FaultReport
+from resources.models import ResourceRequest
 from monitoring.models import SystemInfo
 
 from .serializers import (
@@ -27,14 +25,21 @@ from .serializers import (
 )
 
 
-# ─── CSRF ────────────────────────────────────────────────────────────────────
+# ─── Pagination ──────────────────────────────────────────────────────────────
 
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def csrf_token_view(request):
-    """Returns a CSRF token so the SPA can bootstrap."""
-    token = get_token(request)
-    return Response({'csrfToken': token})
+class StandardPagination(PageNumberPagination):
+    page_size = 15
+    max_page_size = 100
+    page_size_query_param = 'page_size'
+
+    def get_paginated_response(self, data):
+        return Response({
+            'count': self.page.paginator.count,
+            'page': self.page.number,
+            'page_size': self.get_page_size(self.request),
+            'total_pages': self.page.paginator.num_pages,
+            'results': data,
+        })
 
 
 # ─── Auth ────────────────────────────────────────────────────────────────────
@@ -79,97 +84,8 @@ class DashboardMetricsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        counts = System.objects.aggregate(
-            total=Count('id'),
-            functional=Count(Case(When(status__in=['active', 'inactive'], then=1), output_field=IntegerField())),
-            critical=Count(Case(When(status='non-functional', then=1), output_field=IntegerField())),
-            active=Count(Case(When(status='active', then=1), output_field=IntegerField())),
-        )
-        total = counts['total']
-        functional = counts['functional']
-        critical = counts['critical']
-        active = counts['active']
-
-        def pct(n, d): return round((n / d) * 100, 1) if d else 0
-
-        fault_counts = FaultReport.objects.aggregate(
-            open=Count(Case(When(status__in=['unaddressed', 'in-progress'], then=1), output_field=IntegerField())),
-            total=Count('fault_id'),
-        )
-        resource_counts = ResourceRequest.objects.aggregate(
-            pending=Count(Case(When(status='Pending', then=1), output_field=IntegerField())),
-            total=Count('resource_id'),
-        )
-
-        six_months_ago = timezone.now() - timezone.timedelta(days=180)
-        fault_trend = (
-            FaultReport.objects
-            .filter(reported_at__gte=six_months_ago)
-            .annotate(month=TruncMonth('reported_at'))
-            .values('month')
-            .annotate(count=Count('fault_id'))
-            .order_by('month')
-        )
-        resource_trend = (
-            ResourceRequest.objects
-            .filter(requested_at__gte=six_months_ago)
-            .annotate(month=TruncMonth('requested_at'))
-            .values('month')
-            .annotate(count=Count('resource_id'))
-            .order_by('month')
-        )
-
-        fault_by_type = dict(
-            FaultReport.objects.values('fault_type').annotate(n=Count('fault_id')).values_list('fault_type', 'n')
-        )
-        fault_by_status = dict(
-            FaultReport.objects.values('status').annotate(n=Count('fault_id')).values_list('status', 'n')
-        )
-
-        recent_faults = FaultReport.objects.select_related('system_name', 'reported_by').order_by('-reported_at')[:5]
-        recent_resources = ResourceRequest.objects.select_related('system_name', 'requested_by').order_by('-requested_at')[:5]
-
-        activity = []
-        for f in recent_faults:
-            activity.append({
-                'type': 'fault',
-                'id': f.fault_id,
-                'title': f'Fault on {f.system_name.host_name or "Unknown"}',
-                'subtitle': f.fault_type,
-                'status': f.status,
-                'time': f.reported_at.isoformat(),
-                'user': f.reported_by.username,
-            })
-        for r in recent_resources:
-            activity.append({
-                'type': 'resource',
-                'id': r.resource_id,
-                'title': f'Resource: {r.resource_name}',
-                'subtitle': r.description[:60] if r.description else '',
-                'status': r.status,
-                'time': r.requested_at.isoformat(),
-                'user': r.requested_by.username,
-            })
-        activity.sort(key=lambda x: x['time'], reverse=True)
-
-        return Response({
-            'systems': {
-                'total': total, 'functional': functional,
-                'critical': critical, 'active': active,
-                'functional_pct': pct(functional, total),
-                'critical_pct': pct(critical, total),
-                'active_pct': pct(active, total),
-                'utilization_pct': pct(active, functional),
-            },
-            'faults': fault_counts,
-            'resources': resource_counts,
-            'labs_total': Lab.objects.count(),
-            'fault_trend': [{'month': x['month'].strftime('%b %Y'), 'count': x['count']} for x in fault_trend],
-            'resource_trend': [{'month': x['month'].strftime('%b %Y'), 'count': x['count']} for x in resource_trend],
-            'fault_by_type': fault_by_type,
-            'fault_by_status': fault_by_status,
-            'recent_activity': activity[:8],
-        })
+        from .services.metrics import get_dashboard_metrics
+        return Response(get_dashboard_metrics())
 
 
 # ─── Layout ──────────────────────────────────────────────────────────────────
@@ -196,13 +112,23 @@ class LayoutItemsView(APIView):
                 location = " > ".join(a.name for a in ancestors) or "Unknown"
                 Lab.objects.create(layout_item=item, lab_name=item.name, location=location)
             elif item.item_type in ['computer', 'server', 'network_switch', 'router', 'printer', 'ups', 'rack']:
+                # Was: N+1 while loop walking item.parent one step at a time.
+                # Now: 1 CTE query to fetch ancestor IDs + 1 query to find the
+                # nearest ancestor that owns a Lab (rooms have labs; floors/
+                # buildings do not).  Closest ancestor = last in the root-first list.
                 parent_lab = None
-                ancestor = item.parent
-                while ancestor:
-                    parent_lab = getattr(ancestor, 'lab', None)
-                    if parent_lab:
-                        break
-                    ancestor = ancestor.parent
+                ancestors = item.get_ancestors()  # 1 CTE query
+                if ancestors:
+                    ancestor_ids = [a.id for a in ancestors]
+                    labs_by_item = {
+                        lab.layout_item_id: lab
+                        for lab in Lab.objects.filter(layout_item_id__in=ancestor_ids)  # 1 query
+                    }
+                    # Walk closest-to-root reversed so we pick the nearest room
+                    for aid in reversed(ancestor_ids):
+                        if aid in labs_by_item:
+                            parent_lab = labs_by_item[aid]
+                            break
                 System.objects.create(
                     layout_item=item, lab=parent_lab,
                     host_name=item.name, updated_at=timezone.now(),
@@ -252,11 +178,14 @@ class LayoutBreadcrumbView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
-        item = get_object_or_404(LayoutItem, pk=pk)
-        ancestors = item.get_ancestors()
-        crumbs = [{'id': a.id, 'name': a.name, 'item_type': a.item_type} for a in ancestors]
-        crumbs.append({'id': item.id, 'name': item.name, 'item_type': item.item_type})
-        return Response(crumbs)
+        # Single CTE query: fetches the node itself + all ancestors, root-first.
+        # Was: get_object_or_404 (1 query) + get_ancestors() while-loop (N queries).
+        crumbs = LayoutItem.get_breadcrumb(pk)
+        if not crumbs:
+            return Response({'detail': 'Not found.'}, status=404)
+        return Response(
+            [{'id': a.id, 'name': a.name, 'item_type': a.item_type} for a in crumbs]
+        )
 
 
 class SystemDetailView(APIView):
@@ -283,7 +212,12 @@ class LabListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        labs = Lab.objects.select_related('layout_item', 'parent').prefetch_related('instructors', 'assistants')
+        labs = (
+            Lab.objects
+            .select_related('layout_item', 'layout_item__parent')
+            .prefetch_related('instructors', 'assistants')
+            .annotate(systems_count=Count('system', distinct=True))
+        )
         return Response(LabSerializer(labs, many=True).data)
 
 
@@ -292,7 +226,10 @@ class LabDetailView(APIView):
 
     def get(self, request, pk):
         lab = get_object_or_404(
-            Lab.objects.select_related('layout_item', 'parent').prefetch_related('instructors', 'assistants'),
+            Lab.objects
+            .select_related('layout_item', 'layout_item__parent')
+            .prefetch_related('instructors', 'assistants')
+            .annotate(systems_count=Count('system', distinct=True)),
             pk=pk,
         )
         return Response(LabSerializer(lab).data)
@@ -313,13 +250,11 @@ class FaultListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        qs = FaultReport.objects.select_related('system_name', 'system_name__lab', 'reported_by', 'resolved')
+        qs = FaultReport.objects.select_related('system_name', 'system_name__lab', 'reported_by', 'resolved_by')
         q = request.GET.get('search', '').strip()
         s = request.GET.get('status', '').strip()
         t = request.GET.get('time', '').strip()
         sort = request.GET.get('sort', 'newest')
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 15))
 
         if q:
             qs = qs.filter(
@@ -346,15 +281,9 @@ class FaultListView(APIView):
             qs = qs.filter(reported_at__date__lte=end)
 
         qs = qs.order_by('reported_at' if sort == 'oldest' else '-reported_at')
-        total = qs.count()
-        paginated = qs[(page - 1) * page_size: page * page_size]
-        return Response({
-            'count': total,
-            'page': page,
-            'page_size': page_size,
-            'total_pages': (total + page_size - 1) // page_size,
-            'results': FaultReportSerializer(paginated, many=True).data,
-        })
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(qs, request)
+        return paginator.get_paginated_response(FaultReportSerializer(page, many=True).data)
 
     def post(self, request):
         ser = FaultReportCreateSerializer(data=request.data, context={'request': request})
@@ -369,7 +298,7 @@ class FaultDetailView(APIView):
 
     def get(self, request, pk):
         fault = get_object_or_404(
-            FaultReport.objects.select_related('system_name', 'system_name__lab', 'reported_by', 'resolved'),
+            FaultReport.objects.select_related('system_name', 'system_name__lab', 'reported_by', 'resolved_by'),
             pk=pk,
         )
         return Response(FaultReportSerializer(fault).data)
@@ -382,12 +311,13 @@ class FaultDetailView(APIView):
         new_status = ser.validated_data['status']
         resolution_summary = ser.validated_data.get('resolution_summary', '')
         fault.status = new_status
-        fault.save(update_fields=['status'])
+        update_fields = ['status']
         if new_status == 'resolved' and resolution_summary:
-            Resolved.objects.update_or_create(
-                fault_report=fault,
-                defaults={'resolution_summary': resolution_summary, 'resolved_by': request.user},
-            )
+            fault.resolution_summary = resolution_summary
+            fault.resolved_by = request.user
+            fault.resolved_at = timezone.now()
+            update_fields += ['resolution_summary', 'resolved_by', 'resolved_at']
+        fault.save(update_fields=update_fields)
         fault.refresh_from_db()
         return Response(FaultReportSerializer(fault).data)
 
@@ -398,13 +328,11 @@ class ResourceListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        qs = ResourceRequest.objects.select_related('system_name', 'system_name__lab', 'requested_by', 'provided')
+        qs = ResourceRequest.objects.select_related('system_name', 'system_name__lab', 'requested_by', 'provided_by')
         q = request.GET.get('search', '').strip()
         s = request.GET.get('status', '').strip()
         t = request.GET.get('time', '').strip()
         sort = request.GET.get('sort', 'newest')
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 15))
 
         if q:
             qs = qs.filter(
@@ -431,15 +359,9 @@ class ResourceListView(APIView):
             qs = qs.filter(requested_at__date__lte=end)
 
         qs = qs.order_by('requested_at' if sort == 'oldest' else '-requested_at')
-        total = qs.count()
-        paginated = qs[(page - 1) * page_size: page * page_size]
-        return Response({
-            'count': total,
-            'page': page,
-            'page_size': page_size,
-            'total_pages': (total + page_size - 1) // page_size,
-            'results': ResourceRequestSerializer(paginated, many=True).data,
-        })
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(qs, request)
+        return paginator.get_paginated_response(ResourceRequestSerializer(page, many=True).data)
 
     def post(self, request):
         ser = ResourceCreateSerializer(data=request.data, context={'request': request})
@@ -460,12 +382,13 @@ class ResourceDetailView(APIView):
         new_status = ser.validated_data['status']
         provision_summary = ser.validated_data.get('provision_summary', '')
         resource.status = new_status
-        resource.save(update_fields=['status'])
+        update_fields = ['status']
         if new_status == 'Fulfilled' and provision_summary:
-            Provided.objects.update_or_create(
-                resource_request=resource,
-                defaults={'provision_summary': provision_summary, 'provided_by': request.user},
-            )
+            resource.provision_summary = provision_summary
+            resource.provided_by = request.user
+            resource.provided_at = timezone.now()
+            update_fields += ['provision_summary', 'provided_by', 'provided_at']
+        resource.save(update_fields=update_fields)
         resource.refresh_from_db()
         return Response(ResourceRequestSerializer(resource).data)
 
@@ -476,71 +399,48 @@ class ReportsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        fault_by_status = dict(
-            FaultReport.objects.values('status').annotate(n=Count('fault_id')).values_list('status', 'n')
-        )
-        fault_by_type = dict(
-            FaultReport.objects.values('fault_type').annotate(n=Count('fault_id')).values_list('fault_type', 'n')
-        )
-        resource_by_status = dict(
-            ResourceRequest.objects.values('status').annotate(n=Count('resource_id')).values_list('status', 'n')
-        )
-        system_by_status = dict(
-            System.objects.values('status').annotate(n=Count('id')).values_list('status', 'n')
-        )
-        six_months_ago = timezone.now() - timezone.timedelta(days=180)
-        fault_monthly = list(
-            FaultReport.objects.filter(reported_at__gte=six_months_ago)
-            .annotate(month=TruncMonth('reported_at'))
-            .values('month', 'fault_type')
-            .annotate(count=Count('fault_id'))
-            .order_by('month')
-        )
-        resource_monthly = list(
-            ResourceRequest.objects.filter(requested_at__gte=six_months_ago)
-            .annotate(month=TruncMonth('requested_at'))
-            .values('month')
-            .annotate(count=Count('resource_id'))
-            .order_by('month')
-        )
-        return Response({
-            'fault_by_status': fault_by_status,
-            'fault_by_type': fault_by_type,
-            'resource_by_status': resource_by_status,
-            'system_by_status': system_by_status,
-            'fault_monthly': [
-                {'month': x['month'].strftime('%b %Y'), 'type': x['fault_type'], 'count': x['count']}
-                for x in fault_monthly
-            ],
-            'resource_monthly': [
-                {'month': x['month'].strftime('%b %Y'), 'count': x['count']}
-                for x in resource_monthly
-            ],
-        })
+        from .services.metrics import get_report_metrics
+        return Response(get_report_metrics())
 
 
 # ─── Monitoring ──────────────────────────────────────────────────────────────
+
+MONITORING_CACHE_KEY = 'monitoring_latest_v1'
+MONITORING_CACHE_TTL = 30  # seconds — matches the frontend 30s polling interval
+
 
 class MonitoringView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        latest_ids = (
-            SystemInfo.objects.values('hostname')
-            .annotate(max_id=Max('id')).values_list('max_id', flat=True)
-        )
-        infos = SystemInfo.objects.filter(id__in=latest_ids).order_by('hostname')
-        return Response({'systems': SystemInfoSerializer(infos, many=True).data})
+        from django.core.cache import cache
+        cached = cache.get(MONITORING_CACHE_KEY)
+        if cached is not None:
+            return Response(cached)
+        infos = SystemInfo.objects.order_by('hostname')
+        data = {'systems': SystemInfoSerializer(infos, many=True).data}
+        cache.set(MONITORING_CACHE_KEY, data, MONITORING_CACHE_TTL)
+        return Response(data)
 
 
 # ─── Users ───────────────────────────────────────────────────────────────────
+
+USER_LIST_CACHE_KEY = 'user_list_v1'
+USER_LIST_CACHE_TTL = 60 * 5  # 5 minutes
+
 
 class UserListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        from django.core.cache import cache
+        cached = cache.get(USER_LIST_CACHE_KEY)
+        if cached is not None:
+            return Response(cached)
         users = User.objects.all()
-        return Response(UserSerializer(users, many=True).data)
+        data = UserSerializer(users, many=True).data
+        cache.set(USER_LIST_CACHE_KEY, data, USER_LIST_CACHE_TTL)
+        return Response(data)
 
 
 class UserDetailView(APIView):
@@ -552,6 +452,9 @@ class UserDetailView(APIView):
         if not ser.is_valid():
             return Response(ser.errors, status=400)
         ser.save()
+        # Bust the cached user list
+        from django.core.cache import cache
+        cache.delete(USER_LIST_CACHE_KEY)
         return Response(UserSerializer(user).data)
 
 

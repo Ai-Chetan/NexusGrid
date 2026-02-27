@@ -227,7 +227,7 @@ export default function FaultsPage() {
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['faults', { search, status, time, sort, page }],
-    queryFn: () => faultsApi.list({ search, status, time, sort, page, page_size: 15 }).then(r => r.data),
+    queryFn: ({ signal }) => faultsApi.list({ search, status, time, sort, page, page_size: 15 }, signal).then(r => r.data),
     placeholderData: prev => prev,
   });
 

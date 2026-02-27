@@ -1,8 +1,8 @@
 from rest_framework import serializers
 from login_manager.models import User
 from system_layout.models import LayoutItem, Lab, System
-from faults.models import FaultReport, Resolved
-from resources.models import ResourceRequest, Provided
+from faults.models import FaultReport
+from resources.models import ResourceRequest
 from monitoring.models import SystemInfo
 
 
@@ -85,8 +85,9 @@ class LabSerializer(serializers.ModelSerializer):
     assistants = UserSerializer(many=True, read_only=True)
     layout_item_id = serializers.IntegerField(source='layout_item.id', read_only=True)
     layout_item_name = serializers.CharField(source='layout_item.name', read_only=True)
-    parent_name = serializers.CharField(source='parent.name', read_only=True, allow_null=True)
-    systems_count = serializers.SerializerMethodField()
+    parent_name = serializers.SerializerMethodField()
+    # Populated via Count('system', distinct=True) annotation in the view
+    systems_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Lab
@@ -96,8 +97,15 @@ class LabSerializer(serializers.ModelSerializer):
             'layout_item_id', 'layout_item_name', 'parent_name', 'systems_count',
         ]
 
+    def get_parent_name(self, obj):
+        # layout_item__parent is already select_related in the view
+        if obj.layout_item and obj.layout_item.parent:
+            return obj.layout_item.parent.name
+        return None
+
     def get_systems_count(self, obj):
-        return System.objects.filter(lab=obj).count()
+        # Fall back to a direct count only if annotation is absent (e.g. detail view)
+        return getattr(obj, 'systems_count', None) or System.objects.filter(lab=obj).count()
 
 
 class LabUpdateSerializer(serializers.ModelSerializer):
@@ -124,19 +132,12 @@ class LabUpdateSerializer(serializers.ModelSerializer):
 
 # ─── Faults ─────────────────────────────────────────────────────────────────
 
-class ResolvedSerializer(serializers.ModelSerializer):
-    resolved_by_username = serializers.CharField(source='resolved_by.username', read_only=True)
-
-    class Meta:
-        model = Resolved
-        fields = ['resolution_summary', 'resolved_by_username', 'resolved_at']
-
-
 class FaultReportSerializer(serializers.ModelSerializer):
     system_host_name = serializers.CharField(source='system_name.host_name', read_only=True)
     lab_name = serializers.CharField(source='system_name.lab.lab_name', read_only=True, allow_null=True)
     reported_by_username = serializers.CharField(source='reported_by.username', read_only=True)
-    resolved = ResolvedSerializer(read_only=True)
+    # Nest resolution data to keep frontend response shape identical
+    resolved = serializers.SerializerMethodField()
 
     class Meta:
         model = FaultReport
@@ -146,6 +147,15 @@ class FaultReportSerializer(serializers.ModelSerializer):
             'description', 'status', 'reported_at', 'resolved',
         ]
         read_only_fields = ['fault_id', 'reported_at', 'reported_by']
+
+    def get_resolved(self, obj):
+        if obj.status == 'resolved' and obj.resolved_at:
+            return {
+                'resolution_summary': obj.resolution_summary,
+                'resolved_by_username': obj.resolved_by.username if obj.resolved_by_id else None,
+                'resolved_at': obj.resolved_at.isoformat(),
+            }
+        return None
 
 
 class FaultReportCreateSerializer(serializers.ModelSerializer):
@@ -171,19 +181,12 @@ class FaultStatusUpdateSerializer(serializers.Serializer):
 
 # ─── Resources ───────────────────────────────────────────────────────────────
 
-class ProvidedSerializer(serializers.ModelSerializer):
-    provided_by_username = serializers.CharField(source='provided_by.username', read_only=True)
-
-    class Meta:
-        model = Provided
-        fields = ['provision_summary', 'provided_by_username', 'provided_at']
-
-
 class ResourceRequestSerializer(serializers.ModelSerializer):
     system_host_name = serializers.CharField(source='system_name.host_name', read_only=True)
     lab_name = serializers.CharField(source='system_name.lab.lab_name', read_only=True, allow_null=True)
     requested_by_username = serializers.CharField(source='requested_by.username', read_only=True)
-    provided = ProvidedSerializer(read_only=True)
+    # Nest provision data to keep frontend response shape identical
+    provided = serializers.SerializerMethodField()
 
     class Meta:
         model = ResourceRequest
@@ -193,6 +196,15 @@ class ResourceRequestSerializer(serializers.ModelSerializer):
             'resource_name', 'description', 'status', 'requested_at', 'provided',
         ]
         read_only_fields = ['resource_id', 'requested_at', 'requested_by']
+
+    def get_provided(self, obj):
+        if obj.status == 'Fulfilled' and obj.provided_at:
+            return {
+                'provision_summary': obj.provision_summary,
+                'provided_by_username': obj.provided_by.username if obj.provided_by_id else None,
+                'provided_at': obj.provided_at.isoformat(),
+            }
+        return None
 
 
 class ResourceCreateSerializer(serializers.ModelSerializer):

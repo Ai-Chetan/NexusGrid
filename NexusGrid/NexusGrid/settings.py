@@ -22,14 +22,15 @@ DEBUG = env.bool('DEBUG', default=False)
 # Allowed hosts for the application
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost', '.onrender.com'])
 
-# Session Engine
-SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+# ── Cache + Session backend ───────────────────────────────────────────────────
+# Set USE_REDIS=True in .env / production environment when Redis is available.
+# Without it, the app falls back to in-process LocMemCache (no cross-worker
+# sharing, but avoids every cache.get() silently returning None and running
+# 10+ DB queries per dashboard load).
+USE_REDIS = env.bool('USE_REDIS', default=False)
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# Site ID for django.contrib.sites (required by allauth)
-SITE_ID = 1
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
@@ -49,34 +50,19 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.sites',       # Required by allauth
-    'django.contrib.humanize',
 
     # Third-Party Apps
     'rest_framework',             # Django REST Framework
     'corsheaders',                # CORS handling
     "django_extensions",          # Useful management commands
-    "channels",                   # WebSockets
-    'compressor',                 # Static file compression
-
-    # Authentication (django-allauth)
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
-    # Add specific social auth providers if needed, e.g.:
-    # 'allauth.socialaccount.providers.google',
-    # 'allauth.socialaccount.providers.facebook',
 
     # Custom Project Apps
     'api_v1',
     'login_manager',
-    'dashboard',
     'system_layout',
     'monitoring',
     'faults',
     'resources',
-    'reports',
-    'userprivileges',
 ]
 
 # ------------------------------------------------------------------------------
@@ -93,7 +79,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware', # Required by allauth
 ]
 
 # ------------------------------------------------------------------------------
@@ -105,7 +90,7 @@ ROOT_URLCONF = 'NexusGrid.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / "templates"], # Project-level templates
+        'DIRS': [],  # No project-level templates (React SPA handles the UI)
         'APP_DIRS': True, # Allows Django to find templates within app directories
         'OPTIONS': {
             'context_processors': [
@@ -136,7 +121,14 @@ WSGI_APPLICATION = 'NexusGrid.wsgi.application'
 # }
 
 DATABASES = {
-    'default': env.db('DATABASE_URL')
+    'default': {
+        **env.db('DATABASE_URL'),
+        'OPTIONS': {
+            'connect_timeout': 10,  # seconds — gives Neon time to wake up
+            'sslmode': 'require',
+        },
+        'CONN_MAX_AGE': 0,  # Disable persistent connections (required for Neon serverless)
+    }
 }
 
 # Password validation for user creation
@@ -154,55 +146,18 @@ AUTH_PASSWORD_VALIDATORS = [
 # URL to serve static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
 
-# Directories where Django should look for static files (in addition to app's static folders)
-STATICFILES_DIRS = [
-    BASE_DIR / "static", # Project-level static files
-]
-
+# No project-level static directory (React builds to frontend/dist, served separately)
 # The absolute path to the directory where collectstatic will collect static files for deployment.
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# Finders tell Django how to find static files
+# Finders — only app-level static files (admin, DRF browsable API)
 STATICFILES_FINDERS = (
-    'django.contrib.staticfiles.finders.FileSystemFinder',
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
-    'compressor.finders.CompressorFinder', # Essential for django-compressor
 )
 
 # Media files (user uploads)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / "media"
-
-# ------------------------------------------------------------------------------
-# 7. DJANGO-COMPRESSOR SETTINGS
-# ------------------------------------------------------------------------------
-
-# Enable/disable compression based on DEBUG mode (enabled when DEBUG is False)
-COMPRESS_ENABLED = True
-
-# If True, `manage.py compress` must be run to generate compressed files
-# otherwise, compression happens on-the-fly (not recommended for production)
-COMPRESS_OFFLINE = not DEBUG  # False in local dev (DEBUG=True), True in production
-COMPRESS_OFFLINE_CONTEXT = {
-    'STATIC_URL': STATIC_URL,
-}
-
-# Where compressor should look for source static files (usually same as STATIC_ROOT)
-COMPRESS_ROOT = STATIC_ROOT
-
-# URL from which compressed files will be served (usually same as STATIC_URL)
-COMPRESS_URL = STATIC_URL
-if DEBUG:
-    COMPRESS_REBUILD_TIMEOUT = 1
-# Filters for CSS minification (requires 'cssmin' package: pip install cssmin)
-COMPRESS_CSS_FILTERS = [
-    'compressor.filters.cssmin.CSSMinFilter',
-]
-
-# Filters for JavaScript minification (requires 'jsmin' package: pip install jsmin)
-COMPRESS_JS_FILTERS = [
-    'compressor.filters.jsmin.JSMinFilter',
-]
 
 # ------------------------------------------------------------------------------
 # 8. SECURITY SETTINGS (for deployment)
@@ -228,32 +183,14 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', defa
 SECURE_HSTS_PRELOAD = env.bool('SECURE_HSTS_PRELOAD', default=not DEBUG)
 
 # ------------------------------------------------------------------------------
-# 9. AUTHENTICATION & ALLAUTH SETTINGS
+# 9. AUTHENTICATION SETTINGS
 # ------------------------------------------------------------------------------
 
 # Custom user model
 AUTH_USER_MODEL = 'login_manager.User'
 
-# Redirect URLs after login/logout
-LOGIN_REDIRECT_URL = "dashboard"
-ACCOUNT_LOGOUT_REDIRECT_URL = "/" # Or wherever you want to redirect after logout
-LOGIN_URL = "/accounts/login/" # Default URL for login, used by login_required decorator etc.
-
-# Allauth specific settings
-ACCOUNT_LOGIN_METHODS = {'username', 'email'}  # replaces AUTHENTICATION_METHOD
-ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']  # replaces all 3 deprecated ones
-
-ACCOUNT_UNIQUE_EMAIL = True
-ACCOUNT_SESSION_REMEMBER = True
-# ACCOUNT_FORMS = {
-#     'signup': 'login_manager.forms.CustomSignupForm',
-# }
-
 AUTHENTICATION_BACKENDS = (
-    # Needed to login by username in Django Admin, regardless of `allauth`
     'django.contrib.auth.backends.ModelBackend',
-    # `allauth` specific authentication methods, such as login by email
-    'allauth.account.auth_backends.AuthenticationBackend',
 )
 
 
@@ -273,7 +210,6 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
     ],
 }
 
@@ -295,19 +231,39 @@ CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[
 # CORS_ALLOW_ALL_ORIGINS = True # Be careful with this in production!
 
 # ------------------------------------------------------------------------------
-# 12. CHANNELS (WEBSOCKETS) SETTINGS
+# 12b. CACHE CONFIGURATION (django-redis)
 # ------------------------------------------------------------------------------
+# Uses the same Redis instance as Channel Layers (DB 0 = channels, DB 1 = cache).
+# Falls back to a local-memory dummy cache when Redis is not available in dev.
 
-ASGI_APPLICATION = "NexusGrid.asgi.application"
+REDIS_LOCATION = f"redis://{env('REDIS_HOST', default='127.0.0.1')}:{env('REDIS_PORT', default='6379')}/1"
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [(env("REDIS_HOST", default="127.0.0.1"), int(env("REDIS_PORT", default="6379")))],
-        },
-    },
-}
+if USE_REDIS:
+    SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_LOCATION,
+            "KEY_PREFIX": "nexusgrid",
+            "TIMEOUT": 300,  # default TTL: 5 minutes
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                # Silently degrade to cache misses instead of raising on connection errors
+                "IGNORE_EXCEPTIONS": True,
+            },
+        }
+    }
+else:
+    # Dev fallback: in-process memory cache.
+    # Metrics ARE cached (per-process, reset on restart) — avoids 10+ queries
+    # per dashboard load when Redis is not running locally.
+    SESSION_ENGINE = "django.contrib.sessions.backends.db"
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "nexusgrid-dev",
+        }
+    }
 
 # ------------------------------------------------------------------------------
 # 13. EMAIL CONFIGURATION

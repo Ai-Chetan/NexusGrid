@@ -1,13 +1,7 @@
-from django.utils import timezone
-from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth.decorators import login_required
-from django.db import transaction
-from django.db.models import Count, Case, When, IntegerField
-import json
-from django.views.decorators.http import require_POST
-from .models import LayoutItem, Lab, System
+# system_layout/views.py
+# All Django-template views removed. The system_layout app is now data-only:
+# models, migrations, and admin registration are preserved.
+# All layout API endpoints are served via api_v1/.
 
 @login_required(login_url="/login/")
 def layout_view(request, item_id=None):

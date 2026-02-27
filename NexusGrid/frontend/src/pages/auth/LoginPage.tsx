@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -18,18 +18,16 @@ export default function LoginPage() {
   const { login, user } = useAuthStore();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
-
-  // Already logged in
-  if (user) {
-    navigate('/dashboard', { replace: true });
-    return null;
-  }
-
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
+
+  // Already logged in — use Navigate component so no state update happens during render
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const onSubmit = async (data: FormData) => {
     try {

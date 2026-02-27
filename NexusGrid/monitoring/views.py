@@ -3,20 +3,15 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from django.db.models import Max
 from .models import SystemInfo
 
 
 @login_required(login_url="/login/")
 def system_status_api(request):
-    """Return the latest SystemInfo snapshot for every known hostname."""
-    latest_ids = (
-        SystemInfo.objects
-        .values('hostname')
-        .annotate(max_id=Max('id'))
-        .values_list('max_id', flat=True)
-    )
-    infos = SystemInfo.objects.filter(id__in=latest_ids).order_by('hostname')
+    """Return the latest SystemInfo snapshot for every known hostname.
+    One row per hostname now, so no subquery needed.
+    """
+    infos = SystemInfo.objects.order_by('hostname')
 
     data = [
         {
@@ -37,22 +32,32 @@ def system_status_api(request):
 @csrf_exempt
 @require_POST
 def ingest_system_info(request):
-    """Agent endpoint: receives hardware metrics POSTed by a monitored machine."""
+    """Agent endpoint: receives hardware metrics POSTed by a monitored machine.
+    Uses update_or_create so the table stays at exactly one row per hostname
+    instead of growing without bound.
+    """
     try:
+        from django.utils import timezone
         data = json.loads(request.body)
         hostname = data.get('hostname', '').strip()
         if not hostname:
             return JsonResponse({'error': 'hostname is required'}, status=400)
 
-        SystemInfo.objects.create(
+        SystemInfo.objects.update_or_create(
             hostname=hostname,
-            ip_address=data.get('ip_address'),
-            os_name=data.get('os_name'),
-            os_version=data.get('os_version'),
-            cpu_usage=data.get('cpu_usage'),
-            ram_usage=data.get('ram_usage'),
-            disk_usage=data.get('disk_usage'),
+            defaults={
+                'ip_address': data.get('ip_address'),
+                'os_name': data.get('os_name'),
+                'os_version': data.get('os_version'),
+                'cpu_usage': data.get('cpu_usage'),
+                'ram_usage': data.get('ram_usage'),
+                'disk_usage': data.get('disk_usage'),
+                'timestamp': timezone.now(),
+            },
         )
+        # Invalidate the monitoring list cache so the next poll gets fresh data
+        from django.core.cache import cache
+        cache.delete('monitoring_latest_v1')
         return JsonResponse({'status': 'ok'})
     except (json.JSONDecodeError, ValueError) as e:
         return JsonResponse({'error': str(e)}, status=400)

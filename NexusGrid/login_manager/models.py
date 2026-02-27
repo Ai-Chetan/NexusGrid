@@ -28,13 +28,3 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username
-
-class OTPLog(models.Model):
-    user_email = models.EmailField()
-    otp_code = models.CharField(max_length=6)
-    created_at = models.DateTimeField(auto_now_add=True)
-    verified = models.BooleanField(default=False)
-
-    def is_expired(self):
-        from datetime import timedelta, timezone, datetime
-        return self.created_at + timedelta(minutes=5) < datetime.now(timezone.utc)

@@ -1,5 +1,4 @@
 from django.contrib import admin
-from .models import ResourceRequest, Provided
+from .models import ResourceRequest
 
 admin.site.register(ResourceRequest)
-admin.site.register(Provided)

@@ -1,19 +1,7 @@
-import json
-import logging
-import random
-from datetime import datetime, timedelta
-from django.contrib.auth import authenticate, login, get_user_model
-from django.conf import settings
-from django.views.decorators.http import require_http_methods
-from django.core.validators import validate_email
-from django.core.exceptions import ValidationError
-from django.http import JsonResponse
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from django.core.mail import send_mail
-from django.contrib.auth.hashers import make_password
-
-User = get_user_model()
+# login_manager/views.py
+# All Django-template and OTP-signup views removed.
+# The login_manager app is now data-only: User model + migrations.
+# Authentication is handled by the React SPA via api_v1/auth/ endpoints.
 
 def landing_page(request):
     return render(request, 'login_manager/signin-signup-page.html')

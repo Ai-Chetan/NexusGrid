@@ -225,7 +225,7 @@ export default function ResourcesPage() {
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['resources', { search, status, time, sort, page }],
-    queryFn: () => resourcesApi.list({ search, status, time, sort, page, page_size: 15 }).then(r => r.data),
+    queryFn: ({ signal }) => resourcesApi.list({ search, status, time, sort, page, page_size: 15 }, signal).then(r => r.data),
     placeholderData: prev => prev,
   });
 

@@ -1,8 +1,4 @@
 from django.contrib import admin
-from .models import FaultReport, Resolved
+from .models import FaultReport
 
-# Register your models here.
-admin.site.register([
-     FaultReport,
-     Resolved,
-])
+admin.site.register(FaultReport)
