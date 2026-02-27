@@ -233,5 +233,11 @@ class ResourceStatusUpdateSerializer(serializers.Serializer):
 class SystemInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = SystemInfo
-        fields = ['hostname', 'ip_address', 'os_name', 'os_version',
-                  'cpu_usage', 'ram_usage', 'disk_usage', 'timestamp']
+        fields = [
+            'hostname', 'ip_address', 'system', 'version', 'release', 'machine',
+            'processor', 'architecture', 'cpu_physical_cores', 'cpu_total_cores',
+            'cpu_max_freq', 'cpu_min_freq', 'cpu_current_freq', 'cpu_usage',
+            'memory_total', 'memory_available', 'memory_used', 'memory_usage_percent',
+            'disk_total', 'disk_used', 'disk_free', 'disk_usage_percent',
+            'bytes_sent', 'bytes_received', 'users_count', 'logged_in_users', 'timestamp'
+        ]
