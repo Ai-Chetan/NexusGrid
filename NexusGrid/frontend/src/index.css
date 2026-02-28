@@ -116,3 +116,32 @@
     @apply text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider;
   }
 }
+
+/* ── React Flow dark mode overrides ─────────────────────────────────────────── */
+.dark .react-flow__controls-button {
+  background: #1e293b;
+  border-color: #475569;
+  fill: #e2e8f0;
+}
+.dark .react-flow__controls-button:hover {
+  background: #334155;
+}
+.dark .react-flow__controls-button svg {
+  fill: #e2e8f0;
+}
+.dark .react-flow__controls {
+  border-color: #475569;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.4);
+}
+
+/* ── React Flow MiniMap dark mode ─────────────────────────────────────────── */
+.dark .react-flow__minimap {
+  background: #334155;
+  border: 1px solid #475569;
+}
+.dark .react-flow__minimap-mask {
+  fill: rgba(51, 65, 85, 0.75);
+}
+.dark .react-flow__minimap-node {
+  stroke: none;
+}

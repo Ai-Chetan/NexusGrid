@@ -1,4 +1,5 @@
 ﻿import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   ReactFlow,
   Background,
@@ -8,11 +9,17 @@ import {
   useNodesState,
   useEdgesState,
   useReactFlow,
+  getBezierPath,
+  BaseEdge,
+  EdgeLabelRenderer,
+  NodeToolbar,
   type Node,
   type Edge,
   type Connection,
+  type EdgeProps,
   type NodeProps,
   type NodeTypes,
+  type EdgeTypes,
   Handle,
   Position,
   Panel,
@@ -22,11 +29,12 @@ import '@xyflow/react/dist/style.css';
 import dagre from '@dagrejs/dagre';
 import {
   Building2, Layers, DoorOpen, Monitor, Server, Network,
-  Wifi, Printer, Zap, HardDrive, Package, Pencil, Trash2,
+  Wifi, Printer, Zap, HardDrive, Package, Pencil, Trash2, Loader2,
 } from 'lucide-react';
 import type { LayoutItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { layoutApi } from '@/lib/api';
+import { useTheme } from '@/hooks/useTheme';
 import toast from 'react-hot-toast';
 
 // ─── Type colour palette ──────────────────────────────────────────────────────
@@ -43,6 +51,21 @@ const typeColours: Record<string, { bg: string; header: string; border: string; 
   rack:           { bg: '#f8fafc', header: '#334155', border: '#64748b', text: '#1e293b', dot: '#64748b' },
 };
 const fallbackCol = { bg: '#f8fafc', header: '#475569', border: '#94a3b8', text: '#334155', dot: '#94a3b8' };
+
+// ─── Dark colour palette ──────────────────────────────────────────────────────
+const darkTypeColours: Record<string, { bg: string; header: string; border: string; text: string; dot: string }> = {
+  building:       { bg: '#2e1065', header: '#7c3aed', border: '#7c3aed', text: '#c4b5fd', dot: '#8b5cf6' },
+  floor:          { bg: '#172554', header: '#2563eb', border: '#3b82f6', text: '#93c5fd', dot: '#3b82f6' },
+  room:           { bg: '#1e1b4b', header: '#4338ca', border: '#6366f1', text: '#a5b4fc', dot: '#6366f1' },
+  computer:       { bg: '#052e16', header: '#059669', border: '#10b981', text: '#6ee7b7', dot: '#10b981' },
+  server:         { bg: '#451a03', header: '#d97706', border: '#f59e0b', text: '#fcd34d', dot: '#f59e0b' },
+  network_switch: { bg: '#083344', header: '#0891b2', border: '#06b6d4', text: '#67e8f9', dot: '#06b6d4' },
+  router:         { bg: '#042f2e', header: '#0d9488', border: '#14b8a6', text: '#5eead4', dot: '#14b8a6' },
+  printer:        { bg: '#500724', header: '#db2777', border: '#ec4899', text: '#f9a8d4', dot: '#ec4899' },
+  ups:            { bg: '#422006', header: '#d97706', border: '#eab308', text: '#fde047', dot: '#eab308' },
+  rack:           { bg: '#0f172a', header: '#475569', border: '#64748b', text: '#94a3b8', dot: '#64748b' },
+};
+const darkFallbackCol = { bg: '#1e293b', header: '#475569', border: '#64748b', text: '#94a3b8', dot: '#94a3b8' };
 
 const typeIcons: Record<string, React.ElementType> = {
   building: Building2, floor: Layers, room: DoorOpen,
@@ -75,30 +98,30 @@ function BuildingBody() {
           {[0, 1, 2, 3, 4].map((col) => (
             <div
               key={col}
-              className="flex-1 h-[13px] rounded-[2px] border border-violet-300"
-              style={{ background: col % 2 === 0 ? '#ddd6fe' : '#ede9fe' }}
+              className={cn('flex-1 h-[13px] rounded-[2px] border border-violet-300 dark:border-violet-700/50',
+                col % 2 === 0 ? 'bg-violet-200 dark:bg-violet-800/60' : 'bg-violet-100 dark:bg-violet-900/50')}
             />
           ))}
         </div>
       ))}
       {/* Ground-floor separator */}
-      <div className="h-px bg-violet-300 mx-1" />
+      <div className="h-px bg-violet-300 dark:bg-violet-700/50 mx-1" />
       {/* Ground floor: windows + centred door */}
       <div className="flex gap-[3px] items-end">
-        <div className="flex-1 h-[13px] rounded-[2px] border border-violet-300 bg-violet-100" />
-        <div className="flex-1 h-[13px] rounded-[2px] border border-violet-300 bg-violet-100" />
-        <div className="w-6 h-[19px] rounded-t-[3px] border border-violet-400 bg-white relative">
-          <div className="absolute right-[3px] top-[5px] w-[3px] h-[3px] rounded-full bg-violet-500" />
+        <div className="flex-1 h-[13px] rounded-[2px] border border-violet-300 dark:border-violet-700/50 bg-violet-100 dark:bg-violet-900/50" />
+        <div className="flex-1 h-[13px] rounded-[2px] border border-violet-300 dark:border-violet-700/50 bg-violet-100 dark:bg-violet-900/50" />
+        <div className="w-6 h-[19px] rounded-t-[3px] border border-violet-400 dark:border-violet-600 bg-white dark:bg-slate-800 relative">
+          <div className="absolute right-[3px] top-[5px] w-[3px] h-[3px] rounded-full bg-violet-500 dark:bg-violet-400" />
         </div>
-        <div className="flex-1 h-[13px] rounded-[2px] border border-violet-300 bg-violet-100" />
-        <div className="flex-1 h-[13px] rounded-[2px] border border-violet-300 bg-violet-100" />
+        <div className="flex-1 h-[13px] rounded-[2px] border border-violet-300 dark:border-violet-700/50 bg-violet-100 dark:bg-violet-900/50" />
+        <div className="flex-1 h-[13px] rounded-[2px] border border-violet-300 dark:border-violet-700/50 bg-violet-100 dark:bg-violet-900/50" />
       </div>
       {/* Rooftop parapet */}
       <div className="flex items-center justify-between px-1 mt-1">
-        <div className="w-5 h-[4px] bg-violet-200 rounded-sm" />
-        <div className="w-2 h-[7px] bg-violet-300 rounded-sm" />
-        <div className="w-2 h-[7px] bg-violet-300 rounded-sm" />
-        <div className="w-5 h-[4px] bg-violet-200 rounded-sm" />
+        <div className="w-5 h-[4px] bg-violet-200 dark:bg-violet-700/50 rounded-sm" />
+        <div className="w-2 h-[7px] bg-violet-300 dark:bg-violet-600/50 rounded-sm" />
+        <div className="w-2 h-[7px] bg-violet-300 dark:bg-violet-600/50 rounded-sm" />
+        <div className="w-5 h-[4px] bg-violet-200 dark:bg-violet-700/50 rounded-sm" />
       </div>
     </div>
   );
@@ -107,21 +130,21 @@ function BuildingBody() {
 function FloorBody() {
   return (
     <div className="px-2.5 pb-1.5 pt-1">
-      <div className="border border-blue-300 rounded-[3px] overflow-hidden" style={{ background: '#eff6ff' }}>
+      <div className="border border-blue-300 dark:border-blue-700/50 rounded-[3px] overflow-hidden bg-blue-50 dark:bg-blue-950/40">
         {/* Top row — 4 rooms of varying widths */}
         <div className="flex gap-px p-px pb-0">
           {[0.22, 0.28, 0.28, 0.22].map((w, i) => (
-            <div key={i} className="h-[15px] border border-blue-200 bg-white rounded-[1px]" style={{ flex: w }} />
+            <div key={i} className="h-[15px] border border-blue-200 dark:border-blue-700/40 bg-white dark:bg-blue-900/30 rounded-[1px]" style={{ flex: w }} />
           ))}
         </div>
         {/* Corridor with dots */}
-        <div className="mx-px my-[3px] h-[6px] bg-blue-100 rounded-[1px] flex items-center gap-[5px] px-2">
-          {[0,1,2,3,4].map(i => <div key={i} className="w-[3px] h-[3px] rounded-full bg-blue-300" />)}
+        <div className="mx-px my-[3px] h-[6px] bg-blue-100 dark:bg-blue-900/50 rounded-[1px] flex items-center gap-[5px] px-2">
+          {[0,1,2,3,4].map(i => <div key={i} className="w-[3px] h-[3px] rounded-full bg-blue-300 dark:bg-blue-600" />)}
         </div>
         {/* Bottom row — 3 rooms */}
         <div className="flex gap-px p-px pt-0">
           {[0.35, 0.3, 0.35].map((w, i) => (
-            <div key={i} className="h-[15px] border border-blue-200 bg-white rounded-[1px]" style={{ flex: w }} />
+            <div key={i} className="h-[15px] border border-blue-200 dark:border-blue-700/40 bg-white dark:bg-blue-900/30 rounded-[1px]" style={{ flex: w }} />
           ))}
         </div>
       </div>
@@ -133,34 +156,23 @@ function RoomBody() {
   return (
     <div className="px-2.5 pb-1.5 pt-1">
       {/* Top-down room interior */}
-      <div className="relative border-2 border-indigo-300 rounded-[3px] bg-indigo-50" style={{ height: 90 }}>
-        {/* Door gap on bottom wall */}
-        <div className="absolute bottom-0 left-[30px] w-[13px] h-[2px] bg-indigo-50 translate-y-px" />
-        {/* Door arc */}
-        <div
-          className="absolute bottom-[2px] left-[30px] w-[12px] h-[12px] border-r border-indigo-400 rounded-br-full"
-          style={{ borderColor: '#a5b4fc' }}
-        />
-        {/* Window on right wall */}
-        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[2px] h-[16px] bg-indigo-50" />
-        <div className="absolute right-[1px] top-1/2 -translate-y-1/2 w-[4px] h-[16px] border border-indigo-300 bg-sky-100 rounded-[1px]" />
-        {/* Central desk */}
+      <div className="relative border-2 border-indigo-300 dark:border-indigo-700/60 rounded-[3px] bg-indigo-50 dark:bg-indigo-950/50" style={{ height: 90 }}>
+        <div className="absolute bottom-0 left-[30px] w-[13px] h-[2px] bg-indigo-50 dark:bg-indigo-950/50 translate-y-px" />
+        <div className="absolute bottom-[2px] left-[30px] w-[12px] h-[12px] border-r border-indigo-400 dark:border-indigo-500 rounded-br-full" />
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[2px] h-[16px] bg-indigo-50 dark:bg-indigo-950/50" />
+        <div className="absolute right-[1px] top-1/2 -translate-y-1/2 w-[4px] h-[16px] border border-indigo-300 dark:border-indigo-600 bg-sky-100 dark:bg-sky-900/50 rounded-[1px]" />
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-[58px] h-[30px] border-2 border-indigo-400 bg-white rounded-[2px] flex items-center justify-center gap-[5px]">
-            {/* Tiny monitor */}
+          <div className="w-[58px] h-[30px] border-2 border-indigo-400 dark:border-indigo-600 bg-white dark:bg-slate-800 rounded-[2px] flex items-center justify-center gap-[5px]">
             <div className="flex flex-col items-center gap-[1px]">
-              <div className="w-[13px] h-[10px] border border-indigo-300 bg-indigo-100 rounded-[1px]" />
-              <div className="w-[3px] h-[2px] bg-indigo-200" />
-              <div className="w-[7px] h-[1px] bg-indigo-200 rounded" />
+              <div className="w-[13px] h-[10px] border border-indigo-300 dark:border-indigo-600 bg-indigo-100 dark:bg-indigo-900/60 rounded-[1px]" />
+              <div className="w-[3px] h-[2px] bg-indigo-200 dark:bg-indigo-700" />
+              <div className="w-[7px] h-[1px] bg-indigo-200 dark:bg-indigo-700 rounded" />
             </div>
-            {/* Keyboard */}
-            <div className="w-[18px] h-[5px] bg-indigo-100 rounded-[1px] border border-indigo-200" />
+            <div className="w-[18px] h-[5px] bg-indigo-100 dark:bg-indigo-900/60 rounded-[1px] border border-indigo-200 dark:border-indigo-600" />
           </div>
         </div>
-        {/* Chair above desk */}
-        <div className="absolute top-[7px] left-1/2 -translate-x-1/2 w-[15px] h-[7px] bg-indigo-200 rounded-[2px]" />
-        {/* Chair below desk */}
-        <div className="absolute bottom-[9px] left-1/2 -translate-x-1/2 w-[15px] h-[7px] bg-indigo-200 rounded-[2px]" />
+        <div className="absolute top-[7px] left-1/2 -translate-x-1/2 w-[15px] h-[7px] bg-indigo-200 dark:bg-indigo-700/60 rounded-[2px]" />
+        <div className="absolute bottom-[9px] left-1/2 -translate-x-1/2 w-[15px] h-[7px] bg-indigo-200 dark:bg-indigo-700/60 rounded-[2px]" />
       </div>
     </div>
   );
@@ -205,11 +217,11 @@ function ServerBody() {
   return (
     <div className="px-2.5 flex flex-col justify-center w-full h-full gap-[5px] py-2">
       {[0,1,2,3,4].map(i => (
-        <div key={i} className="flex items-center gap-1.5 h-[14px] rounded-[3px] border border-amber-200 bg-amber-50 px-1.5">
+        <div key={i} className="flex items-center gap-1.5 h-[14px] rounded-[3px] border border-amber-200 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/30 px-1.5">
           <div className="w-[6px] h-[6px] rounded-full" style={{ background: i % 4 === 1 ? '#f59e0b' : '#10b981' }} />
-          <div className="flex-1 h-[4px] rounded-full bg-amber-200" />
+          <div className="flex-1 h-[4px] rounded-full bg-amber-200 dark:bg-amber-700/50" />
           <div className="w-[6px] h-[6px] rounded-full" style={{ background: i === 2 ? '#f59e0b' : '#10b981' }} />
-          <div className="w-[3px] h-[8px] rounded-sm bg-amber-300" />
+          <div className="w-[3px] h-[8px] rounded-sm bg-amber-300 dark:bg-amber-600/60" />
         </div>
       ))}
     </div>
@@ -220,7 +232,7 @@ function SwitchBody() {
   return (
     <div className="px-2.5 flex flex-col justify-center w-full h-full gap-2 py-2">
       {[0, 1].map(row => (
-        <div key={row} className="w-full h-[28px] rounded border border-cyan-200 bg-cyan-50 flex items-center px-1.5 gap-[3px]">
+        <div key={row} className="w-full h-[28px] rounded border border-cyan-200 dark:border-cyan-700/50 bg-cyan-50 dark:bg-cyan-900/30 flex items-center px-1.5 gap-[3px]">
           {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className="w-[6px] h-[16px] rounded-[2px]" style={{ background: (i + row) % 5 === 0 ? '#f59e0b' : (i + row) % 3 === 0 ? '#10b981' : '#06b6d450' }} />
           ))}
@@ -228,13 +240,13 @@ function SwitchBody() {
       ))}
       <div className="flex items-center justify-between px-1">
         <div className="flex gap-1">
-          <div className="w-[10px] h-[6px] rounded-sm border border-cyan-200 bg-cyan-100" />
-          <div className="w-[10px] h-[6px] rounded-sm border border-cyan-200 bg-cyan-100" />
+          <div className="w-[10px] h-[6px] rounded-sm border border-cyan-200 dark:border-cyan-700/50 bg-cyan-100 dark:bg-cyan-800/40" />
+          <div className="w-[10px] h-[6px] rounded-sm border border-cyan-200 dark:border-cyan-700/50 bg-cyan-100 dark:bg-cyan-800/40" />
         </div>
         <div className="w-2 h-2 rounded-full bg-green-400" />
         <div className="flex gap-1">
-          <div className="w-[10px] h-[6px] rounded-sm border border-cyan-200 bg-cyan-100" />
-          <div className="w-[10px] h-[6px] rounded-sm border border-cyan-200 bg-cyan-100" />
+          <div className="w-[10px] h-[6px] rounded-sm border border-cyan-200 dark:border-cyan-700/50 bg-cyan-100 dark:bg-cyan-800/40" />
+          <div className="w-[10px] h-[6px] rounded-sm border border-cyan-200 dark:border-cyan-700/50 bg-cyan-100 dark:bg-cyan-800/40" />
         </div>
       </div>
     </div>
@@ -251,8 +263,8 @@ function RouterBody() {
         <div className="w-[3px] h-[14px] bg-teal-400 rounded-full" style={{ transform: 'rotate(15deg)', transformOrigin: 'bottom' }} />
       </div>
       {/* Main chassis */}
-      <div className="w-[120px] h-[38px] rounded-lg border border-teal-300 bg-teal-50 flex items-center justify-between px-3">
-        <Wifi className="w-5 h-5 text-teal-500" />
+      <div className="w-[120px] h-[38px] rounded-lg border border-teal-300 dark:border-teal-700/50 bg-teal-50 dark:bg-teal-900/30 flex items-center justify-between px-3">
+        <Wifi className="w-5 h-5 text-teal-500 dark:text-teal-400" />
         <div className="flex flex-col gap-1">
           <div className="w-2 h-2 rounded-full bg-green-400" />
           <div className="w-2 h-2 rounded-full bg-teal-300" />
@@ -261,7 +273,7 @@ function RouterBody() {
       {/* Ethernet ports */}
       <div className="flex gap-1.5">
         {[0,1,2,3].map(i => (
-          <div key={i} className="w-[14px] h-[9px] rounded-[2px] border border-teal-300 bg-teal-100" />
+          <div key={i} className="w-[14px] h-[9px] rounded-[2px] border border-teal-300 dark:border-teal-700/50 bg-teal-100 dark:bg-teal-800/40" />
         ))}
       </div>
     </div>
@@ -272,26 +284,26 @@ function PrinterBody() {
   return (
     <div className="flex flex-col items-center justify-center w-full h-full gap-1 py-2">
       {/* Output tray / paper */}
-      <div className="w-[110px] h-[10px] rounded-sm border border-pink-200 bg-white flex items-center px-2">
-        <div className="w-1/2 h-[2px] rounded bg-pink-100" />
+      <div className="w-[110px] h-[10px] rounded-sm border border-pink-200 dark:border-pink-500/30 bg-white dark:bg-slate-600 flex items-center px-2">
+        <div className="w-1/2 h-[2px] rounded bg-pink-100 dark:bg-slate-400" />
       </div>
       {/* Main body */}
-      <div className="w-[110px] h-[52px] rounded border border-pink-200 bg-pink-50 flex items-center gap-2 px-2">
+      <div className="w-[110px] h-[52px] rounded border border-pink-200 dark:border-pink-500/30 bg-pink-50 dark:bg-pink-800/20 flex items-center gap-2 px-2">
         <div className="flex flex-col gap-1">
-          <div className="w-4 h-4 rounded border border-pink-200 bg-white flex items-center justify-center">
+          <div className="w-4 h-4 rounded border border-pink-200 dark:border-pink-500/30 bg-white dark:bg-slate-600 flex items-center justify-center">
             <div className="w-2 h-2 rounded-full bg-green-400" />
           </div>
-          <div className="w-4 h-2 rounded bg-pink-300" />
+          <div className="w-4 h-2 rounded bg-pink-300 dark:bg-pink-400/40" />
         </div>
         {/* Paper slot area */}
-        <div className="flex-1 h-[36px] rounded-sm border border-pink-200 bg-pink-100 flex flex-col justify-center px-1.5 gap-1">
-          <div className="h-[4px] rounded bg-pink-300" />
-          <div className="h-[4px] rounded bg-pink-200 w-3/4" />
-          <div className="h-[4px] rounded bg-pink-200 w-1/2" />
+        <div className="flex-1 h-[36px] rounded-sm border border-pink-200 dark:border-pink-500/30 bg-pink-100 dark:bg-pink-700/25 flex flex-col justify-center px-1.5 gap-1">
+          <div className="h-[4px] rounded bg-pink-300 dark:bg-pink-400/50" />
+          <div className="h-[4px] rounded bg-pink-200 dark:bg-pink-500/35 w-3/4" />
+          <div className="h-[4px] rounded bg-pink-200 dark:bg-pink-500/35 w-1/2" />
         </div>
       </div>
       {/* Input tray */}
-      <div className="w-[100px] h-[10px] rounded-sm border border-pink-200 bg-pink-100" />
+      <div className="w-[100px] h-[10px] rounded-sm border border-pink-200 dark:border-pink-500/30 bg-pink-100 dark:bg-pink-700/25" />
     </div>
   );
 }
@@ -299,29 +311,26 @@ function PrinterBody() {
 function UPSBody() {
   return (
     <div className="px-2.5 flex flex-col justify-center w-full h-full gap-2 py-2">
-      {/* Main chassis */}
-      <div className="w-full h-[52px] rounded border border-yellow-300 bg-yellow-50 flex flex-col justify-center px-2 gap-1.5">
+      <div className="w-full h-[52px] rounded border border-yellow-300 dark:border-yellow-700/50 bg-yellow-50 dark:bg-yellow-950/40 flex flex-col justify-center px-2 gap-1.5">
         {/* Battery bar */}
         <div className="flex items-center gap-1.5">
           <Zap className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
-          <div className="flex-1 h-[10px] rounded-full bg-yellow-100 overflow-hidden border border-yellow-200">
+          <div className="flex-1 h-[10px] rounded-full bg-yellow-100 dark:bg-yellow-900/50 overflow-hidden border border-yellow-200 dark:border-yellow-700/40">
             <div className="h-full bg-gradient-to-r from-yellow-400 to-green-400 rounded-full" style={{ width: '72%' }} />
           </div>
-          <span className="text-[9px] text-yellow-700 font-bold">72%</span>
+          <span className="text-[9px] text-yellow-700 dark:text-yellow-400 font-bold">72%</span>
         </div>
-        {/* Status LEDs */}
         <div className="flex gap-1.5 pl-0.5">
           <div className="w-2 h-2 rounded-full bg-green-400" />
           <div className="w-2 h-2 rounded-full bg-yellow-400" />
-          <div className="w-2 h-2 rounded-full bg-slate-200" />
+          <div className="w-2 h-2 rounded-full bg-slate-200 dark:bg-slate-600" />
         </div>
       </div>
-      {/* Outlet strip */}
       <div className="flex justify-center gap-2">
         {[0,1,2].map(i => (
-          <div key={i} className="w-[22px] h-[16px] rounded-sm border border-yellow-300 bg-white flex items-center justify-center gap-[4px]">
-            <div className="w-[2px] h-[7px] rounded-full bg-slate-400" />
-            <div className="w-[2px] h-[7px] rounded-full bg-slate-400" />
+          <div key={i} className="w-[22px] h-[16px] rounded-sm border border-yellow-300 dark:border-yellow-700/50 bg-white dark:bg-slate-800 flex items-center justify-center gap-[4px]">
+            <div className="w-[2px] h-[7px] rounded-full bg-slate-400 dark:bg-slate-500" />
+            <div className="w-[2px] h-[7px] rounded-full bg-slate-400 dark:bg-slate-500" />
           </div>
         ))}
       </div>
@@ -333,11 +342,11 @@ function RackBody() {
   return (
     <div className="px-2.5 flex flex-col justify-center w-full h-full gap-[4px] py-2">
       {[0,1,2,3,4,5].map(i => (
-        <div key={i} className="flex items-center h-[13px] rounded-[2px] border border-slate-200 bg-slate-50 px-1.5 gap-1.5">
+        <div key={i} className="flex items-center h-[13px] rounded-[2px] border border-slate-200 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-800/50 px-1.5 gap-1.5">
           <div className="w-[5px] h-[5px] rounded-full" style={{ background: i === 1 ? '#10b981' : i === 3 ? '#f59e0b' : '#94a3b8' }} />
-          <div className="flex-1 h-[3px] rounded-full bg-slate-200" />
-          <div className="w-[3px] h-[8px] rounded-sm bg-slate-300" />
-          <div className="w-[3px] h-[8px] rounded-sm bg-slate-300" />
+          <div className="flex-1 h-[3px] rounded-full bg-slate-200 dark:bg-slate-700" />
+          <div className="w-[3px] h-[8px] rounded-sm bg-slate-300 dark:bg-slate-600" />
+          <div className="w-[3px] h-[8px] rounded-sm bg-slate-300 dark:bg-slate-600" />
         </div>
       ))}
     </div>
@@ -378,6 +387,7 @@ function nodeSize(itemType: string) { return nodeSizes[itemType] ?? DEVICE_SIZE;
 interface ItemNodeData extends Record<string, unknown> {
   item: LayoutItem;
   editMode: boolean;
+  isDark: boolean;
   onEnter:  (item: LayoutItem) => void;
   onEdit:   (item: LayoutItem) => void;
   onDelete: (item: LayoutItem) => void;
@@ -387,11 +397,23 @@ interface ItemNodeData extends Record<string, unknown> {
 type ItemFlowNode = Node<ItemNodeData, 'itemNode'>;
 
 function ItemNode({ data }: NodeProps<ItemFlowNode>) {
-  const { item, editMode, onEnter, onEdit, onDelete, isHub } = data;
+  const { item, editMode, isDark, onEnter, onEdit, onDelete } = data;
   const [hovered, setHovered] = useState(false);
-  const col = typeColours[item.item_type] ?? fallbackCol;
+  const col = (isDark ? darkTypeColours : typeColours)[item.item_type] ?? (isDark ? darkFallbackCol : fallbackCol);
   const isNavigable = CLUSTER_TYPES.has(item.item_type);
   const BodyEl = typeBodyMap[item.item_type];
+
+  // Hover preview: fetch children when hovering a navigable node
+  const { data: children = [], isFetching } = useQuery({
+    queryKey: ['layout-preview', item.id],
+    queryFn: () => layoutApi.getItems({ parent_id: item.id }).then(r => r.data),
+    enabled: hovered && isNavigable && !editMode,
+    staleTime: 60_000,
+  });
+  const childCounts = children.reduce<Record<string, number>>((acc, c) => {
+    acc[c.item_type] = (acc[c.item_type] ?? 0) + 1;
+    return acc;
+  }, {});
 
   // Manual double-click: React Flow intercepts pointer events so browser dblclick is unreliable
   const clickCount = useRef(0);
@@ -417,19 +439,183 @@ function ItemNode({ data }: NodeProps<ItemFlowNode>) {
   }, [editMode, isNavigable, onEnter, item]);
 
   return (
+    <>
+    <NodeToolbar isVisible={hovered && isNavigable && !editMode} position={Position.Right} offset={12}>
+      <div className={cn('rounded-xl border shadow-2xl w-52 overflow-hidden', isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200')}>
+        {/* Toolbar header */}
+        <div className="px-3 py-2 flex items-center gap-2" style={{ background: col.header }}>
+          {(() => { const Icon = typeIcons[item.item_type] ?? Package; return <Icon className="w-3.5 h-3.5 text-white shrink-0" />; })()}
+          <span className="text-white text-[11px] font-semibold truncate flex-1">{item.name}</span>
+          {!isFetching && children.length > 0 && (
+            <span className="text-white/70 text-[9px] shrink-0">{children.length}</span>
+          )}
+        </div>
+        {/* Toolbar body */}
+        <div className="px-2 pt-1 pb-2">
+          {isFetching ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+            </div>
+          ) : children.length === 0 ? (
+            <p className={cn('text-xs text-center py-4', isDark ? 'text-slate-500' : 'text-slate-400')}>Empty</p>
+          ) : (
+            <>
+              {/* ── Mini canvas ── */}
+              {(() => {
+                const W = 196, H = 140;
+                const CW = 36, CH = 22, HEADER = 7; // mini card dims
+                const PAD = CW / 2 + 4;
+
+                // Position nodes
+                const hasPos = children.some(c => c.position_x !== 0 || c.position_y !== 0);
+                let positioned: { child: LayoutItem; cx: number; cy: number }[];
+                if (hasPos) {
+                  const xs = children.map(c => c.position_x);
+                  const ys = children.map(c => c.position_y);
+                  const minX = Math.min(...xs), maxX = Math.max(...xs);
+                  const minY = Math.min(...ys), maxY = Math.max(...ys);
+                  const rx = maxX - minX || 1, ry = maxY - minY || 1;
+                  // If all nodes are at the same point, just center them
+                  if (rx === 1 && maxX === minX) {
+                    positioned = children.map(c => ({ child: c, cx: W / 2, cy: H / 2 }));
+                  } else {
+                    positioned = children.map(c => ({
+                      child: c,
+                      cx: PAD + ((c.position_x - minX) / rx) * (W - PAD * 2),
+                      cy: PAD + ((c.position_y - minY) / ry) * (H - PAD * 2),
+                    }));
+                  }
+                } else {
+                  // Centered grid layout with fixed spacing
+                  const cols = Math.ceil(Math.sqrt(children.length));
+                  const rows = Math.ceil(children.length / cols);
+                  const SPACING_X = Math.min(48, (W - PAD) / Math.max(cols, 1));
+                  const SPACING_Y = Math.min(36, (H - PAD) / Math.max(rows, 1));
+                  const gridW = (cols - 1) * SPACING_X;
+                  const gridH = (rows - 1) * SPACING_Y;
+                  const startX = (W - gridW) / 2;
+                  const startY = (H - gridH) / 2;
+                  positioned = children.map((c, i) => ({
+                    child: c,
+                    cx: startX + (i % cols) * SPACING_X,
+                    cy: startY + Math.floor(i / cols) * SPACING_Y,
+                  }));
+                }
+
+                const posById = Object.fromEntries(positioned.map(p => [p.child.id, p]));
+
+                // Build edges
+                const hub = children.find(c => NETWORK_HUB_TYPES.has(c.item_type));
+                const edges: { x1: number; y1: number; x2: number; y2: number; color: string }[] = [];
+                if (hub) {
+                  const hubCol = (isDark ? darkTypeColours : typeColours)[hub.item_type];
+                  const hp = posById[hub.id];
+                  children.forEach(c => {
+                    if (c.id === hub.id || NETWORK_HUB_TYPES.has(c.item_type)) return;
+                    const cp = posById[c.id];
+                    if (hp && cp) edges.push({ x1: hp.cx, y1: hp.cy, x2: cp.cx, y2: cp.cy, color: hubCol?.border ?? '#94a3b8' });
+                  });
+                } else {
+                  children.forEach(c => {
+                    if (c.parent == null) return;
+                    const pp = posById[c.parent];
+                    const cp = posById[c.id];
+                    if (pp && cp) edges.push({ x1: pp.cx, y1: pp.cy, x2: cp.cx, y2: cp.cy, color: '#94a3b8' });
+                  });
+                }
+
+                const dotColor = isDark ? '#334155' : '#cbd5e1';
+                const bgColor  = isDark ? '#0f172a'  : '#f8fafc';
+
+                return (
+                  <div className="relative rounded-lg overflow-hidden border mb-2"
+                    style={{ width: W, height: H, background: bgColor, borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+                    {/* Dot grid */}
+                    <svg className="absolute inset-0" width={W} height={H} xmlns="http://www.w3.org/2000/svg">
+                      <defs>
+                        <pattern id="pdot" x="0" y="0" width="12" height="12" patternUnits="userSpaceOnUse">
+                          <circle cx="1" cy="1" r="0.8" fill={dotColor} />
+                        </pattern>
+                      </defs>
+                      <rect width={W} height={H} fill="url(#pdot)" />
+                      {/* Edges */}
+                      {edges.map((e, i) => (
+                        <line key={i} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}
+                          stroke={e.color} strokeWidth="1" strokeOpacity="0.6"
+                          strokeDasharray={hub ? '3 2' : undefined} />
+                      ))}
+                    </svg>
+                    {/* Mini cards */}
+                    {positioned.map(({ child, cx, cy }) => {
+                      const c = (isDark ? darkTypeColours : typeColours)[child.item_type] ?? (isDark ? darkFallbackCol : fallbackCol);
+                      const Icon = typeIcons[child.item_type] ?? Package;
+                      const bodyBg = isDark ? '#1e293b' : '#ffffff';
+                      return (
+                        <div key={child.id} className="absolute rounded-[3px] overflow-hidden shadow-sm"
+                          style={{
+                            left: cx, top: cy,
+                            transform: 'translate(-50%,-50%)',
+                            width: CW, height: CH,
+                            border: `1px solid ${c.header}`,
+                          }}
+                          title={child.name}
+                        >
+                          {/* Header strip */}
+                          <div className="flex items-center justify-center gap-[2px]"
+                            style={{ height: HEADER, background: c.header }}>
+                            <Icon style={{ width: 5, height: 5, color: '#fff', flexShrink: 0 }} />
+                          </div>
+                          {/* Body */}
+                          <div className="flex items-center justify-center"
+                            style={{ height: CH - HEADER, background: c.bg !== bgColor ? (isDark ? c.bg + 'cc' : c.bg) : bodyBg }}>
+                            {child.status && (
+                              <span className="rounded-full"
+                                style={{ width: 4, height: 4, background: statusColour[child.status] ?? '#94a3b8' }} />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+              {/* Type count badges */}
+              <div className="flex flex-wrap gap-1">
+                {Object.entries(childCounts).map(([type, count]) => {
+                  const Icon = typeIcons[type] ?? Package;
+                  const c = (isDark ? darkTypeColours : typeColours)[type];
+                  return (
+                    <span key={type} className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                      style={{ background: (c?.header ?? '#94a3b8') + '25', color: c?.header ?? '#94a3b8' }}>
+                      <Icon className="w-2.5 h-2.5" />{count}
+                    </span>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </NodeToolbar>
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={handleClick}
       style={{ borderColor: col.header, width: nodeSize(item.item_type).w }}
       className={cn(
-        'rounded-xl border-2 overflow-hidden select-none transition-shadow bg-white',
+        'rounded-xl border-2 overflow-hidden select-none transition-shadow',
+        isDark ? 'bg-slate-900' : 'bg-white',
         hovered && 'shadow-lg',
         !editMode && isNavigable && 'cursor-pointer',
         editMode && 'cursor-grab',
       )}
     >
-      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
+      <Handle type="target" position={Position.Top}
+        style={editMode ? { background: col.header, borderColor: col.header, width: 8, height: 8 } : { opacity: 0 }}
+      />
+      <Handle type="source" position={Position.Bottom}
+        style={editMode ? { background: col.header, borderColor: col.header, width: 8, height: 8 } : { opacity: 0 }}
+      />
 
       {/* ── Coloured header ── */}
       <div
@@ -477,15 +663,16 @@ function ItemNode({ data }: NodeProps<ItemFlowNode>) {
       {isNavigable && item.status && (
         <div
           className="flex items-center px-2.5 py-1.5 border-t"
-          style={{ borderColor: col.border + '40', background: col.bg }}
+          style={{ borderColor: col.border + '40', background: isDark ? col.bg + 'cc' : col.bg }}
         >
           <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusColour[item.status] ?? '#94a3b8' }} />
-          <span className="text-[9px] text-slate-500 capitalize ml-1">{item.status}</span>
+          <span className="text-[9px] capitalize ml-1" style={{ color: col.text }}>{item.status}</span>
         </div>
       )}
 
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
     </div>
+    </>
   );
 }
 
@@ -512,6 +699,34 @@ function getLayoutedElements<N extends Node>(nodes: N[], edges: Edge[], directio
   };
 }
 
+// ─── Editable edge ─────────────────────────────────────────────────────────────
+// Module-level ref so EditableEdge can call back into the component
+const edgeDeleteRef = { current: (_id: string) => {} };
+
+function EditableEdge({ id, sourceX, sourceY, targetX, targetY, style, markerEnd, selected }: EdgeProps) {
+  const [edgePath, labelX, labelY] = getBezierPath({ sourceX, sourceY, targetX, targetY });
+  return (
+    <>
+      <BaseEdge id={id} path={edgePath} style={style} markerEnd={markerEnd} />
+      {selected && (
+        <EdgeLabelRenderer>
+          <div
+            style={{ transform: `translate(-50%,-50%) translate(${labelX}px,${labelY}px)`, position: 'absolute' }}
+            className="pointer-events-auto nodrag nopan"
+          >
+            <button
+              onClick={() => edgeDeleteRef.current(id)}
+              className="w-5 h-5 rounded-full bg-red-500 text-white text-sm font-bold leading-none flex items-center justify-center hover:bg-red-600 shadow border border-white"
+            >
+              ×
+            </button>
+          </div>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  );
+}
+
 // ─── Edges ────────────────────────────────────────────────────────────────────
 function buildNetworkEdges(items: LayoutItem[]): Edge[] {
   const hub = items.find((i) => NETWORK_HUB_TYPES.has(i.item_type));
@@ -521,6 +736,7 @@ function buildNetworkEdges(items: LayoutItem[]): Edge[] {
     .filter((i) => !NETWORK_HUB_TYPES.has(i.item_type) && i.item_type !== 'ups' && i.item_type !== 'rack')
     .map((i) => ({
       id: `${hub.id}-${i.id}`,
+      type: 'editableEdge',
       source: String(hub.id),
       target: String(i.id),
       animated: true,
@@ -535,6 +751,7 @@ function buildHierarchyEdges(items: LayoutItem[]): Edge[] {
     .filter((i) => i.parent !== null && idSet.has(i.parent!))
     .map((i) => ({
       id: `edge-${i.parent}-${i.id}`,
+      type: 'editableEdge',
       source: String(i.parent),
       target: String(i.id),
       style: { stroke: '#94a3b8', strokeWidth: 1.5 },
@@ -566,6 +783,7 @@ interface Props {
 }
 
 const nodeTypes: NodeTypes = { itemNode: ItemNode as NodeTypes[string] };
+const edgeTypes: EdgeTypes = { editableEdge: EditableEdge as EdgeTypes[string] };
 
 // ─── Auto-fit whenever the displayed item set changes ─────────────────────────
 // Must live inside the ReactFlow context to access useReactFlow().
@@ -587,6 +805,8 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
 ) {
   const isRoomLevel = parentType === 'room';
   const hasHubs = items.some((i) => NETWORK_HUB_TYPES.has(i.item_type));
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
 
   const [pendingPositions, setPendingPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -605,7 +825,7 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
       id: String(item.id),
       type: 'itemNode',
       position,
-      data: { item, editMode: false, onEnter, onEdit, onDelete, isHub: NETWORK_HUB_TYPES.has(item.item_type) },
+      data: { item, editMode: false, isDark, onEnter, onEdit, onDelete, isHub: NETWORK_HUB_TYPES.has(item.item_type) },
     });
 
     // Always run dagre to get a valid default layout for every node.
@@ -649,6 +869,11 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
     setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, editMode } })));
   }, [editMode, setNodes]);
 
+  // Propagate isDark theme changes without resetting positions
+  useEffect(() => {
+    setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, isDark } })));
+  }, [isDark, setNodes]);
+
   // Reflect pending renames and hide pending deletes without re-running dagre
   useEffect(() => {
     setNodes((nds) =>
@@ -664,9 +889,25 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
   }, [pendingRenames, pendingDeletes, setNodes]);
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges],
+    (params: Connection) => {
+      const srcNode = nodes.find((n) => n.id === params.source);
+      const srcType = (srcNode?.data as ItemNodeData | undefined)?.item.item_type ?? '';
+      const palette = isDark ? darkTypeColours : typeColours;
+      const col = palette[srcType] ?? (isDark ? darkFallbackCol : fallbackCol);
+      setEdges((eds) => addEdge({
+        ...params,
+        type: 'editableEdge',
+        style: { stroke: col.border, strokeWidth: 2 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: col.border },
+      }, eds));
+    },
+    [setEdges, nodes, isDark],
   );
+
+  // Wire the module-level delete ref to the live setEdges
+  useEffect(() => {
+    edgeDeleteRef.current = (id: string) => setEdges((eds) => eds.filter((e) => e.id !== id));
+  }, [setEdges]);
 
   const handleSave = useCallback(async () => {
     if (isSaving) return;
@@ -706,7 +947,10 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
   const fitTrigger = items.map((i) => i.id).sort().join(',') + '|' + parentType;
 
   return (
-    <div className="w-full rounded-xl border border-slate-200 bg-white overflow-hidden" style={{ height: 'calc(100vh - 210px)', minHeight: 520 }}>
+    <div
+      className={cn('w-full rounded-xl border overflow-hidden', isDark ? 'border-slate-700 bg-slate-950' : 'border-slate-200 bg-white')}
+      style={{ height: 'calc(100vh - 210px)', minHeight: 520 }}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -714,9 +958,12 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        colorMode={isDark ? 'dark' : 'light'}
         nodesDraggable={editMode}
         snapToGrid={editMode}
         snapGrid={[24, 24]}
+        connectionLineStyle={{ stroke: '#94a3b8', strokeWidth: 2, strokeDasharray: '6 3' }}
         onNodeDragStop={editMode ? onNodeDragStop : undefined}
         fitView
         fitViewOptions={{ padding: 0.25 }}
@@ -725,23 +972,21 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
         proOptions={{ hideAttribution: true }}
       >
         <FitOnChange trigger={fitTrigger} />
-        <Background gap={24} color="#e2e8f0" />
+        <Background gap={24} color={isDark ? '#1e293b' : '#e2e8f0'} />
         <Controls showInteractive={false} />
         <MiniMap
-          nodeColor={(n) => typeColours[(n.data as ItemNodeData).item.item_type]?.dot ?? '#94a3b8'}
-          style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}
-          maskColor="rgba(241,245,249,0.7)"
+          nodeColor={(n) => (isDark ? darkTypeColours : typeColours)[(n.data as ItemNodeData).item.item_type]?.dot ?? '#94a3b8'}
         />
         <Panel position="top-right">
-          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm text-[11px] space-y-1.5 max-h-72 overflow-y-auto">
-            <p className="font-semibold text-slate-700 text-xs mb-2">Legend</p>
-            {Object.entries(typeColours).map(([type, col]) => {
+          <div className={cn('rounded-xl p-3 shadow-sm text-[11px] space-y-1.5 max-h-72 overflow-y-auto border', isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200')}>
+            <p className={cn('font-semibold text-xs mb-2', isDark ? 'text-slate-300' : 'text-slate-700')}>Legend</p>
+            {Object.entries(isDark ? darkTypeColours : typeColours).map(([type, col]) => {
               const Icon = typeIcons[type] ?? Package;
               return (
                 <div key={type} className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: col.dot }} />
                   <Icon className="w-3 h-3 shrink-0" style={{ color: col.header }} />
-                  <span className="text-slate-600">{typeLabels[type] ?? type}</span>
+                  <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>{typeLabels[type] ?? type}</span>
                 </div>
               );
             })}
@@ -749,7 +994,7 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
         </Panel>
         {isRoomLevel && !hasHubs && (
           <Panel position="top-left">
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
+            <div className={cn('rounded-lg px-3 py-2 text-xs border', isDark ? 'bg-amber-950/60 border-amber-700/50 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-700')}>
               Add a Network Switch or Router to show topology connections.
             </div>
           </Panel>

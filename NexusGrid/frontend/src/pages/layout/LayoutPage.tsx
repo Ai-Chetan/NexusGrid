@@ -15,6 +15,7 @@ import ErrorState from '@/components/common/ErrorState';
 import toast from 'react-hot-toast';
 import NetworkFlowView from './NetworkFlowView';
 import type { NetworkFlowViewRef } from './NetworkFlowView';
+import QuickCreateModal from './QuickCreateModal';
 
 // ─── Icon / colour maps ────────────────────────────────────────────────────────
 const typeIcons: Record<string, React.ElementType> = {
@@ -23,16 +24,16 @@ const typeIcons: Record<string, React.ElementType> = {
   router: Wifi, printer: Printer, ups: Zap, rack: HardDrive,
 };
 const typeColors: Record<string, string> = {
-  building:       'bg-violet-100 text-violet-700',
-  floor:          'bg-blue-100 text-blue-700',
-  room:           'bg-indigo-100 text-indigo-700',
-  computer:       'bg-emerald-100 text-emerald-700',
-  server:         'bg-amber-100 text-amber-700',
-  network_switch: 'bg-cyan-100 text-cyan-700',
-  router:         'bg-teal-100 text-teal-700',
-  printer:        'bg-pink-100 text-pink-700',
-  ups:            'bg-yellow-100 text-yellow-700',
-  rack:           'bg-slate-100 text-slate-700',
+  building:       'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300',
+  floor:          'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+  room:           'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300',
+  computer:       'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+  server:         'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
+  network_switch: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300',
+  router:         'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300',
+  printer:        'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300',
+  ups:            'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+  rack:           'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300',
 };
 
 // ─── Add Item Modal ────────────────────────────────────────────────────────────
@@ -262,6 +263,7 @@ export default function LayoutPage() {
   const qc = useQueryClient();
 
   const [addOpen, setAddOpen] = useState(false);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editItem, setEditItem] = useState<LayoutItem | null>(null);
   const [deleteItem, setDeleteItem] = useState<LayoutItem | null>(null);
@@ -359,23 +361,23 @@ export default function LayoutPage() {
         <div className="flex items-center gap-1 flex-wrap">
           <button
             onClick={() => navigate('/app/layout')}
-            className="flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600 transition-colors"
+            className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
           >
             <Home className="w-3.5 h-3.5" />
             <span>Root</span>
           </button>
           {breadcrumb.map((crumb, i) => (
             <span key={crumb.id} className="flex items-center gap-1">
-              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-600" />
               {i < breadcrumb.length - 1 ? (
                 <button
                   onClick={() => navigate(`/app/layout/${crumb.id}`)}
-                  className="text-sm text-slate-500 hover:text-brand-600 transition-colors"
+                  className="text-sm text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
                 >
                   {crumb.name}
                 </button>
               ) : (
-                <span className="text-sm font-semibold text-slate-900">{crumb.name}</span>
+                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{crumb.name}</span>
               )}
             </span>
           ))}
@@ -388,20 +390,25 @@ export default function LayoutPage() {
             </button>
           )}
 
-          {/* ── View mode: single Edit button ── */}
+          {/* ── View mode: Edit + Quick Build buttons ── */}
           {!editMode && items.length > 0 && canAddChildren && (
             <button onClick={() => setEditMode(true)} className="btn-secondary">
               Edit Layout
             </button>
           )}
+          {!editMode && canAddChildren && (
+            <button onClick={() => setQuickCreateOpen(true)} className="btn-secondary flex items-center gap-1.5">
+              <Zap className="w-4 h-4" /> Quick Build
+            </button>
+          )}
 
           {/* ── Edit mode: Discard | + Add | Save ── */}
           {editMode && (
-            <div className="flex items-stretch rounded-lg overflow-hidden border border-slate-200 shadow-sm">
+            <div className="flex items-stretch rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">
               <button
                 onClick={() => flowRef.current?.discard()}
                 disabled={isSaving}
-                className="px-3 py-1.5 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors border-r border-slate-200"
+                className="px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors border-r border-slate-200 dark:border-slate-700"
               >
                 Discard
               </button>
@@ -409,7 +416,7 @@ export default function LayoutPage() {
                 <button
                   onClick={() => setAddOpen(true)}
                   disabled={isSaving}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors border-r border-slate-200"
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors border-r border-slate-200 dark:border-slate-700"
                 >
                   <Plus className="w-4 h-4" /> Add
                 </button>
@@ -442,14 +449,15 @@ export default function LayoutPage() {
 
       {/* ── Content ── */}
       {isLoading ? (
-        <div className="w-full rounded-xl border border-slate-200 bg-white flex items-center justify-center" style={{ height: 'calc(100vh - 210px)', minHeight: 520 }}>
+        <div className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center" style={{ height: 'calc(100vh - 210px)', minHeight: 520 }}>
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
-            <p className="text-sm text-slate-500">Loading layout…</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Loading layout…</p>
           </div>
         </div>
       ) : items.length === 0 ? (
         <EmptyState
+
           icon={<Package className="w-7 h-7" />}
           title="No items here"
           description={
@@ -474,6 +482,13 @@ export default function LayoutPage() {
       )}
 
       {/* ── Modals ── */}
+      <QuickCreateModal
+        open={quickCreateOpen}
+        onClose={() => setQuickCreateOpen(false)}
+        parentType={parentType}
+        parentId={parentId}
+        onSuccess={() => qc.invalidateQueries({ queryKey: ['layout-items'] })}
+      />
       <AddItemModal
         open={addOpen}
         onClose={() => setAddOpen(false)}
