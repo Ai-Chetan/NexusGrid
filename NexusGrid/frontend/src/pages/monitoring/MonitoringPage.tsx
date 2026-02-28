@@ -71,7 +71,7 @@ function SystemCard({ info }: { info: SystemInfo }) {
           <div className="flex justify-between mb-1">
             <span className="text-xs font-medium text-slate-600">CPU</span>
             <span className="text-xs font-semibold text-slate-800">
-              {info.cpu_usage !== null ? `${info.cpu_usage.toFixed(1)}%` : '—'}
+              {info.cpu_usage != null ? `${info.cpu_usage.toFixed(1)}%` : '—'}
             </span>
           </div>
           <GaugeBar value={info.cpu_usage} color={cpuColor} />
@@ -80,7 +80,7 @@ function SystemCard({ info }: { info: SystemInfo }) {
           <div className="flex justify-between mb-1">
             <span className="text-xs font-medium text-slate-600">RAM</span>
             <span className="text-xs font-semibold text-slate-800">
-              {info.ram_usage !== null ? `${info.ram_usage.toFixed(1)}%` : '—'}
+              {info.ram_usage != null ? `${info.ram_usage.toFixed(1)}%` : '—'}
             </span>
           </div>
           <GaugeBar value={info.ram_usage} color={ramColor} />
@@ -89,7 +89,7 @@ function SystemCard({ info }: { info: SystemInfo }) {
           <div className="flex justify-between mb-1">
             <span className="text-xs font-medium text-slate-600">Disk</span>
             <span className="text-xs font-semibold text-slate-800">
-              {info.disk_usage !== null ? `${info.disk_usage.toFixed(1)}%` : '—'}
+              {info.disk_usage != null ? `${info.disk_usage.toFixed(1)}%` : '—'}
             </span>
           </div>
           <GaugeBar value={info.disk_usage} color={diskColor} />
@@ -113,7 +113,16 @@ export default function MonitoringPage() {
     refetchInterval: 30_000, // auto-refresh every 30s
   });
 
-  const systems = data?.systems ?? [];
+  const rawSystems = data?.systems ?? [];
+
+  // Deduplicate: keep the latest snapshot per hostname
+  const systems = Object.values(
+    rawSystems.reduce<Record<string, SystemInfo>>((acc, s) => {
+      const key = s.hostname ?? s.ip_address ?? String(Math.random());
+      if (!acc[key] || s.timestamp > acc[key].timestamp) acc[key] = s;
+      return acc;
+    }, {})
+  );
 
   // Summary stats
   const highCpu = systems.filter(s => (s.cpu_usage ?? 0) > 85).length;
@@ -135,10 +144,10 @@ export default function MonitoringPage() {
       {/* Quick stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Online Systems', value: systems.length, color: 'bg-emerald-100 text-emerald-700' },
-          { label: 'CPU > 85%', value: highCpu, color: 'bg-red-100 text-red-700' },
-          { label: 'RAM > 85%', value: highRam, color: 'bg-amber-100 text-amber-700' },
-          { label: 'Disk > 85%', value: highDisk, color: 'bg-orange-100 text-orange-700' },
+          { label: 'Online Systems', value: systems.length, color: 'bg-emerald-50 text-emerald-700' },
+          { label: 'CPU > 85%',      value: highCpu,        color: 'bg-red-50 text-red-700' },
+          { label: 'RAM > 85%',      value: highRam,        color: 'bg-amber-50 text-amber-700' },
+          { label: 'Disk > 85%',     value: highDisk,       color: 'bg-orange-50 text-orange-700' },
         ].map(s => (
           <div key={s.label} className={cn('card p-4 text-center', s.color)}>
             <p className="text-2xl font-bold">{s.value}</p>
@@ -165,7 +174,7 @@ export default function MonitoringPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {systems.map(info => (
-            <SystemCard key={info.hostname} info={info} />
+            <SystemCard key={`${info.hostname ?? info.ip_address}-${info.timestamp}`} info={info} />
           ))}
         </div>
       )}

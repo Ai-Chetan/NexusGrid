@@ -63,6 +63,54 @@ class LoginView(APIView):
         return Response({'detail': 'Invalid credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
+class RegisterView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from django.core.validators import validate_email
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        username = request.data.get('username', '').strip()
+        email = request.data.get('email', '').strip().lower()
+        password = request.data.get('password', '')
+        confirm_password = request.data.get('confirm_password', '')
+
+        errors = {}
+
+        if not username or len(username) < 3:
+            errors['username'] = 'Username must be at least 3 characters.'
+        elif User.objects.filter(username__iexact=username).exists():
+            errors['username'] = 'This username is already taken.'
+
+        if not email:
+            errors['email'] = 'Email is required.'
+        else:
+            try:
+                validate_email(email)
+            except DjangoValidationError:
+                errors['email'] = 'Enter a valid email address.'
+            else:
+                if User.objects.filter(email__iexact=email).exists():
+                    errors['email'] = 'An account with this email already exists.'
+
+        if not password or len(password) < 8:
+            errors['password'] = 'Password must be at least 8 characters.'
+        elif password != confirm_password:
+            errors['confirm_password'] = 'Passwords do not match.'
+
+        if errors:
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            role='Students',
+        )
+        login(request, user)
+        return Response({'user': UserSerializer(user).data}, status=status.HTTP_201_CREATED)
+
+
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 

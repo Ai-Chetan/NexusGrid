@@ -12,6 +12,7 @@ import { dashboardApi } from '@/lib/api';
 import { timeAgo, statusColors } from '@/lib/utils';
 import StatusBadge from '@/components/common/StatusBadge';
 import ErrorState from '@/components/common/ErrorState';
+import { useTheme } from '@/hooks/useTheme';
 import type { DashboardMetrics } from '@/types';
 
 // ─── Metric Card ─────────────────────────────────────────────────────────────
@@ -55,6 +56,14 @@ function DonutChart({ data, colors, title }: {
   colors: string[];
   title: string;
 }) {
+  const { theme } = useTheme();
+  const dark = theme === 'dark';
+  const ttStyle = {
+    fontSize: 12, borderRadius: 8, border: 'none',
+    boxShadow: '0 4px 20px rgba(0,0,0,.15)',
+    backgroundColor: dark ? '#1e293b' : '#ffffff',
+    color: dark ? '#f1f5f9' : '#0f172a',
+  };
   return (
     <div className="card p-5">
       <p className="text-sm font-semibold text-slate-700 mb-4">{title}</p>
@@ -73,9 +82,7 @@ function DonutChart({ data, colors, title }: {
               <Cell key={i} fill={colors[i % colors.length]} />
             ))}
           </Pie>
-          <Tooltip
-            contentStyle={{ fontSize: 12, borderRadius: 8, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.1)' }}
-          />
+          <Tooltip contentStyle={ttStyle} />
           <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
         </PieChart>
       </ResponsiveContainer>
@@ -88,7 +95,7 @@ function ActivityFeed({ items }: { items: DashboardMetrics['recent_activity'] })
   return (
     <div className="card p-5">
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm font-semibold text-slate-700">Recent Activity</p>
+        <p className="text-sm font-semibold text-slate-700 mb-4">Recent Activity</p>
         <Clock className="w-4 h-4 text-slate-400" />
       </div>
       <div className="space-y-3">
@@ -122,6 +129,17 @@ function ActivityFeed({ items }: { items: DashboardMetrics['recent_activity'] })
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
+  const { theme } = useTheme();
+  const dark = theme === 'dark';
+
+  const gridStroke   = dark ? '#334155' : '#cbd5e1';
+  const tickFill     = dark ? '#64748b' : '#94a3b8';
+  const tooltipStyle = {
+    fontSize: 12, borderRadius: 8, border: 'none',
+    boxShadow: '0 4px 20px rgba(0,0,0,.15)',
+    backgroundColor: dark ? '#1e293b' : '#ffffff',
+    color: dark ? '#f1f5f9' : '#0f172a',
+  };
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['dashboard-metrics'],
     queryFn: () => dashboardApi.metrics().then((r) => r.data),
@@ -250,10 +268,10 @@ export default function DashboardPage() {
                     <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.1)' }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: tickFill }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: tickFill }} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={tooltipStyle} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
                 <Area type="monotone" dataKey="faults" name="Faults" stroke="#ef4444" strokeWidth={2} fill="url(#faultGrad)" />
                 <Area type="monotone" dataKey="resources" name="Resources" stroke="#3b82f6" strokeWidth={2} fill="url(#resourceGrad)" />

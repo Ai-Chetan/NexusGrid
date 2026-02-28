@@ -191,7 +191,7 @@ function FaultRow({ fault, onUpdate }: { fault: FaultReport; onUpdate: (f: Fault
         <StatusBadge status={fault.status} />
       </td>
       <td className="px-4 py-3">
-        <div className="flex items-center gap-1 text-xs text-slate-500">
+          <div className="flex items-center gap-1 text-xs text-slate-500">
           <User className="w-3 h-3" />
           {fault.reported_by_username}
         </div>

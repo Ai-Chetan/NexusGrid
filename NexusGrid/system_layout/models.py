@@ -27,8 +27,8 @@ class LayoutItem(models.Model):
         db_index=True
     )
 
-    position_x = models.PositiveIntegerField(default=0)
-    position_y = models.PositiveIntegerField(default=0)
+    position_x = models.IntegerField(default=0)
+    position_y = models.IntegerField(default=0)
     width = models.PositiveIntegerField(default=1)
     height = models.PositiveIntegerField(default=1)
 

@@ -30,17 +30,18 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
       {/* Dialog */}
       <div
         className={cn(
-          'relative w-full bg-white rounded-2xl shadow-2xl animate-slide-in',
+          'relative w-full bg-white dark:bg-slate-900 rounded-2xl shadow-2xl animate-slide-in',
           sizeClasses[size]
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700/60">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400
-                       hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                       hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800
+                       transition-colors"
           >
             <X className="w-4 h-4" />
           </button>

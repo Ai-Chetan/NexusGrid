@@ -183,7 +183,7 @@ function ResourceRow({ resource, onUpdate }: { resource: ResourceRequest; onUpda
         </div>
       </td>
       <td className="px-4 py-3">
-        <p className="text-sm font-semibold text-slate-800">{resource.resource_name}</p>
+          <p className="text-sm font-semibold text-slate-800">{resource.resource_name}</p>
       </td>
       <td className="px-4 py-3 max-w-xs">
         <p className="text-sm text-slate-600 truncate">{resource.description}</p>
@@ -192,7 +192,7 @@ function ResourceRow({ resource, onUpdate }: { resource: ResourceRequest; onUpda
         <StatusBadge status={resource.status} />
       </td>
       <td className="px-4 py-3">
-        <div className="flex items-center gap-1 text-xs text-slate-500">
+          <div className="flex items-center gap-1 text-xs text-slate-500">
           <User className="w-3 h-3" />
           {resource.requested_by_username}
         </div>

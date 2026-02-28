@@ -7,6 +7,7 @@ import { BarChart3, RefreshCw } from 'lucide-react';
 import { reportsApi } from '@/lib/api';
 import PageHeader from '@/components/common/PageHeader';
 import ErrorState from '@/components/common/ErrorState';
+import { useTheme } from '@/hooks/useTheme';
 
 const COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#06b6d4', '#ec4899'];
 
@@ -20,6 +21,17 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 }
 
 export default function ReportsPage() {
+  const { theme } = useTheme();
+  const dark = theme === 'dark';
+
+  const gridStroke   = dark ? '#334155' : '#cbd5e1';
+  const tickFill     = dark ? '#64748b' : '#94a3b8';
+  const tooltipStyle = {
+    fontSize: 12, borderRadius: 8, border: 'none',
+    boxShadow: '0 4px 20px rgba(0,0,0,.15)',
+    backgroundColor: dark ? '#1e293b' : '#ffffff',
+    color: dark ? '#f1f5f9' : '#0f172a',
+  };
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['reports'],
     queryFn: () => reportsApi.get().then(r => r.data),
@@ -66,11 +78,6 @@ export default function ReportsPage() {
     count: x.count,
   }));
 
-  const tooltipStyle = {
-    fontSize: 12, borderRadius: 8, border: 'none',
-    boxShadow: '0 4px 20px rgba(0,0,0,.1)',
-  };
-
   return (
     <div className="space-y-5 animate-fade-in">
       <PageHeader
@@ -90,9 +97,9 @@ export default function ReportsPage() {
           {isLoading ? skeletonChart : (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={faultTrendData} barSize={14}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: tickFill }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: tickFill }} tickLine={false} axisLine={false} />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
                 {types.map((t, i) => (
@@ -108,9 +115,9 @@ export default function ReportsPage() {
           {isLoading ? skeletonChart : (
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={resourceTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: tickFill }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: tickFill }} tickLine={false} axisLine={false} />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Line type="monotone" dataKey="count" name="Requests" stroke="#3b82f6" strokeWidth={2} dot={false} />
               </LineChart>

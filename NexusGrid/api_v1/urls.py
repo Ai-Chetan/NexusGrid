@@ -6,6 +6,7 @@ urlpatterns = [
     path('auth/login/', views.LoginView.as_view(), name='api-login'),
     path('auth/logout/', views.LogoutView.as_view(), name='api-logout'),
     path('auth/me/', views.MeView.as_view(), name='api-me'),
+    path('auth/register/', views.RegisterView.as_view(), name='api-register'),
 
     # Dashboard
     path('dashboard/metrics/', views.DashboardMetricsView.as_view(), name='api-dashboard-metrics'),

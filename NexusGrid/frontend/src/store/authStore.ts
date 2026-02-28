@@ -7,6 +7,7 @@ interface AuthState {
   isLoading: boolean;
   isInitialized: boolean;
   login: (username: string, password: string) => Promise<void>;
+  register: (username: string, email: string, password: string, confirmPassword: string) => Promise<void>;
   logout: () => Promise<void>;
   initialize: () => Promise<void>;
 }
@@ -38,11 +39,22 @@ export const useAuthStore = create<AuthState>()(
       }
     },
 
+    register: async (username, email, password, confirmPassword) => {
+      set({ isLoading: true });
+      try {
+        const { data } = await authApi.register({ username, email, password, confirm_password: confirmPassword });
+        set({ user: data.user, isInitialized: true, isLoading: false });
+      } catch (err) {
+        set({ isLoading: false });
+        throw err;
+      }
+    },
+
     logout: async () => {
       try {
         await authApi.logout();
       } finally {
-        set({ user: null, isInitialized: false });
+        set({ user: null, isInitialized: true });
       }
     },
   })
@@ -51,6 +63,6 @@ export const useAuthStore = create<AuthState>()(
 // Respond to 401/403 from the API interceptor
 if (typeof window !== 'undefined') {
   window.addEventListener('auth:unauthorized', () => {
-    useAuthStore.setState({ user: null, isInitialized: false });
+    useAuthStore.setState({ user: null, isInitialized: true });
   });
 }
