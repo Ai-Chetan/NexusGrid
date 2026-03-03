@@ -5,16 +5,19 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
+import type { User } from '@/types';
 import toast from 'react-hot-toast';
 
-const navItems = [
+type Role = User['role'];
+
+const navItems: { to: string; label: string; icon: React.ElementType; allowedRoles?: Role[] }[] = [
   { to: '/app/dashboard',  label: 'Dashboard',      icon: LayoutDashboard },
   { to: '/app/layout',     label: 'System Layout',   icon: Map },
   { to: '/app/faults',     label: 'Fault Reports',   icon: AlertTriangle },
   { to: '/app/resources',  label: 'Resources',       icon: Package },
   { to: '/app/reports',    label: 'Reports',         icon: BarChart3 },
-  { to: '/app/monitoring', label: 'Monitoring',      icon: Activity },
-  { to: '/app/users',      label: 'User Privileges', icon: Users },
+  { to: '/app/monitoring', label: 'Monitoring',      icon: Activity,    allowedRoles: ['Administrator', 'Lab Assistant'] },
+  { to: '/app/users',      label: 'User Privileges', icon: Users,        allowedRoles: ['Administrator'] },
 ];
 
 interface SidebarProps {
@@ -24,6 +27,10 @@ interface SidebarProps {
 export default function Sidebar({ onClose }: SidebarProps) {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+
+  const visibleNavItems = navItems.filter(({ allowedRoles }) =>
+    !allowedRoles || (user?.role && allowedRoles.includes(user.role))
+  );
 
   const handleLogout = async () => {
     await logout();
@@ -46,7 +53,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-        {navItems.map(({ to, label, icon: Icon }) => (
+        {visibleNavItems.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}

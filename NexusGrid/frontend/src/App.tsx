@@ -14,10 +14,22 @@ import MonitoringPage from '@/pages/monitoring/MonitoringPage';
 import UsersPage from '@/pages/users/UsersPage';
 import LoadingScreen from '@/components/common/LoadingScreen';
 
+import type { User } from '@/types';
+
+type Role = User['role'];
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isInitialized } = useAuthStore();
   if (!isInitialized) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+function RoleRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: Role[] }) {
+  const { user, isInitialized } = useAuthStore();
+  if (!isInitialized) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!allowedRoles.includes(user.role)) return <Navigate to="/app/dashboard" replace />;
   return <>{children}</>;
 }
 
@@ -54,8 +66,8 @@ export default function App() {
           <Route path="faults" element={<FaultsPage />} />
           <Route path="resources" element={<ResourcesPage />} />
           <Route path="reports" element={<ReportsPage />} />
-          <Route path="monitoring" element={<MonitoringPage />} />
-          <Route path="users" element={<UsersPage />} />
+          <Route path="monitoring" element={<RoleRoute allowedRoles={['Administrator', 'Lab Assistant']}><MonitoringPage /></RoleRoute>} />
+          <Route path="users" element={<RoleRoute allowedRoles={['Administrator']}><UsersPage /></RoleRoute>} />
         </Route>
 
         {/* Legacy redirects */}
