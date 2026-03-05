@@ -4,6 +4,7 @@ api_v1/signals.py
 Cache invalidation for the metrics and monitoring caches.
 Connected in ApiV1Config.ready() so the dashboard and reports are always
 fresh after any relevant data change — without waiting for the TTL.
+comment
 """
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
