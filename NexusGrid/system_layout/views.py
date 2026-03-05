@@ -109,6 +109,24 @@ def add_layout_item(request):
 
             parent = None if parent_id in [None, 'null'] else get_object_or_404(LayoutItem, id=int(parent_id))
 
+            item_type = data.get('item_type')
+            parent_type = parent.item_type if parent else None
+
+            # Enforce strict hierarchy rules
+            ALLOWED_CHILDREN = {
+                None: {'building'},
+                'building': {'floor'},
+                'floor': {'room'},
+                'room': {'computer', 'server', 'network_switch', 'router', 'printer', 'ups', 'rack'},
+            }
+            allowed = ALLOWED_CHILDREN.get(parent_type, set())
+            if item_type not in allowed:
+                parent_label = parent_type.capitalize() if parent_type else 'Root'
+                return JsonResponse(
+                    {'status': 'error', 'message': f"Cannot add '{item_type}' inside {parent_label}. Allowed: {sorted(allowed)}"},
+                    status=400
+                )
+
             item = LayoutItem.objects.create(
                 name=data.get('name'),
                 item_type=data.get('item_type'),

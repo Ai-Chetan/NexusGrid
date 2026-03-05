@@ -5,8 +5,9 @@ import {
   Shield, CheckCircle, ChevronLeft, ChevronRight, ArrowRight,
   Mail, Phone, MapPin, Clock, Star, Activity, Network,
   Cpu, Layers, Bell, Lock, Globe, TrendingUp, X, Menu,
-  Send, Building2, Github, Twitter, Linkedin,
+  Send, Building2, Github, Twitter, Linkedin, Sun, Moon,
 } from 'lucide-react';
+import { useTheme } from '@/hooks/useTheme';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Feature {
@@ -177,6 +178,7 @@ const COMPARISONS = [
 // ─── Navbar ───────────────────────────────────────────────────────────────────
 function Navbar({ onNav }: { onNav: (id: string) => void }) {
   const navigate = useNavigate();
+  const { theme, toggle } = useTheme();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -196,8 +198,8 @@ function Navbar({ onNav }: { onNav: (id: string) => void }) {
     <header
       className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
         scrolled
-          ? 'bg-white/95 backdrop-blur-xl border-b border-slate-200 shadow-md'
-          : 'bg-white/80 backdrop-blur-sm border-b border-slate-100'
+          ? 'bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700 shadow-md'
+          : 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-100 dark:border-slate-800'
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
@@ -206,7 +208,7 @@ function Navbar({ onNav }: { onNav: (id: string) => void }) {
           <div className="w-8 h-8 bg-brand-600 rounded-xl flex items-center justify-center shadow-lg shadow-brand-600/40">
             <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
           </div>
-          <span className="text-lg font-bold text-slate-900 tracking-tight">NexusGrid</span>
+          <span className="text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">NexusGrid</span>
         </div>
 
         {/* Desktop Nav */}
@@ -215,8 +217,7 @@ function Navbar({ onNav }: { onNav: (id: string) => void }) {
             <button
               key={l.id}
               onClick={() => onNav(l.id)}
-              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-black/5
-                         rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-colors"
             >
               {l.label}
             </button>
@@ -224,47 +225,62 @@ function Navbar({ onNav }: { onNav: (id: string) => void }) {
         </nav>
 
         {/* CTA */}
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden md:flex items-center gap-2">
+          {/* Dark mode toggle */}
+          <button
+            onClick={toggle}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
           <button
             onClick={() => navigate('/login')}
-            className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
           >
             Sign In
           </button>
           <button
             onClick={() => navigate('/login')}
-            className="px-4 py-2 text-sm font-semibold bg-brand-600 hover:bg-brand-500 text-white
-                       rounded-xl transition-colors shadow-lg shadow-brand-600/30"
+            className="px-4 py-2 text-sm font-semibold bg-brand-600 hover:bg-brand-500 text-white rounded-xl transition-colors shadow-lg shadow-brand-600/30"
           >
             Get Started
           </button>
         </div>
 
-        {/* Mobile toggle */}
-        <button
-          className="md:hidden p-2 text-slate-600 hover:text-slate-900"
-          onClick={() => setOpen((v) => !v)}
-        >
-          {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
+        {/* Mobile: theme toggle + hamburger */}
+        <div className="md:hidden flex items-center gap-1">
+          <button
+            onClick={toggle}
+            aria-label="Toggle theme"
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+          <button
+            className="p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+            onClick={() => setOpen((v) => !v)}
+          >
+            {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu */}
       {open && (
-        <div className="md:hidden bg-white/95 backdrop-blur-xl border-t border-slate-200 px-4 pb-4">
+        <div className="md:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-700 px-4 pb-4">
           {links.map((l) => (
             <button
               key={l.id}
               onClick={() => { onNav(l.id); setOpen(false); }}
-              className="block w-full text-left px-3 py-3 text-sm font-medium text-slate-600 hover:text-slate-900"
+              className="block w-full text-left px-3 py-3 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
             >
               {l.label}
             </button>
           ))}
           <button
             onClick={() => navigate('/login')}
-            className="mt-3 w-full py-2.5 text-sm font-semibold bg-brand-600 hover:bg-brand-500 text-white
-                       rounded-xl transition-colors"
+            className="mt-3 w-full py-2.5 text-sm font-semibold bg-brand-600 hover:bg-brand-500 text-white rounded-xl transition-colors"
           >
             Get Started
           </button>
@@ -280,7 +296,8 @@ function Hero({ onNav }: { onNav: (id: string) => void }) {
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden
-                        bg-gradient-to-br from-white via-slate-50 to-brand-50">
+                        bg-gradient-to-br from-white via-slate-50 to-brand-50
+                        dark:from-slate-950 dark:via-slate-900 dark:to-slate-900">
       {/* Animated grid */}
       <div className="absolute inset-0 pointer-events-none"
         style={{
@@ -296,8 +313,8 @@ function Hero({ onNav }: { onNav: (id: string) => void }) {
 
       <div className="relative z-10 max-w-5xl mx-auto px-4 text-center">
         {/* Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-brand-50 border border-brand-200
-                        rounded-full text-brand-600 text-xs font-semibold mb-8">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-brand-50 dark:bg-slate-800 border border-brand-200 dark:border-slate-700
+                        rounded-full text-brand-600 dark:text-brand-400 text-xs font-semibold mb-8">
           <Zap className="w-3.5 h-3.5" />
           Next-Gen Lab Management Platform
         </div>
@@ -330,8 +347,8 @@ function Hero({ onNav }: { onNav: (id: string) => void }) {
           </button>
           <button
             onClick={() => onNav('features')}
-            className="flex items-center gap-2 px-8 py-3.5 bg-white hover:bg-slate-50 text-slate-700
-                       font-semibold rounded-2xl transition-all border border-slate-200 shadow-sm"
+            className="flex items-center gap-2 px-8 py-3.5 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200
+                       font-semibold rounded-2xl transition-all border border-slate-200 dark:border-slate-700 shadow-sm"
           >
             Explore Features
           </button>
@@ -345,8 +362,8 @@ function Hero({ onNav }: { onNav: (id: string) => void }) {
             { value: '5', label: 'User Roles' },
             { value: '24/7', label: 'Live Monitoring' },
           ].map(({ value, label }) => (
-            <div key={label} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-              <p className="text-2xl font-bold text-slate-900">{value}</p>
+            <div key={label} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm">
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{value}</p>
               <p className="text-xs text-slate-500 mt-0.5">{label}</p>
             </div>
           ))}
@@ -394,12 +411,12 @@ function FeaturesCarousel() {
   const Icon = f.icon;
 
   return (
-    <section id="features" className="bg-slate-50 py-24 px-4">
+    <section id="features" className="bg-slate-50 dark:bg-slate-900 py-24 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Section header */}
         <div className="text-center mb-16">
-          <span className="inline-block px-3 py-1 bg-brand-50 border border-brand-200 rounded-full
-                           text-brand-600 text-xs font-semibold mb-4">
+          <span className="inline-block px-3 py-1 bg-brand-50 dark:bg-slate-800 border border-brand-200 dark:border-slate-700 rounded-full
+                           text-brand-600 dark:text-brand-400 text-xs font-semibold mb-4">
             Platform Features
           </span>
           <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900 mb-4">
@@ -424,7 +441,7 @@ function FeaturesCarousel() {
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                   i === current
                     ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/30'
-                    : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-slate-800'
+                    : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 <FIcon className="w-4 h-4" />
@@ -438,13 +455,13 @@ function FeaturesCarousel() {
         <div className="relative">
           <div
             key={current}
-            className={`bg-gradient-to-br ${f.bg} border border-slate-200 rounded-3xl overflow-hidden
+            className={`bg-gradient-to-br ${f.bg} dark:from-slate-800 dark:to-slate-700 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden
                         shadow-xl animate-fade-in`}
           >
             <div className="grid lg:grid-cols-2 min-h-[420px]">
               {/* Content */}
               <div className="p-8 sm:p-12 flex flex-col justify-center">
-                <div className={`w-14 h-14 rounded-2xl bg-white border border-slate-200 flex items-center justify-center mb-6`}>
+                <div className={`w-14 h-14 rounded-2xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center mb-6`}>
                   <Icon className={`w-7 h-7 ${f.color}`} />
                 </div>
                 <h3 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-4">{f.title}</h3>
@@ -463,11 +480,11 @@ function FeaturesCarousel() {
               <div className="relative hidden lg:flex items-center justify-center p-12">
                 {/* Decorative rings */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-72 h-72 rounded-full border border-slate-200" />
-                  <div className="absolute w-52 h-52 rounded-full border border-slate-200" />
-                  <div className="absolute w-32 h-32 rounded-full border border-slate-300" />
+                  <div className="w-72 h-72 rounded-full border border-slate-200 dark:border-slate-700" />
+                  <div className="absolute w-52 h-52 rounded-full border border-slate-200 dark:border-slate-700" />
+                  <div className="absolute w-32 h-32 rounded-full border border-slate-300 dark:border-slate-600" />
                 </div>
-                <div className={`relative w-28 h-28 rounded-3xl bg-white border border-slate-200 flex items-center justify-center
+                <div className={`relative w-28 h-28 rounded-3xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center
                                  shadow-lg`}>
                   <Icon className={`w-14 h-14 ${f.color}`} />
                 </div>
@@ -475,8 +492,8 @@ function FeaturesCarousel() {
                 {f.points.slice(0, 3).map((pt, pi) => (
                   <div
                     key={pi}
-                    className="absolute bg-white/90 backdrop-blur-sm border border-slate-200 rounded-xl px-3 py-2
-                               text-xs text-slate-700 font-medium shadow-xl"
+                    className="absolute bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2
+                               text-xs text-slate-700 dark:text-slate-200 font-medium shadow-xl"
                     style={{
                       top: `${20 + pi * 30}%`,
                       right: pi % 2 === 0 ? '4%' : 'auto',
@@ -494,16 +511,16 @@ function FeaturesCarousel() {
           {/* Prev / Next */}
           <button
             onClick={prev}
-            className="absolute -left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white
-                       border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-50
+            className="absolute -left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white dark:bg-slate-800
+                       border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700
                        transition-colors shadow-lg hidden sm:flex"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <button
             onClick={next}
-            className="absolute -right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white
-                       border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-50
+            className="absolute -right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white dark:bg-slate-800
+                       border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700
                        transition-colors shadow-lg hidden sm:flex"
           >
             <ChevronRight className="w-5 h-5" />
@@ -517,7 +534,7 @@ function FeaturesCarousel() {
               key={i}
               onClick={() => go(i)}
               className={`h-1.5 rounded-full transition-all ${
-                i === current ? 'w-8 bg-brand-500' : 'w-2 bg-slate-300 hover:bg-slate-400'
+                i === current ? 'w-8 bg-brand-500' : 'w-2 bg-slate-300 dark:bg-slate-600 hover:bg-slate-400 dark:hover:bg-slate-500'
               }`}
             />
           ))}
@@ -535,12 +552,12 @@ function FeaturesCarousel() {
 // ─── Why NexusGrid ────────────────────────────────────────────────────────────
 function WhyNexusGrid() {
   return (
-    <section id="why" className="bg-white py-24 px-4">
+    <section id="why" className="bg-white dark:bg-slate-900 py-24 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-16">
-          <span className="inline-block px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-full
-                           text-emerald-600 text-xs font-semibold mb-4">
+          <span className="inline-block px-3 py-1 bg-emerald-50 dark:bg-slate-800 border border-emerald-200 dark:border-slate-700 rounded-full
+                           text-emerald-600 dark:text-emerald-400 text-xs font-semibold mb-4">
             Why Choose NexusGrid
           </span>
           <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900 mb-4">
@@ -560,12 +577,12 @@ function WhyNexusGrid() {
           {ADVANTAGES.map(({ icon: Icon, title, description }) => (
             <div
               key={title}
-              className="group bg-slate-50 hover:bg-white border border-slate-200 hover:border-brand-200
+              className="group bg-slate-50 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 hover:border-brand-200 dark:hover:border-brand-500/50
                          rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg
                          hover:shadow-brand-600/10"
             >
-              <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center mb-4
-                              group-hover:bg-brand-100 transition-colors">
+              <div className="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center mb-4
+                              group-hover:bg-brand-100 dark:group-hover:bg-brand-800/40 transition-colors">
                 <Icon className="w-5 h-5 text-brand-600" />
               </div>
               <h3 className="text-sm font-bold text-slate-900 mb-2">{title}</h3>
@@ -575,20 +592,20 @@ function WhyNexusGrid() {
         </div>
 
         {/* Comparison table */}
-        <div className="bg-white border border-slate-200 rounded-3xl
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl
                         overflow-hidden shadow-lg">
           <div className="px-8 pt-8 pb-4">
-            <h3 className="text-xl font-bold text-slate-900">NexusGrid vs. Generic Tools</h3>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">NexusGrid vs. Generic Tools</h3>
             <p className="text-slate-500 text-sm mt-1">See what sets us apart at a glance.</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-slate-200">
+                <tr className="border-b border-slate-200 dark:border-slate-700">
                   <th className="text-left px-8 py-4 text-slate-500 text-sm font-medium">Capability</th>
                   <th className="px-8 py-4 text-center">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-brand-50 border
-                                     border-brand-200 rounded-full text-brand-600 text-xs font-bold">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-brand-50 dark:bg-brand-900/30 border
+                                     border-brand-200 dark:border-brand-700 rounded-full text-brand-600 dark:text-brand-400 text-xs font-bold">
                       <Zap className="w-3 h-3" /> NexusGrid
                     </span>
                   </th>
@@ -597,8 +614,8 @@ function WhyNexusGrid() {
               </thead>
               <tbody>
                 {COMPARISONS.map(({ label, nexus, others }, i) => (
-                  <tr key={label} className={i % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
-                    <td className="px-8 py-4 text-slate-700 text-sm">{label}</td>
+                  <tr key={label} className={i % 2 === 0 ? 'bg-slate-50 dark:bg-slate-700/40' : 'bg-white dark:bg-slate-800'}>
+                    <td className="px-8 py-4 text-slate-700 dark:text-slate-300 text-sm">{label}</td>
                     <td className="px-8 py-4 text-center">
                       {nexus
                         ? <CheckCircle className="w-5 h-5 text-emerald-400 mx-auto" />
@@ -621,13 +638,14 @@ function WhyNexusGrid() {
         {/* Testimonial-style quote */}
         <div className="mt-12 text-center">
           <div className="inline-block max-w-2xl bg-gradient-to-br from-brand-50 to-slate-50
-                          border border-brand-100 rounded-3xl px-8 py-6 shadow-sm">
+                          dark:from-slate-800 dark:to-slate-800
+                          border border-brand-100 dark:border-slate-700 rounded-3xl px-8 py-6 shadow-sm">
             <div className="flex gap-1 justify-center mb-3">
               {[...Array(5)].map((_, i) => (
                 <Star key={i} className="w-4 h-4 text-amber-400 fill-amber-400" />
               ))}
             </div>
-            <p className="text-slate-600 text-base italic leading-relaxed">
+            <p className="text-slate-600 dark:text-slate-300 text-base italic leading-relaxed">
               "NexusGrid replaced three separate tools we were using. The live floor-plan alone saved our technicians
               hours every week — they can now see a failing machine on the map before even leaving their desk."
             </p>
@@ -657,12 +675,12 @@ function Contact() {
   };
 
   return (
-    <section id="contact" className="bg-slate-50 py-24 px-4">
+    <section id="contact" className="bg-slate-50 dark:bg-slate-900 py-24 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-16">
-          <span className="inline-block px-3 py-1 bg-violet-50 border border-violet-200 rounded-full
-                           text-violet-600 text-xs font-semibold mb-4">
+          <span className="inline-block px-3 py-1 bg-violet-50 dark:bg-slate-800 border border-violet-200 dark:border-slate-700 rounded-full
+                           text-violet-600 dark:text-violet-400 text-xs font-semibold mb-4">
             Get In Touch
           </span>
           <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900 mb-4">
@@ -678,7 +696,7 @@ function Contact() {
 
         <div className="grid lg:grid-cols-2 gap-10">
           {/* Left — Form */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-lg">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-8 shadow-lg">
             <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
               <Mail className="w-5 h-5 text-brand-600" />
               Send a Message
@@ -702,8 +720,8 @@ function Contact() {
                     onChange={handleChange}
                     required
                     placeholder="John Smith"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900
-                               placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-slate-100
+                               placeholder:text-slate-400 dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2
                                focus:ring-brand-500 focus:border-transparent transition-all"
                   />
                 </div>
@@ -716,8 +734,8 @@ function Contact() {
                     onChange={handleChange}
                     required
                     placeholder="john@university.edu"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900
-                               placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-slate-100
+                               placeholder:text-slate-400 dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2
                                focus:ring-brand-500 focus:border-transparent transition-all"
                   />
                 </div>
@@ -729,8 +747,8 @@ function Contact() {
                   name="subject"
                   value={form.subject}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm
-                             text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm
+                             text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent
                              transition-all appearance-none"
                 >
                   <option value="">Select a topic…</option>
@@ -751,8 +769,8 @@ function Contact() {
                   required
                   rows={5}
                   placeholder="Tell us about your institution and how we can help…"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900
-                             placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-slate-100
+                             placeholder:text-slate-400 dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2
                              focus:ring-brand-500 focus:border-transparent transition-all resize-none"
                 />
               </div>
@@ -796,24 +814,24 @@ function Contact() {
                   bg: 'bg-emerald-500/10',
                 },
               ].map(({ icon: Icon, label, value, color, bg }) => (
-                <div key={label} className="bg-white border border-slate-200 rounded-2xl p-4">
+                <div key={label} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4">
                   <div className={`w-8 h-8 ${bg} rounded-xl flex items-center justify-center mb-3`}>
                     <Icon className={`w-4 h-4 ${color}`} />
                   </div>
-                  <p className="text-xs text-slate-500 font-medium mb-1">{label}</p>
-                  <p className="text-xs text-slate-700 leading-snug">{value}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">{label}</p>
+                  <p className="text-xs text-slate-700 dark:text-slate-300 leading-snug">{value}</p>
                 </div>
               ))}
             </div>
 
             {/* Hours */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 flex items-start gap-4">
-              <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center shrink-0">
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 flex items-start gap-4">
+              <div className="w-9 h-9 bg-amber-50 dark:bg-amber-900/20 rounded-xl flex items-center justify-center shrink-0">
                 <Clock className="w-4 h-4 text-amber-500" />
               </div>
               <div>
-                <p className="text-xs font-medium text-slate-500 mb-2">Support Hours</p>
-                <div className="space-y-1 text-xs text-slate-600">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Support Hours</p>
+                <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
                   <p><span className="text-slate-400 w-32 inline-block">Monday – Friday</span>8:00 AM – 6:00 PM</p>
                   <p><span className="text-slate-400 w-32 inline-block">Saturday</span>9:00 AM – 1:00 PM</p>
                   <p><span className="text-slate-400 w-32 inline-block">Sunday</span>Closed</p>
@@ -822,7 +840,7 @@ function Contact() {
             </div>
 
             {/* Embedded Map */}
-            <div className="flex-1 min-h-64 rounded-3xl overflow-hidden border border-slate-200 shadow-lg">
+            <div className="flex-1 min-h-64 rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-lg">
               <iframe
                 title="NexusGrid Location"
                 src="https://www.openstreetmap.org/export/embed.html?bbox=-0.1300%2C51.4900%2C-0.0900%2C51.5100&layer=mapnik&marker=51.5000%2C-0.1100"
@@ -967,7 +985,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white dark:bg-slate-950">
       <Navbar onNav={scrollTo} />
       <Hero onNav={scrollTo} />
       <FeaturesCarousel />

@@ -5,6 +5,7 @@ import {
   ChevronRight, Home, Plus, ChevronLeft,
   Building2, Layers, DoorOpen, Monitor, Server, Network,
   Wifi, Printer, Zap, HardDrive, Package, Loader2,
+  Copy, ClipboardPaste, Undo2, Redo2,
 } from 'lucide-react';
 import { layoutApi } from '@/lib/api';
 import { itemTypeLabel, cn, getChildTypes } from '@/lib/utils';
@@ -77,8 +78,8 @@ function AddItemModal({ open, onClose, parentType, parentId }: AddItemModalProps
           <label className="label">Item Type</label>
           <select value={itemType} onChange={(e) => setItemType(e.target.value)} className="input" required>
             <option value="">Select type…</option>
-            {options.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+            {options.map((type) => (
+              <option key={type} value={type}>{itemTypeLabel[type] ?? type}</option>
             ))}
           </select>
         </div>
@@ -232,6 +233,118 @@ function DeleteModal({ item, onClose, onConfirm }: DeleteModalProps) {
   );
 }
 
+// ─── Clipboard types ─────────────────────────────────────────────────────────
+interface ClipboardEntry {
+  name: string;
+  item_type: string;
+  position_x: number;
+  position_y: number;
+}
+interface LayoutClipboard {
+  items: ClipboardEntry[];
+  sourceParentType: string;
+}
+// ─── Undo / Redo snapshot ─────────────────────────────────────────────────────
+interface EditSnapshot {
+  renames: Record<number, string>;
+  deletes: number[];
+  positions: Record<string, { x: number; y: number }>;
+}
+// ─── Paste Layout Modal ───────────────────────────────────────────────────────
+interface PasteModalProps {
+  open: boolean;
+  onClose: () => void;
+  clipboard: LayoutClipboard | null;
+  parentId: number | null;
+  parentType: string;
+}
+
+function PasteModal({ open, onClose, clipboard, parentId, parentType }: PasteModalProps) {
+  const [prefix, setPrefix] = useState('');
+  const [isPasting, setIsPasting] = useState(false);
+  const qc = useQueryClient();
+
+  useEffect(() => { if (!open) setPrefix(''); }, [open]);
+
+  if (!clipboard) return null;
+
+  const handlePaste = async () => {
+    setIsPasting(true);
+    try {
+      await Promise.all(
+        clipboard.items.map((entry) =>
+          layoutApi.createItem({
+            name: prefix.trim() ? `${prefix.trim()} ${entry.name}` : entry.name,
+            item_type: entry.item_type,
+            parent: parentId,
+            position_x: entry.position_x,
+            position_y: entry.position_y,
+          }),
+        ),
+      );
+      qc.invalidateQueries({ queryKey: ['layout-items'] });
+      toast.success(`${clipboard.items.length} item${clipboard.items.length !== 1 ? 's' : ''} pasted`);
+      onClose();
+    } catch {
+      toast.error('Failed to paste items');
+    } finally {
+      setIsPasting(false);
+    }
+  };
+
+  const levelLabel = parentType === 'root' ? 'root' : parentType;
+
+  return (
+    <Modal open={open} onClose={onClose} title="Paste Layout">
+      <div className="space-y-4">
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Paste <strong>{clipboard.items.length}</strong> item{clipboard.items.length !== 1 ? 's' : ''} into this <strong>{levelLabel}</strong>.
+        </p>
+
+        <div className="max-h-48 overflow-y-auto space-y-0.5 border border-slate-200 dark:border-slate-700 rounded-lg p-2">
+          {clipboard.items.map((entry, i) => {
+            const Icon = typeIcons[entry.item_type] ?? Package;
+            const displayName = prefix.trim() ? `${prefix.trim()} ${entry.name}` : entry.name;
+            return (
+              <div key={i} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 px-1 py-0.5 rounded hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                <Icon className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                <span className="truncate flex-1">{displayName}</span>
+                <span className="text-xs text-slate-400 shrink-0">{itemTypeLabel[entry.item_type] ?? entry.item_type}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div>
+          <label className="label">Name prefix <span className="text-slate-400 font-normal">(optional)</span></label>
+          <input
+            type="text"
+            value={prefix}
+            onChange={(e) => setPrefix(e.target.value)}
+            className="input"
+            placeholder="e.g. Copy of"
+          />
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          <button
+            type="button"
+            onClick={handlePaste}
+            disabled={isPasting}
+            className="btn-primary flex-1"
+          >
+            {isPasting
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Pasting…</>
+              : `Paste ${clipboard.items.length} Item${clipboard.items.length !== 1 ? 's' : ''}`
+            }
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Stats row ────────────────────────────────────────────────────────────────
 function StatsRow({ items }: { items: LayoutItem[] }) {
   const counts: Record<string, number> = {};
@@ -264,14 +377,20 @@ export default function LayoutPage() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [copiedLayout, setCopiedLayout] = useState<LayoutClipboard | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [editItem, setEditItem] = useState<LayoutItem | null>(null);
   const [deleteItem, setDeleteItem] = useState<LayoutItem | null>(null);
   const [pendingRenames, setPendingRenames] = useState<Record<number, string>>({});
   const [pendingDeletes, setPendingDeletes] = useState<number[]>([]);
+  const [undoStack, setUndoStack] = useState<EditSnapshot[]>([]);
+  const [redoStack, setRedoStack] = useState<EditSnapshot[]>([]);
   const [isSavingLayout, setIsSavingLayout] = useState(false);
   const [isSavingFlow, setIsSavingFlow] = useState(false);
   const isSaving = isSavingLayout || isSavingFlow;
+  const canUndo = undoStack.length > 0;
+  const canRedo = redoStack.length > 0;
   const flowRef = useRef<NetworkFlowViewRef>(null);
 
   const handleLayoutSave = useCallback(async () => {
@@ -298,13 +417,81 @@ export default function LayoutPage() {
   const handleLayoutDiscard = useCallback(() => {
     setPendingRenames({});
     setPendingDeletes([]);
+    setUndoStack([]);
+    setRedoStack([]);
   }, []);
+
+  // Push current edit state onto the undo stack and clear redo
+  const pushUndo = useCallback((renames: Record<number, string>, deletes: number[]) => {
+    const positions = flowRef.current?.getPositions() ?? {};
+    setUndoStack((s) => [...s, { renames, deletes, positions }]);
+    setRedoStack([]);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    setUndoStack((stack) => {
+      if (stack.length === 0) return stack;
+      const prev = stack[stack.length - 1];
+      const currentPositions = flowRef.current?.getPositions() ?? {};
+      setRedoStack((rs) => [
+        ...rs,
+        { renames: pendingRenames, deletes: pendingDeletes, positions: currentPositions },
+      ]);
+      setPendingRenames(prev.renames);
+      setPendingDeletes(prev.deletes);
+      flowRef.current?.applyPositions(prev.positions);
+      return stack.slice(0, -1);
+    });
+  }, [pendingRenames, pendingDeletes]);
+
+  const handleRedo = useCallback(() => {
+    setRedoStack((stack) => {
+      if (stack.length === 0) return stack;
+      const next = stack[stack.length - 1];
+      const currentPositions = flowRef.current?.getPositions() ?? {};
+      setUndoStack((us) => [
+        ...us,
+        { renames: pendingRenames, deletes: pendingDeletes, positions: currentPositions },
+      ]);
+      setPendingRenames(next.renames);
+      setPendingDeletes(next.deletes);
+      flowRef.current?.applyPositions(next.positions);
+      return stack.slice(0, -1);
+    });
+  }, [pendingRenames, pendingDeletes]);
+
+  // Keyboard shortcuts: Ctrl+Z = undo, Ctrl+Y / Ctrl+Shift+Z = redo
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!editMode) return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        handleUndo();
+      }
+      if (e.ctrlKey && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [editMode, handleUndo, handleRedo]);
+
+  // Called by NetworkFlowView just before committing a drag
+  const handleBeforePositionChange = useCallback((currentPositions: Record<string, { x: number; y: number }>) => {
+    setUndoStack((s) => [...s, { renames: pendingRenames, deletes: pendingDeletes, positions: currentPositions }]);
+    setRedoStack([]);
+  }, [pendingRenames, pendingDeletes]);
 
   // Reset all edit state whenever the user navigates to a different level
   useEffect(() => {
     setEditMode(false);
     setPendingRenames({});
     setPendingDeletes([]);
+    setUndoStack([]);
+    setRedoStack([]);
   }, [parentId]);
 
   const { data: items = [], isLoading, isError, refetch } = useQuery({
@@ -324,6 +511,21 @@ export default function LayoutPage() {
   const currentItem = breadcrumb[breadcrumb.length - 1];
   const parentType = currentItem?.item_type ?? 'root';
   const canAddChildren = getChildTypes(parentType).length > 0;
+  const canPaste = copiedLayout !== null && copiedLayout.sourceParentType === parentType;
+
+  const handleCopy = useCallback(() => {
+    if (items.length === 0) return;
+    setCopiedLayout({
+      items: items.map((item) => ({
+        name: item.name,
+        item_type: item.item_type,
+        position_x: item.position_x,
+        position_y: item.position_y,
+      })),
+      sourceParentType: parentType,
+    });
+    toast.success(`${items.length} item${items.length !== 1 ? 's' : ''} copied to clipboard`);
+  }, [items, parentType]);
 
   const handleEnter = useCallback((item: LayoutItem) => {
     navigate(`/app/layout/${item.id}`);
@@ -401,8 +603,18 @@ export default function LayoutPage() {
               <Zap className="w-4 h-4" /> Quick Build
             </button>
           )}
+          {/* ── Paste — always visible when clipboard is compatible, regardless of edit mode ── */}
+          {canPaste && (
+            <button
+              onClick={() => setPasteOpen(true)}
+              title="Paste copied layout here"
+              className="btn-secondary flex items-center gap-1.5 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-700 hover:bg-violet-50 dark:hover:bg-violet-900/20"
+            >
+              <ClipboardPaste className="w-4 h-4" /> Paste Layout
+            </button>
+          )}
 
-          {/* ── Edit mode: Discard | + Add | Save ── */}
+          {/* ── Edit mode: Discard | Undo | Redo | Copy | + Add | Save ── */}
           {editMode && (
             <div className="flex items-stretch rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">
               <button
@@ -412,6 +624,32 @@ export default function LayoutPage() {
               >
                 Discard
               </button>
+              <button
+                onClick={handleUndo}
+                disabled={isSaving || !canUndo}
+                title="Undo (Ctrl+Z)"
+                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors border-r border-slate-200 dark:border-slate-700"
+              >
+                <Undo2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={handleRedo}
+                disabled={isSaving || !canRedo}
+                title="Redo (Ctrl+Y)"
+                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors border-r border-slate-200 dark:border-slate-700"
+              >
+                <Redo2 className="w-4 h-4" />
+              </button>
+              {items.length > 0 && (
+                <button
+                  onClick={handleCopy}
+                  disabled={isSaving}
+                  title="Copy all items in this layer"
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors border-r border-slate-200 dark:border-slate-700"
+                >
+                  <Copy className="w-4 h-4" /> Copy
+                </button>
+              )}
               {canAddChildren && (
                 <button
                   onClick={() => setAddOpen(true)}
@@ -477,6 +715,7 @@ export default function LayoutPage() {
         <NetworkFlowView
           ref={flowRef}
           onIsSavingChange={setIsSavingFlow}
+          onBeforePositionChange={handleBeforePositionChange}
           {...sharedProps}
         />
       )}
@@ -499,6 +738,7 @@ export default function LayoutPage() {
         item={editItem}
         onClose={() => setEditItem(null)}
         onConfirm={(newName) => {
+          pushUndo(pendingRenames, pendingDeletes);
           setPendingRenames((prev) => ({ ...prev, [editItem!.id]: newName }));
           setEditItem(null);
         }}
@@ -507,9 +747,17 @@ export default function LayoutPage() {
         item={deleteItem}
         onClose={() => setDeleteItem(null)}
         onConfirm={() => {
+          pushUndo(pendingRenames, pendingDeletes);
           setPendingDeletes((prev) => [...prev, deleteItem!.id]);
           setDeleteItem(null);
         }}
+      />
+      <PasteModal
+        open={pasteOpen}
+        onClose={() => setPasteOpen(false)}
+        clipboard={copiedLayout}
+        parentId={parentId}
+        parentType={parentType}
       />
     </div>
   );

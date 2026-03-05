@@ -763,6 +763,8 @@ function buildHierarchyEdges(items: LayoutItem[]): Edge[] {
 export interface NetworkFlowViewRef {
   save: () => Promise<void>;
   discard: () => void;
+  getPositions: () => Record<string, { x: number; y: number }>;
+  applyPositions: (positions: Record<string, { x: number; y: number }>) => void;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -780,6 +782,8 @@ interface Props {
   onDiscardAll: () => void;
   /** Notifies the parent when the async save starts / finishes */
   onIsSavingChange?: (v: boolean) => void;
+  /** Called with the snapshot of positions BEFORE a drag is committed, for undo tracking */
+  onBeforePositionChange?: (currentPositions: Record<string, { x: number; y: number }>) => void;
 }
 
 const nodeTypes: NodeTypes = { itemNode: ItemNode as NodeTypes[string] };
@@ -800,7 +804,7 @@ function FitOnChange({ trigger }: { trigger: string }) {
 }
 
 const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFlowView(
-  { items, parentType, editMode, onEditModeChange, onEnter, onEdit, onDelete, pendingRenames, pendingDeletes, onSaveAll, onDiscardAll, onIsSavingChange },
+  { items, parentType, editMode, onEditModeChange, onEnter, onEdit, onDelete, pendingRenames, pendingDeletes, onSaveAll, onDiscardAll, onIsSavingChange, onBeforePositionChange },
   ref,
 ) {
   const isRoomLevel = parentType === 'room';
@@ -811,11 +815,16 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
   const [pendingPositions, setPendingPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [isSaving, setIsSaving] = useState(false);
 
+  // Stable refs so imperative handles never go stale
+  const pendingPositionsRef = useRef(pendingPositions);
+  useEffect(() => { pendingPositionsRef.current = pendingPositions; }, [pendingPositions]);
+
   const onNodeDragStop = useCallback(
     (_event: React.MouseEvent, node: ItemFlowNode) => {
+      onBeforePositionChange?.(pendingPositionsRef.current);
       setPendingPositions((prev) => ({ ...prev, [node.id]: node.position }));
     },
-    [],
+    [onBeforePositionChange],
   );
 
   const initialElements = useMemo(() => {
@@ -852,6 +861,21 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
 
   const [nodes, setNodes, onNodesChange] = useNodesState<ItemFlowNode>(initialElements.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialElements.edges);
+
+  // Stable ref to initialElements so applyPositions never closes over a stale value
+  const initialElementsRef = useRef(initialElements);
+  useEffect(() => { initialElementsRef.current = initialElements; }, [initialElements]);
+
+  const applyPositions = useCallback((positions: Record<string, { x: number; y: number }>) => {
+    setPendingPositions(positions);
+    setNodes((nds) => nds.map((n) => {
+      const pos = positions[n.id];
+      if (pos) return { ...n, position: pos };
+      // Node not in snapshot — restore to its initial/saved position
+      const initial = initialElementsRef.current.nodes.find((i) => i.id === n.id);
+      return initial ? { ...n, position: initial.position } : n;
+    }));
+  }, [setNodes]);
 
   // Keep a ref so the reset effect below can stamp the *current* editMode onto
   // newly-arrived nodes (e.g. after adding an item while already in edit mode)
@@ -941,7 +965,12 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
     onEditModeChange(false);
   }, [initialElements, setNodes, setEdges, onDiscardAll, onEditModeChange]);
 
-  useImperativeHandle(ref, () => ({ save: handleSave, discard: handleDiscard }), [handleSave, handleDiscard]);
+  useImperativeHandle(ref, () => ({
+    save: handleSave,
+    discard: handleDiscard,
+    getPositions: () => pendingPositionsRef.current,
+    applyPositions,
+  }), [handleSave, handleDiscard, applyPositions]);
 
   // Stable trigger string: changes on every navigation or item-list change
   const fitTrigger = items.map((i) => i.id).sort().join(',') + '|' + parentType;
