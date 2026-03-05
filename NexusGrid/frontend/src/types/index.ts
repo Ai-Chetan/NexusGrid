@@ -39,6 +39,10 @@ export interface LayoutItem {
   updated_at: string;
   status: SystemStatus | null;
   quick_info: Record<string, unknown> | null;
+  /** 'online' if the item's hostname has monitoring data, null otherwise */
+  monitoring_status: 'online' | null;
+  /** fault/resource alert state for device nodes */
+  alert_status: 'fault_active' | 'resource_pending' | 'fault_resolved' | 'resource_done' | null;
 }
 
 export interface System {
@@ -127,12 +131,43 @@ export interface ResourceRequest {
 export interface SystemInfo {
   hostname: string;
   ip_address: string | null;
-  os_name: string | null;
-  os_version: string | null;
+  // OS
+  system: string | null;
+  version: string | null;
+  release: string | null;
+  machine: string | null;
+  processor: string | null;
+  architecture: string | null;
+  // CPU
+  cpu_physical_cores: number | null;
+  cpu_total_cores: number | null;
+  cpu_max_freq: number | null;
+  cpu_min_freq: number | null;
+  cpu_current_freq: number | null;
   cpu_usage: number | null;
-  ram_usage: number | null;
-  disk_usage: number | null;
+  // Memory
+  memory_total: number | null;
+  memory_available: number | null;
+  memory_used: number | null;
+  memory_usage_percent: number | null;
+  // Disk
+  disk_total: number | null;
+  disk_used: number | null;
+  disk_free: number | null;
+  disk_usage_percent: number | null;
+  // Network
+  bytes_sent: number | null;
+  bytes_received: number | null;
+  // Users
+  users_count: number | null;
+  logged_in_users: string | null;
+  // Timestamp
   timestamp: string;
+  // Legacy aliases kept for MonitoringPage compat
+  os_name?: string | null;
+  os_version?: string | null;
+  ram_usage?: number | null;
+  disk_usage?: number | null;
 }
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────

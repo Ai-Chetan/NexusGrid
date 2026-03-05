@@ -5,11 +5,11 @@ import {
   ChevronRight, Home, Plus, ChevronLeft,
   Building2, Layers, DoorOpen, Monitor, Server, Network,
   Wifi, Printer, Zap, HardDrive, Package, Loader2,
-  Copy, ClipboardPaste, Undo2, Redo2,
+  Copy, ClipboardPaste, Undo2, Redo2, AlertTriangle, PackageSearch,
 } from 'lucide-react';
-import { layoutApi } from '@/lib/api';
+import { layoutApi, faultsApi, resourcesApi } from '@/lib/api';
 import { itemTypeLabel, cn, getChildTypes } from '@/lib/utils';
-import type { LayoutItem, BreadcrumbItem } from '@/types';
+import type { LayoutItem, BreadcrumbItem, SimpleSystem } from '@/types';
 import Modal from '@/components/common/Modal';
 import EmptyState from '@/components/common/EmptyState';
 import ErrorState from '@/components/common/ErrorState';
@@ -17,6 +17,7 @@ import toast from 'react-hot-toast';
 import NetworkFlowView from './NetworkFlowView';
 import type { NetworkFlowViewRef } from './NetworkFlowView';
 import QuickCreateModal from './QuickCreateModal';
+import ComputerMonitorModal from './ComputerMonitorModal';
 
 // ─── Icon / colour maps ────────────────────────────────────────────────────────
 const typeIcons: Record<string, React.ElementType> = {
@@ -36,7 +37,153 @@ const typeColors: Record<string, string> = {
   ups:            'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
   rack:           'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300',
 };
+// ─── Quick Fault Modal ──────────────────────────────────────────────────────
+interface QuickFaultModalProps { item: LayoutItem; onClose: () => void; }
+function QuickFaultModal({ item, onClose }: QuickFaultModalProps) {
+  const qc = useQueryClient();
+  const [faultType, setFaultType] = useState('Hardware');
+  const [description, setDescription] = useState('');
 
+  const { data: systems = [], isLoading: systemsLoading } = useQuery({
+    queryKey: ['systems-list'],
+    queryFn: () => layoutApi.getSystems().then(r => r.data),
+    staleTime: 60_000,
+  });
+  const system = systems.find((s: SimpleSystem) => s.host_name.toLowerCase() === item.name.toLowerCase());
+
+  const mutation = useMutation({
+    mutationFn: (d: { system_id: number; fault_type: string; description: string }) =>
+      faultsApi.create(d),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['faults'] });
+      qc.invalidateQueries({ queryKey: ['layout-items'] });
+      toast.success('Fault reported!');
+      onClose();
+    },
+    onError: () => toast.error('Failed to report fault'),
+  });
+
+  return (
+    <Modal open onClose={onClose} title={`Report Fault — ${item.name}`} size="sm">
+      <div className="space-y-4">
+        {systemsLoading && <p className="text-xs text-slate-400 text-center">Loading…</p>}
+        {!systemsLoading && !system && (
+          <p className="text-xs text-amber-600 text-center">
+            No system record found for <strong>{item.name}</strong>. Fault cannot be created.
+          </p>
+        )}
+        {system && (
+          <>
+            <div>
+              <label className="label">Fault Type</label>
+              <select value={faultType} onChange={e => setFaultType(e.target.value)} className="input">
+                <option value="Hardware">Hardware</option>
+                <option value="Software">Software</option>
+                <option value="Network">Network</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">Description</label>
+              <textarea
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                className="input min-h-[80px] resize-none"
+                placeholder="Describe the fault…"
+                rows={3}
+              />
+            </div>
+          </>
+        )}
+        <div className="flex gap-2 pt-1">
+          <button onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          <button
+            onClick={() => system && mutation.mutate({ system_id: system.id, fault_type: faultType, description })}
+            disabled={!system || !description.trim() || mutation.isPending}
+            className="btn-danger flex-1 flex items-center justify-center gap-1.5"
+          >
+            {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
+            Report Fault
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Quick Resource Modal ──────────────────────────────────────────────────
+interface QuickResourceModalProps { item: LayoutItem; onClose: () => void; }
+function QuickResourceModal({ item, onClose }: QuickResourceModalProps) {
+  const qc = useQueryClient();
+  const [resourceName, setResourceName] = useState('');
+  const [description, setDescription] = useState('');
+
+  const { data: systems = [], isLoading: systemsLoading } = useQuery({
+    queryKey: ['systems-list'],
+    queryFn: () => layoutApi.getSystems().then(r => r.data),
+    staleTime: 60_000,
+  });
+  const system = systems.find((s: SimpleSystem) => s.host_name.toLowerCase() === item.name.toLowerCase());
+
+  const mutation = useMutation({
+    mutationFn: (d: { system_id: number; resource_name: string; description: string }) =>
+      resourcesApi.create(d),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['resources'] });
+      qc.invalidateQueries({ queryKey: ['layout-items'] });
+      toast.success('Resource requested!');
+      onClose();
+    },
+    onError: () => toast.error('Failed to request resource'),
+  });
+
+  return (
+    <Modal open onClose={onClose} title={`Request Resource — ${item.name}`} size="sm">
+      <div className="space-y-4">
+        {systemsLoading && <p className="text-xs text-slate-400 text-center">Loading…</p>}
+        {!systemsLoading && !system && (
+          <p className="text-xs text-amber-600 text-center">
+            No system record found for <strong>{item.name}</strong>. Request cannot be created.
+          </p>
+        )}
+        {system && (
+          <>
+            <div>
+              <label className="label">Resource Name</label>
+              <input
+                type="text"
+                value={resourceName}
+                onChange={e => setResourceName(e.target.value)}
+                className="input"
+                placeholder="e.g. Keyboard, RAM 8GB, Monitor…"
+              />
+            </div>
+            <div>
+              <label className="label">Description</label>
+              <textarea
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                className="input min-h-[80px] resize-none"
+                placeholder="Describe the resource needed…"
+                rows={3}
+              />
+            </div>
+          </>
+        )}
+        <div className="flex gap-2 pt-1">
+          <button onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          <button
+            onClick={() => system && mutation.mutate({ system_id: system.id, resource_name: resourceName, description })}
+            disabled={!system || !resourceName.trim() || !description.trim() || mutation.isPending}
+            className="btn-primary flex-1 flex items-center justify-center gap-1.5"
+          >
+            {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <PackageSearch className="w-4 h-4" />}
+            Request Resource
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
 // ─── Add Item Modal ────────────────────────────────────────────────────────────
 interface AddItemModalProps {
   open: boolean;
@@ -78,8 +225,8 @@ function AddItemModal({ open, onClose, parentType, parentId }: AddItemModalProps
           <label className="label">Item Type</label>
           <select value={itemType} onChange={(e) => setItemType(e.target.value)} className="input" required>
             <option value="">Select type…</option>
-            {options.map((type) => (
-              <option key={type} value={type}>{itemTypeLabel[type] ?? type}</option>
+            {options.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
         </div>
@@ -388,6 +535,9 @@ export default function LayoutPage() {
   const [redoStack, setRedoStack] = useState<EditSnapshot[]>([]);
   const [isSavingLayout, setIsSavingLayout] = useState(false);
   const [isSavingFlow, setIsSavingFlow] = useState(false);
+  const [monitorItem, setMonitorItem] = useState<LayoutItem | null>(null);
+  const [faultItem, setFaultItem] = useState<LayoutItem | null>(null);
+  const [resourceItem, setResourceItem] = useState<LayoutItem | null>(null);
   const isSaving = isSavingLayout || isSavingFlow;
   const canUndo = undoStack.length > 0;
   const canRedo = redoStack.length > 0;
@@ -716,6 +866,9 @@ export default function LayoutPage() {
           ref={flowRef}
           onIsSavingChange={setIsSavingFlow}
           onBeforePositionChange={handleBeforePositionChange}
+          onMonitorClick={(item) => setMonitorItem(item)}
+          onFaultCreate={(item) => setFaultItem(item)}
+          onResourceCreate={(item) => setResourceItem(item)}
           {...sharedProps}
         />
       )}
@@ -759,6 +912,28 @@ export default function LayoutPage() {
         parentId={parentId}
         parentType={parentType}
       />
+      {monitorItem && (
+        <ComputerMonitorModal
+          itemId={monitorItem.id}
+          itemName={monitorItem.name}
+          item={monitorItem}
+          onClose={() => setMonitorItem(null)}
+          onFaultCreate={(item) => { setMonitorItem(null); setFaultItem(item); }}
+          onResourceCreate={(item) => { setMonitorItem(null); setResourceItem(item); }}
+        />
+      )}
+      {faultItem && (
+        <QuickFaultModal
+          item={faultItem}
+          onClose={() => setFaultItem(null)}
+        />
+      )}
+      {resourceItem && (
+        <QuickResourceModal
+          item={resourceItem}
+          onClose={() => setResourceItem(null)}
+        />
+      )}
     </div>
   );
 }

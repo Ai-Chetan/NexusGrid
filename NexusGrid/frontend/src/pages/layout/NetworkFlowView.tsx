@@ -391,17 +391,51 @@ interface ItemNodeData extends Record<string, unknown> {
   onEnter:  (item: LayoutItem) => void;
   onEdit:   (item: LayoutItem) => void;
   onDelete: (item: LayoutItem) => void;
+  onMonitorClick?: (item: LayoutItem) => void;
+  onFaultCreate?: (item: LayoutItem) => void;
+  onResourceCreate?: (item: LayoutItem) => void;
   isHub?: boolean;
 }
 
 type ItemFlowNode = Node<ItemNodeData, 'itemNode'>;
 
 function ItemNode({ data }: NodeProps<ItemFlowNode>) {
-  const { item, editMode, isDark, onEnter, onEdit, onDelete } = data;
+  const { item, editMode, isDark, onEnter, onEdit, onDelete, onMonitorClick, onFaultCreate, onResourceCreate } = data;
   const [hovered, setHovered] = useState(false);
   const col = (isDark ? darkTypeColours : typeColours)[item.item_type] ?? (isDark ? darkFallbackCol : fallbackCol);
   const isNavigable = CLUSTER_TYPES.has(item.item_type);
+  const isDevice = !isNavigable;
+  const isMonitored = item.monitoring_status === 'online';
+  const alertStatus = item.alert_status;
   const BodyEl = typeBodyMap[item.item_type];
+
+  // Card accent color based on fault/resource alert state
+  let cardBorderColor: string;
+  let cardGlow: string | undefined;
+  const isDeviceActive = isMonitored || !!alertStatus;
+
+  if (!isDevice) {
+    cardBorderColor = col.header;
+  } else if (alertStatus === 'fault_active') {
+    cardBorderColor = '#ef4444';
+    cardGlow = '0 0 0 2px #ef4444, 0 0 12px 2px #ef444440';
+  } else if (alertStatus === 'resource_pending') {
+    cardBorderColor = '#3b82f6';
+    cardGlow = '0 0 0 2px #3b82f6, 0 0 12px 2px #3b82f640';
+  } else if (isMonitored || alertStatus === 'fault_resolved' || alertStatus === 'resource_done') {
+    cardBorderColor = '#10b981';
+    cardGlow = isMonitored ? '0 0 0 2px #10b981, 0 0 12px 2px #10b98140' : undefined;
+  } else {
+    cardBorderColor = '#94a3b8';
+  }
+
+  // Fill colours derived from cardBorderColor
+  const hasAlertFill = isDevice && isDeviceActive;
+  const cardHeaderColor = hasAlertFill ? cardBorderColor : col.header;
+  const cardBodyBg     = hasAlertFill ? cardBorderColor + '18' : col.bg;
+  const cardOuterBg    = hasAlertFill
+    ? (isDark ? cardBorderColor + '12' : cardBorderColor + '0d')
+    : undefined;
 
   // Hover preview: fetch children when hovering a navigable node
   const { data: children = [], isFetching } = useQuery({
@@ -427,26 +461,32 @@ function ItemNode({ data }: NodeProps<ItemFlowNode>) {
   }, []);
 
   const handleClick = useCallback(() => {
-    if (editMode || !isNavigable) return;
-    clickCount.current += 1;
-    if (clickCount.current === 2) {
-      clickCount.current = 0;
-      if (clickTimer.current) clearTimeout(clickTimer.current);
-      onEnter(item);
-    } else {
-      clickTimer.current = setTimeout(() => { clickCount.current = 0; }, 300);
+    if (editMode) return;
+    if (isNavigable) {
+      // Double-click to navigate (handled below by click counter)
+      clickCount.current += 1;
+      if (clickCount.current === 2) {
+        clickCount.current = 0;
+        if (clickTimer.current) clearTimeout(clickTimer.current);
+        onEnter(item);
+      } else {
+        clickTimer.current = setTimeout(() => { clickCount.current = 0; }, 300);
+      }
+    } else if (isMonitored && onMonitorClick) {
+      // Single-click on monitored device opens detail
+      onMonitorClick(item);
     }
-  }, [editMode, isNavigable, onEnter, item]);
+  }, [editMode, isNavigable, isMonitored, onEnter, onMonitorClick, item]);
 
   return (
     <>
-    <NodeToolbar isVisible={hovered && isNavigable && !editMode} position={Position.Right} offset={12}>
+    <NodeToolbar isVisible={hovered && !editMode} position={Position.Right} offset={12}>
       <div className={cn('rounded-xl border shadow-2xl w-52 overflow-hidden', isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200')}>
         {/* Toolbar header */}
         <div className="px-3 py-2 flex items-center gap-2" style={{ background: col.header }}>
           {(() => { const Icon = typeIcons[item.item_type] ?? Package; return <Icon className="w-3.5 h-3.5 text-white shrink-0" />; })()}
           <span className="text-white text-[11px] font-semibold truncate flex-1">{item.name}</span>
-          {!isFetching && children.length > 0 && (
+          {isNavigable && !isFetching && children.length > 0 && (
             <span className="text-white/70 text-[9px] shrink-0">{children.length}</span>
           )}
         </div>
@@ -455,6 +495,68 @@ function ItemNode({ data }: NodeProps<ItemFlowNode>) {
           {isFetching ? (
             <div className="flex items-center justify-center py-6">
               <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+            </div>
+          ) : isDevice ? (
+            /* ── Device hover panel: status + monitoring + actions ── */
+            <div className="space-y-2 py-1">
+              {/* Status row */}
+              <div className="flex items-center justify-between">
+                <span className={cn('text-[10px]', isDark ? 'text-slate-400' : 'text-slate-500')}>Status</span>
+                {item.status ? (
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusColour[item.status] ?? '#94a3b8' }} />
+                    <span className="text-[10px] capitalize font-medium" style={{ color: isDark ? '#cbd5e1' : '#334155' }}>{item.status}</span>
+                  </span>
+                ) : (
+                  <span className={cn('text-[10px]', isDark ? 'text-slate-500' : 'text-slate-400')}>—</span>
+                )}
+              </div>
+              {/* Monitoring row */}
+              <div className="flex items-center justify-between">
+                <span className={cn('text-[10px]', isDark ? 'text-slate-400' : 'text-slate-500')}>Monitoring</span>
+                {isMonitored ? (
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[10px] text-emerald-500 font-medium">Live</span>
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
+                    <span className={cn('text-[10px]', isDark ? 'text-slate-500' : 'text-slate-400')}>No data</span>
+                  </span>
+                )}
+              </div>
+              {/* Alert status row */}
+              {alertStatus && (
+                <div className="flex items-center justify-between">
+                  <span className={cn('text-[10px]', isDark ? 'text-slate-400' : 'text-slate-500')}>Alert</span>
+                  {alertStatus === 'fault_active' && (
+                    <span className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                      <span className="text-[10px] text-red-500 font-medium">Active Fault</span>
+                    </span>
+                  )}
+                  {alertStatus === 'resource_pending' && (
+                    <span className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                      <span className="text-[10px] text-blue-500 font-medium">Pending Resource</span>
+                    </span>
+                  )}
+                  {alertStatus === 'fault_resolved' && (
+                    <span className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      <span className="text-[10px] text-emerald-500 font-medium">Fault Resolved</span>
+                    </span>
+                  )}
+                  {alertStatus === 'resource_done' && (
+                    <span className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      <span className="text-[10px] text-emerald-500 font-medium">Resource Closed</span>
+                    </span>
+                  )}
+                </div>
+              )}
+
             </div>
           ) : children.length === 0 ? (
             <p className={cn('text-xs text-center py-4', isDark ? 'text-slate-500' : 'text-slate-400')}>Empty</p>
@@ -601,12 +703,19 @@ function ItemNode({ data }: NodeProps<ItemFlowNode>) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={handleClick}
-      style={{ borderColor: col.header, width: nodeSize(item.item_type).w }}
+      style={{
+        borderColor: cardBorderColor,
+        width: nodeSize(item.item_type).w,
+        boxShadow: !editMode ? cardGlow : undefined,
+        ...(cardOuterBg ? { background: cardOuterBg } : {}),
+      }}
       className={cn(
         'rounded-xl border-2 overflow-hidden select-none transition-shadow',
-        isDark ? 'bg-slate-900' : 'bg-white',
+        !hasAlertFill && (isDark ? 'bg-slate-900' : 'bg-white'),
+        !isDeviceActive && isDevice && (isDark ? 'opacity-60 grayscale' : 'opacity-70 grayscale'),
         hovered && 'shadow-lg',
         !editMode && isNavigable && 'cursor-pointer',
+        !editMode && isDevice && isMonitored && 'cursor-pointer',
         editMode && 'cursor-grab',
       )}
     >
@@ -620,7 +729,7 @@ function ItemNode({ data }: NodeProps<ItemFlowNode>) {
       {/* ── Coloured header ── */}
       <div
         className="relative flex items-center gap-2 px-2.5 py-2"
-        style={{ background: col.header }}
+        style={{ background: cardHeaderColor }}
       >
         <div className="w-6 h-6 rounded-md bg-white/20 flex items-center justify-center shrink-0">
           {(() => { const Icon = typeIcons[item.item_type] ?? Package; return <Icon className="w-3.5 h-3.5 text-white" />; })()}
@@ -654,12 +763,12 @@ function ItemNode({ data }: NodeProps<ItemFlowNode>) {
 
       {/* ── Body decoration ── */}
       <div
-        style={{ background: col.bg, ...(isNavigable ? {} : { height: 110, overflow: 'hidden', display: 'flex', alignItems: 'stretch' }) }}
+        style={{ background: cardBodyBg, ...(isNavigable ? {} : { height: 110, overflow: 'hidden', display: 'flex', alignItems: 'stretch' }) }}
       >
         {BodyEl ? BodyEl(item.name, col.header) : <div className="h-12" />}
       </div>
 
-      {/* ── Footer: status only, cluster types ── */}
+      {/* ── Footer: status only for navigable cluster nodes ── */}
       {isNavigable && item.status && (
         <div
           className="flex items-center px-2.5 py-1.5 border-t"
@@ -677,6 +786,9 @@ function ItemNode({ data }: NodeProps<ItemFlowNode>) {
 }
 
 // ─── Dagre auto-layout ────────────────────────────────────────────────────────
+const SNAP = 24; // must match snapGrid prop on <ReactFlow>
+const snapTo = (v: number) => Math.round(v / SNAP) * SNAP;
+
 function getLayoutedElements<N extends Node>(nodes: N[], edges: Edge[], direction = 'TB') {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
@@ -693,7 +805,8 @@ function getLayoutedElements<N extends Node>(nodes: N[], edges: Edge[], directio
     nodes: nodes.map((n) => {
       const pos = g.node(n.id);
       const sz = nodeSize((n.data as ItemNodeData).item.item_type);
-      return { ...n, position: { x: pos.x - sz.w / 2, y: pos.y - sz.h / 2 } };
+      // Snap dagre output to the same grid used during dragging
+      return { ...n, position: { x: snapTo(pos.x - sz.w / 2), y: snapTo(pos.y - sz.h / 2) } };
     }) as N[],
     edges,
   };
@@ -776,6 +889,9 @@ interface Props {
   onEnter: (item: LayoutItem) => void;
   onEdit: (item: LayoutItem) => void;
   onDelete: (item: LayoutItem) => void;
+  onMonitorClick?: (item: LayoutItem) => void;
+  onFaultCreate?: (item: LayoutItem) => void;
+  onResourceCreate?: (item: LayoutItem) => void;
   pendingRenames: Record<number, string>;
   pendingDeletes: number[];
   onSaveAll: () => Promise<void>;
@@ -804,7 +920,7 @@ function FitOnChange({ trigger }: { trigger: string }) {
 }
 
 const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFlowView(
-  { items, parentType, editMode, onEditModeChange, onEnter, onEdit, onDelete, pendingRenames, pendingDeletes, onSaveAll, onDiscardAll, onIsSavingChange, onBeforePositionChange },
+  { items, parentType, editMode, onEditModeChange, onEnter, onEdit, onDelete, onMonitorClick, onFaultCreate, onResourceCreate, pendingRenames, pendingDeletes, onSaveAll, onDiscardAll, onIsSavingChange, onBeforePositionChange },
   ref,
 ) {
   const isRoomLevel = parentType === 'room';
@@ -834,7 +950,7 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
       id: String(item.id),
       type: 'itemNode',
       position,
-      data: { item, editMode: false, isDark, onEnter, onEdit, onDelete, isHub: NETWORK_HUB_TYPES.has(item.item_type) },
+      data: { item, editMode: false, isDark, onEnter, onEdit, onDelete, onMonitorClick, onFaultCreate, onResourceCreate, isHub: NETWORK_HUB_TYPES.has(item.item_type) },
     });
 
     // Always run dagre to get a valid default layout for every node.
@@ -850,7 +966,7 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
     const nodes: ItemFlowNode[] = items.map((item) => {
       const hasSaved = item.position_x !== 0 || item.position_y !== 0;
       const position = hasSaved
-        ? { x: item.position_x, y: item.position_y }
+        ? { x: snapTo(item.position_x), y: snapTo(item.position_y) }
         : (dagrePosById[String(item.id)] ?? { x: 0, y: 0 });
       return makeNode(item, position);
     });
@@ -890,8 +1006,8 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
 
   // Propagate editMode changes into existing node data without resetting positions
   useEffect(() => {
-    setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, editMode } })));
-  }, [editMode, setNodes]);
+    setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, editMode, onMonitorClick, onFaultCreate, onResourceCreate } })));
+  }, [editMode, onMonitorClick, onFaultCreate, onResourceCreate, setNodes]);
 
   // Propagate isDark theme changes without resetting positions
   useEffect(() => {
@@ -941,7 +1057,7 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
     try {
       await Promise.all(
         posEntries.map(([id, pos]) =>
-          layoutApi.updateItem(parseInt(id, 10), { position_x: Math.round(pos.x), position_y: Math.round(pos.y) }),
+          layoutApi.updateItem(parseInt(id, 10), { position_x: snapTo(pos.x), position_y: snapTo(pos.y) }),
         ),
       );
       await onSaveAll();
@@ -991,7 +1107,7 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
         colorMode={isDark ? 'dark' : 'light'}
         nodesDraggable={editMode}
         snapToGrid={editMode}
-        snapGrid={[24, 24]}
+        snapGrid={[SNAP, SNAP]}
         connectionLineStyle={{ stroke: '#94a3b8', strokeWidth: 2, strokeDasharray: '6 3' }}
         onNodeDragStop={editMode ? onNodeDragStop : undefined}
         fitView
