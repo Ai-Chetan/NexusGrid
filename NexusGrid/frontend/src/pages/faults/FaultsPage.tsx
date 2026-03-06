@@ -39,7 +39,11 @@ function CreateFaultModal({ open, onClose }: { open: boolean; onClose: () => voi
   });
 
   const mutation = useMutation({
-    mutationFn: (data: CreateForm) => faultsApi.create(data),
+    mutationFn: (data: CreateForm) => faultsApi.create({
+      system_name: data.system_id,
+      fault_type: data.fault_type,
+      description: data.description,
+    }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['faults'] });
       toast.success('Fault report submitted');
@@ -106,7 +110,7 @@ function UpdateStatusModal({ fault, onClose }: { fault: FaultReport | null; onCl
 
   const mutation = useMutation({
     mutationFn: () => faultsApi.updateStatus(fault!.fault_id, {
-      status: newStatus,
+      status: newStatus as any,
       resolution_summary: resolution,
     }),
     onSuccess: () => {

@@ -43,7 +43,7 @@ function RoleCell({ user }: { user: User }) {
   const [role, setRole] = useState<string>(user.role);
 
   const mutation = useMutation({
-    mutationFn: (newRole: string) => usersApi.update(user.id, { role: newRole }),
+    mutationFn: (newRole: string) => usersApi.update(user.id, { role: newRole as any }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['users'] });
       qc.invalidateQueries({ queryKey: ['privileges-stats'] });

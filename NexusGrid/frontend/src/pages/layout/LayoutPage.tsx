@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { layoutApi } from '@/lib/api';
 import { itemTypeLabel, cn, getChildTypes } from '@/lib/utils';
-import type { LayoutItem, BreadcrumbItem } from '@/types';
+import type { LayoutItem, BreadcrumbItem, ItemType, SystemStatus } from '@/types';
 import Modal from '@/components/common/Modal';
 import EmptyState from '@/components/common/EmptyState';
 import ErrorState from '@/components/common/ErrorState';
@@ -40,19 +40,19 @@ const typeColors: Record<string, string> = {
 interface AddItemModalProps {
   open: boolean;
   onClose: () => void;
-  parentType: string;
+  parentType: ItemType | null;
   parentId: number | null;
 }
 
 function AddItemModal({ open, onClose, parentType, parentId }: AddItemModalProps) {
   const [name, setName] = useState('');
-  const [itemType, setItemType] = useState('');
+  const [itemType, setItemType] = useState<ItemType | ''>('');
   const qc = useQueryClient();
 
   const options = getChildTypes(parentType);
 
   const mutation = useMutation({
-    mutationFn: (data: { name: string; item_type: string; parent?: number | null }) =>
+    mutationFn: (data: { name: string; item_type: ItemType; parent?: number | null }) =>
       layoutApi.createItem(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['layout-items'] });
@@ -67,7 +67,7 @@ function AddItemModal({ open, onClose, parentType, parentId }: AddItemModalProps
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !itemType) return;
-    mutation.mutate({ name: name.trim(), item_type: itemType, parent: parentId });
+    mutation.mutate({ name: name.trim(), item_type: itemType as ItemType, parent: parentId });
   };
 
   return (
@@ -75,10 +75,10 @@ function AddItemModal({ open, onClose, parentType, parentId }: AddItemModalProps
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="label">Item Type</label>
-          <select value={itemType} onChange={(e) => setItemType(e.target.value)} className="input" required>
+          <select value={itemType} onChange={(e) => setItemType(e.target.value as ItemType)} className="input" required>
             <option value="">Select type…</option>
             {options.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o} value={o}>{itemTypeLabel[o]}</option>
             ))}
           </select>
         </div>
@@ -112,10 +112,10 @@ interface StatusModalProps {
 
 function StatusModal({ item, onClose }: StatusModalProps) {
   const qc = useQueryClient();
-  const [status, setStatus] = useState<string>(item?.status ?? 'active');
+  const [status, setStatus] = useState<SystemStatus>(item?.status ?? 'active');
 
   const mutation = useMutation({
-    mutationFn: ({ systemId, status }: { systemId: number; status: string }) =>
+    mutationFn: ({ systemId, status }: { systemId: number; status: SystemStatus }) =>
       layoutApi.updateSystemStatus(systemId, status),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['layout-items'] });
@@ -148,7 +148,7 @@ function StatusModal({ item, onClose }: StatusModalProps) {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="label">Status</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="input">
+          <select value={status} onChange={(e) => setStatus(e.target.value as SystemStatus)} className="input">
             <option value="active">Active (turned on)</option>
             <option value="inactive">Inactive (turned off)</option>
             <option value="non-functional">Non-Functional</option>
@@ -247,7 +247,7 @@ function StatsRow({ items }: { items: LayoutItem[] }) {
               typeColors[type] ?? 'bg-slate-100 text-slate-600')}
           >
             <Icon className="w-3 h-3" />
-            {count} {itemTypeLabel[type] ?? type}
+            {count} {itemTypeLabel[type as ItemType] ?? type}
           </span>
         );
       })}

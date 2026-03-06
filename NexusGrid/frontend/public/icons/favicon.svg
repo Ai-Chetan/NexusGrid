@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512"><svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512"><svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="url(#gradient)"></rect>
+  
+  <!-- Lightning bolt icon -->
+  <path d="M280 96L160 280H240L232 416L352 232H272L280 96Z" fill="white" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"></path>
+  
+  <!-- Grid pattern overlay -->
+  <g opacity="0.15">
+    <line x1="0" y1="128" x2="512" y2="128" stroke="white" stroke-width="2"></line>
+    <line x1="0" y1="256" x2="512" y2="256" stroke="white" stroke-width="2"></line>
+    <line x1="0" y1="384" x2="512" y2="384" stroke="white" stroke-width="2"></line>
+    <line x1="128" y1="0" x2="128" y2="512" stroke="white" stroke-width="2"></line>
+    <line x1="256" y1="0" x2="256" y2="512" stroke="white" stroke-width="2"></line>
+    <line x1="384" y1="0" x2="384" y2="512" stroke="white" stroke-width="2"></line>
+  </g>
+  
+  <!-- Gradient definition -->
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1"></stop>
+      <stop offset="100%" style="stop-color:#1e40af;stop-opacity:1"></stop>
+    </linearGradient>
+  </defs>
+</svg></svg><style>@media (prefers-color-scheme: light) { :root { filter: none; } }
+@media (prefers-color-scheme: dark) { :root { filter: none; } }
+</style></svg>

@@ -5,7 +5,14 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'react-hot-toast';
 import App from './App';
 import queryClient from './lib/queryClient';
+import { registerServiceWorker, promptInstall } from './lib/pwa';
 import './index.css';
+
+// Register service worker for PWA
+registerServiceWorker();
+
+// Prompt for PWA installation
+promptInstall();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

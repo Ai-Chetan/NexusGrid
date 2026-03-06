@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { layoutApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import type { ItemType } from '@/types';
 import Modal from '@/components/common/Modal';
 import toast from 'react-hot-toast';
 
@@ -500,7 +501,7 @@ export default function QuickCreateModal({ open, onClose, parentType, parentId, 
   ) {
     const res = await layoutApi.createItem({
       name: node.name.trim(),
-      item_type: node.item_type,
+      item_type: node.item_type as ItemType,
       parent: pid,
       position_x: pos.x,
       position_y: pos.y,

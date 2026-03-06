@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { resourcesApi, layoutApi } from '@/lib/api';
 import { timeAgo, cn } from '@/lib/utils';
-import type { ResourceRequest } from '@/types';
+import type { ResourceRequest, ResourceStatus } from '@/types';
 import PageHeader from '@/components/common/PageHeader';
 import StatusBadge from '@/components/common/StatusBadge';
 import Modal from '@/components/common/Modal';
@@ -38,7 +38,11 @@ function CreateResourceModal({ open, onClose }: { open: boolean; onClose: () => 
   });
 
   const mutation = useMutation({
-    mutationFn: (data: CreateForm) => resourcesApi.create(data),
+    mutationFn: (data: CreateForm) => resourcesApi.create({
+      system_name: data.system_id,
+      resource_name: data.resource_name,
+      description: data.description,
+    }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['resources'] });
       toast.success('Resource request submitted');
@@ -105,7 +109,7 @@ function UpdateStatusModal({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
-  const [newStatus, setNewStatus] = useState<string>(resource?.status ?? 'Pending');
+  const [newStatus, setNewStatus] = useState<ResourceStatus>(resource?.status ?? 'Pending');
   const [summary, setSummary] = useState<string>('');
 
   const mutation = useMutation({
@@ -134,7 +138,7 @@ function UpdateStatusModal({
 
         <div>
           <label className="label">New Status</label>
-          <select value={newStatus} onChange={e => setNewStatus(e.target.value)} className="input">
+          <select value={newStatus} onChange={e => setNewStatus(e.target.value as ResourceStatus)} className="input">
             <option value="Pending">Pending</option>
             <option value="Fulfilled">Fulfilled</option>
             <option value="Denied">Denied</option>

@@ -142,7 +142,7 @@ export default function DashboardPage() {
   };
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['dashboard-metrics'],
-    queryFn: () => dashboardApi.metrics().then((r) => r.data),
+    queryFn: () => dashboardApi.getMetrics().then((r) => r.data),
     refetchInterval: 60_000,
   });
 
@@ -171,10 +171,10 @@ export default function DashboardPage() {
     resources: resource_trend[i]?.count ?? 0,
   }));
 
-  const faultTypeData = Object.entries(fault_by_type).map(([name, value]) => ({ name, value }));
+  const faultTypeData = Object.entries(fault_by_type).map(([name, value]) => ({ name, value: value as number }));
   const faultStatusData = Object.entries(fault_by_status).map(([name, value]) => ({
     name: name.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-    value,
+    value: value as number,
   }));
 
   return (

@@ -13,6 +13,7 @@ import ReportsPage from '@/pages/reports/ReportsPage';
 import MonitoringPage from '@/pages/monitoring/MonitoringPage';
 import UsersPage from '@/pages/users/UsersPage';
 import LoadingScreen from '@/components/common/LoadingScreen';
+import PWAInstallPrompt from '@/components/common/PWAInstallPrompt';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isInitialized } = useAuthStore();
@@ -69,6 +70,9 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
     </BrowserRouter>
   );
 }

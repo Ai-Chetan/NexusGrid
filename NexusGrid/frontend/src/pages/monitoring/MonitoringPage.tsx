@@ -107,13 +107,11 @@ function SystemCard({ info }: { info: SystemInfo }) {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function MonitoringPage() {
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data: rawSystems = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['monitoring'],
-    queryFn: () => monitoringApi.latest().then(r => r.data),
+    queryFn: () => monitoringApi.list().then(r => r.data),
     refetchInterval: 30_000, // auto-refresh every 30s
   });
-
-  const rawSystems = data?.systems ?? [];
 
   // Deduplicate: keep the latest snapshot per hostname
   const systems = Object.values(
