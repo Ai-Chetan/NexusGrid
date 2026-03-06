@@ -279,7 +279,7 @@ function StatusModal({ item, onClose }: StatusModalProps) {
     queryFn: async () => {
       const itemData = await layoutApi.getItem(item!.id).then(r => r.data);
       const systems = await layoutApi.getSystems().then(r => r.data);
-      return systems.find(s => s.host_name === itemData.name) ?? null;
+      return systems.find((s: SimpleSystem) => s.host_name === itemData.name) ?? null;
     },
     enabled: !!item,
   });
@@ -700,7 +700,7 @@ export default function LayoutPage() {
   const handleCopy = useCallback(() => {
     if (items.length === 0) return;
     setCopiedLayout({
-      items: items.map((item) => ({
+      items: items.map((item: LayoutItem) => ({
         name: item.name,
         item_type: item.item_type,
         position_x: item.position_x,
@@ -755,7 +755,7 @@ export default function LayoutPage() {
             <Home className="w-3.5 h-3.5" />
             <span>Root</span>
           </button>
-          {breadcrumb.map((crumb, i) => (
+          {breadcrumb.map((crumb: BreadcrumbItem, i: number) => (
             <span key={crumb.id} className="flex items-center gap-1">
               <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-600" />
               {i < breadcrumb.length - 1 ? (
