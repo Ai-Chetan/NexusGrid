@@ -27,16 +27,39 @@ type CreateForm = z.infer<typeof createSchema>;
 
 function CreateFaultModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient();
+  const [selectedRoom, setSelectedRoom] = useState('');
+
   const { data: systems = [] } = useQuery({
     queryKey: ['systems-list'],
     queryFn: () => layoutApi.getSystems().then(r => r.data),
     enabled: open,
   });
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<CreateForm>({
+  const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
     defaultValues: { fault_type: 'Hardware' },
   });
+
+  // Unique room names sorted
+  const rooms = [...new Set(
+    systems.map(s => s.lab_name).filter(Boolean) as string[]
+  )].sort();
+  const hasRoomlessSystems = systems.some(s => !s.lab_name);
+
+  const roomSystems = systems.filter(s =>
+    selectedRoom === '__none__' ? !s.lab_name : s.lab_name === selectedRoom,
+  );
+
+  const handleRoomChange = (room: string) => {
+    setSelectedRoom(room);
+    setValue('system_id', 0);
+  };
+
+  const handleClose = () => {
+    reset();
+    setSelectedRoom('');
+    onClose();
+  };
 
   const mutation = useMutation({
     mutationFn: (data: CreateForm) => faultsApi.create(data),
@@ -44,28 +67,49 @@ function CreateFaultModal({ open, onClose }: { open: boolean; onClose: () => voi
       qc.invalidateQueries({ queryKey: ['faults'] });
       toast.success('Fault report submitted');
       reset();
+      setSelectedRoom('');
       onClose();
     },
     onError: () => toast.error('Failed to submit fault report'),
   });
 
   return (
-    <Modal open={open} onClose={onClose} title="Report a Fault" size="lg">
+    <Modal open={open} onClose={handleClose} title="Report a Fault" size="lg">
       <form onSubmit={handleSubmit(d => mutation.mutate(d))} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <label className="label">System</label>
-            <select {...register('system_id')} className="input">
-              <option value="">Select system…</option>
-              {systems.map(s => (
-                <option key={s.id} value={s.id}>
-                  {s.host_name}{s.lab_name ? ` — ${s.lab_name}` : ''}
-                </option>
-              ))}
-            </select>
-            {errors.system_id && <p className="mt-1 text-xs text-red-500">{errors.system_id.message}</p>}
-          </div>
+        {/* Step 1 — Room */}
+        <div>
+          <label className="label">Room / Lab</label>
+          <select
+            value={selectedRoom}
+            onChange={e => handleRoomChange(e.target.value)}
+            className="input"
+          >
+            <option value="">Select room / lab…</option>
+            {rooms.map(r => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+            {hasRoomlessSystems && (
+              <option value="__none__">— Unassigned systems —</option>
+            )}
+          </select>
+        </div>
 
+        {/* Step 2 — System (only shown once a room is chosen) */}
+        <div className={selectedRoom ? '' : 'opacity-50 pointer-events-none'}>
+          <label className="label">
+            System
+            {!selectedRoom && <span className="text-slate-400 font-normal ml-1">(select a room first)</span>}
+          </label>
+          <select {...register('system_id')} className="input" disabled={!selectedRoom}>
+            <option value="">Select system…</option>
+            {roomSystems.map(s => (
+              <option key={s.id} value={s.id}>{s.host_name}</option>
+            ))}
+          </select>
+          {errors.system_id && <p className="mt-1 text-xs text-red-500">{errors.system_id.message}</p>}
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="label">Fault Type</label>
             <select {...register('fault_type')} className="input">
@@ -88,7 +132,7 @@ function CreateFaultModal({ open, onClose }: { open: boolean; onClose: () => voi
         </div>
 
         <div className="flex gap-2 pt-1">
-          <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          <button type="button" onClick={handleClose} className="btn-secondary flex-1">Cancel</button>
           <button type="submit" disabled={mutation.isPending} className="btn-primary flex-1">
             {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Submit Report'}
           </button>

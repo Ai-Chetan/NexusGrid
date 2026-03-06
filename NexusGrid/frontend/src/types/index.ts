@@ -70,7 +70,9 @@ export interface Lab {
   assistants: User[];
   layout_item_id: number;
   layout_item_name: string;
+  floor_id: number | null;
   parent_name: string | null;
+  building_name: string | null;
   systems_count: number;
   current_incharge: CurrentAssignment | null;
   current_assistant: CurrentAssignment | null;

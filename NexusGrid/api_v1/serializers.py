@@ -87,7 +87,9 @@ class LabSerializer(serializers.ModelSerializer):
     assistants = UserSerializer(many=True, read_only=True)
     layout_item_id = serializers.IntegerField(source='layout_item.id', read_only=True)
     layout_item_name = serializers.CharField(source='layout_item.name', read_only=True)
+    floor_id = serializers.SerializerMethodField()
     parent_name = serializers.SerializerMethodField()
+    building_name = serializers.SerializerMethodField()
     # Populated via Count('system', distinct=True) annotation in the view
     systems_count = serializers.IntegerField(read_only=True)
     current_incharge = serializers.SerializerMethodField()
@@ -98,15 +100,28 @@ class LabSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'lab_name', 'lab_code', 'location', 'capacity', 'dimension',
             'quick_info', 'instructors', 'assistants',
-            'layout_item_id', 'layout_item_name', 'parent_name', 'systems_count',
+            'layout_item_id', 'layout_item_name', 'floor_id', 'parent_name', 'building_name', 'systems_count',
             'current_incharge', 'current_assistant',
         ]
+
+    def get_floor_id(self, obj):
+        try:
+            return obj.layout_item.parent.id
+        except AttributeError:
+            return None
 
     def get_parent_name(self, obj):
         # layout_item__parent is already select_related in the view
         if obj.layout_item and obj.layout_item.parent:
             return obj.layout_item.parent.name
         return None
+
+    def get_building_name(self, obj):
+        # layout_item__parent__parent is select_related in the view
+        try:
+            return obj.layout_item.parent.parent.name
+        except AttributeError:
+            return None
 
     def get_systems_count(self, obj):
         # Fall back to a direct count only if annotation is absent (e.g. detail view)

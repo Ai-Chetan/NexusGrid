@@ -522,6 +522,24 @@ export default function LayoutPage() {
   const parentId = id ? parseInt(id) : null;
   const qc = useQueryClient();
 
+  // ─── Persist & restore layout position across page navigations ───────────────────
+  const didRestoreRef = useRef(false);
+  useEffect(() => {
+    if (parentId !== null) {
+      sessionStorage.setItem('lastLayoutId', String(parentId));
+    }
+  }, [parentId]);
+  useEffect(() => {
+    if (!didRestoreRef.current && parentId === null) {
+      didRestoreRef.current = true;
+      const lastId = sessionStorage.getItem('lastLayoutId');
+      if (lastId) {
+        navigate(`/app/layout/${lastId}`, { replace: true });
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [addOpen, setAddOpen] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [pasteOpen, setPasteOpen] = useState(false);
@@ -712,7 +730,10 @@ export default function LayoutPage() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-1 flex-wrap">
           <button
-            onClick={() => navigate('/app/layout')}
+            onClick={() => {
+              sessionStorage.removeItem('lastLayoutId');
+              navigate('/app/layout');
+            }}
             className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
           >
             <Home className="w-3.5 h-3.5" />

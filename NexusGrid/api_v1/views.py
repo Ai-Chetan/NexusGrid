@@ -316,7 +316,7 @@ class LabListView(APIView):
     def get(self, request):
         labs = (
             Lab.objects
-            .select_related('layout_item', 'layout_item__parent')
+            .select_related('layout_item', 'layout_item__parent', 'layout_item__parent__parent')
             .prefetch_related('instructors', 'assistants', 'assignments__user')
             .annotate(systems_count=Count('system', distinct=True))
         )
@@ -329,7 +329,7 @@ class LabDetailView(APIView):
     def get(self, request, pk):
         lab = get_object_or_404(
             Lab.objects
-            .select_related('layout_item', 'layout_item__parent')
+            .select_related('layout_item', 'layout_item__parent', 'layout_item__parent__parent')
             .prefetch_related('instructors', 'assistants', 'assignments__user')
             .annotate(systems_count=Count('system', distinct=True)),
             pk=pk,
@@ -502,7 +502,56 @@ class ReportsView(APIView):
 
     def get(self, request):
         from .services.metrics import get_report_metrics
-        return Response(get_report_metrics())
+        user = request.user
+        today = timezone.now().date()
+
+        # Non-admin roles: restrict to the user's own active lab assignments
+        if user.role in ('Lab Incharge', 'Lab Assistant'):
+            assigned_lab_ids = list(
+                LabAssignment.objects
+                .filter(user=user)
+                .filter(Q(start_date__isnull=True) | Q(start_date__lte=today))
+                .filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
+                .values_list('lab_id', flat=True)
+                .distinct()
+            )
+
+            # Allow filtering to a single lab — but only within their assignment set
+            lab_id_param = request.GET.get('lab_id', '').strip()
+            if lab_id_param.isdigit():
+                requested = int(lab_id_param)
+                if requested in assigned_lab_ids:
+                    return Response(get_report_metrics(lab_ids=[requested]))
+                # Requested lab not in their assignments — silently fall through
+                # to return all their labs (do not leak info about other labs)
+
+            # Pass [-1] as sentinel so queries still run but return empty results
+            # when the user has no active assignments.
+            return Response(get_report_metrics(lab_ids=assigned_lab_ids or [-1]))
+
+        # Administrator: support optional drill-down filter params
+        lab_id      = request.GET.get('lab_id', '').strip()
+        floor_id    = request.GET.get('floor_id', '').strip()
+        building_id = request.GET.get('building_id', '').strip()
+
+        if lab_id.isdigit():
+            lab_ids = [int(lab_id)]
+        elif floor_id.isdigit():
+            lab_ids = list(
+                Lab.objects
+                .filter(layout_item__parent_id=int(floor_id))
+                .values_list('id', flat=True)
+            )
+        elif building_id.isdigit():
+            lab_ids = list(
+                Lab.objects
+                .filter(layout_item__parent__parent_id=int(building_id))
+                .values_list('id', flat=True)
+            )
+        else:
+            lab_ids = None  # no filter → global cache
+
+        return Response(get_report_metrics(lab_ids=lab_ids))
 
 
 # ─── Monitoring ──────────────────────────────────────────────────────────────
@@ -617,9 +666,29 @@ class LabAssignmentListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """List all assignments. Optionally filter by ?lab_id=<id>."""
-        if request.user.role != 'Administrator':
+        """List all assignments.
+
+        Admins: full list, optionally filtered by ?lab_id=.
+        Incharge / Assistant: returns only their own active assignments so
+        the frontend can populate a lab-picker on the Reports page.
+        """
+        user = request.user
+        today = timezone.now().date()
+
+        if user.role in ('Lab Incharge', 'Lab Assistant'):
+            qs = (
+                LabAssignment.objects
+                .select_related('lab', 'user', 'assigned_by')
+                .filter(user=user)
+                .filter(Q(start_date__isnull=True) | Q(start_date__lte=today))
+                .filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
+                .order_by('lab__lab_name')
+            )
+            return Response(LabAssignmentSerializer(qs, many=True).data)
+
+        if user.role != 'Administrator':
             return Response({'detail': 'Admin only.'}, status=403)
+
         lab_id = request.GET.get('lab_id')
         qs = LabAssignment.objects.select_related('lab', 'user', 'assigned_by').order_by('-assigned_at')
         if lab_id and lab_id.isdigit():

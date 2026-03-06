@@ -1123,18 +1123,44 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
           nodeColor={(n) => (isDark ? darkTypeColours : typeColours)[(n.data as ItemNodeData).item.item_type]?.dot ?? '#94a3b8'}
         />
         <Panel position="top-right">
-          <div className={cn('rounded-xl p-3 shadow-sm text-[11px] space-y-1.5 max-h-72 overflow-y-auto border', isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200')}>
-            <p className={cn('font-semibold text-xs mb-2', isDark ? 'text-slate-300' : 'text-slate-700')}>Legend</p>
-            {Object.entries(isDark ? darkTypeColours : typeColours).map(([type, col]) => {
-              const Icon = typeIcons[type] ?? Package;
-              return (
-                <div key={type} className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: col.dot }} />
-                  <Icon className="w-3 h-3 shrink-0" style={{ color: col.header }} />
-                  <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>{typeLabels[type] ?? type}</span>
-                </div>
-              );
-            })}
+          <div className="group relative flex items-start justify-end">
+            {/* Circular trigger button */}
+            <button
+              className={cn(
+                'w-8 h-8 rounded-full flex items-center justify-center shadow-md border transition-colors z-10 select-none',
+                isDark
+                  ? 'bg-slate-800 border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-400'
+                  : 'bg-white border-slate-200 text-slate-400 hover:text-slate-700 hover:border-slate-400',
+              )}
+              tabIndex={-1}
+              aria-label="Show legend"
+            >
+              <span style={{ fontFamily: 'serif', fontStyle: 'italic', fontWeight: 700, fontSize: 15, lineHeight: 1, display: 'block' }}>i</span>
+            </button>
+
+            {/* Legend popover — visible on group hover */}
+            <div
+              className={cn(
+                'absolute top-10 right-0 rounded-xl p-3 shadow-lg text-[11px] space-y-1.5 border w-40',
+                'pointer-events-none',
+                'opacity-0 scale-95 translate-y-[-4px]',
+                'transition-all duration-200 ease-out',
+                'group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0',
+                isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200',
+              )}
+            >
+              <p className={cn('font-semibold text-xs mb-2', isDark ? 'text-slate-300' : 'text-slate-700')}>Legend</p>
+              {Object.entries(isDark ? darkTypeColours : typeColours).map(([type, col]) => {
+                const Icon = typeIcons[type] ?? Package;
+                return (
+                  <div key={type} className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: col.dot }} />
+                    <Icon className="w-3 h-3 shrink-0" style={{ color: col.header }} />
+                    <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>{typeLabels[type] ?? type}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </Panel>
         {isRoomLevel && !hasHubs && (
