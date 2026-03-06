@@ -36,16 +36,36 @@ function GaugeRing({ value, color, size = 72 }: { value: number | null; color: s
   const dash = (pct / 100) * c;
 
   return (
-    <svg width={size} height={size} className="shrink-0 -rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={r}
-        fill="none" stroke="currentColor" strokeWidth={8} className="text-slate-100 dark:text-slate-700" />
-      <circle cx={size / 2} cy={size / 2} r={r}
-        fill="none" stroke={color} strokeWidth={8}
-        strokeDasharray={`${dash} ${c - dash}`}
-        strokeLinecap="round"
-        style={{ transition: 'stroke-dasharray 0.6s ease' }} />
-      <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="middle"
-        className="rotate-90" style={{ rotate: '90deg', transformOrigin: `${size / 2}px ${size / 2}px`, fontSize: 13, fontWeight: 700, fill: color }}>
+    <svg width={size} height={size} className="shrink-0">
+      <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={8}
+          className="text-slate-100 dark:text-slate-700"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={8}
+          strokeDasharray={`${dash} ${c - dash}`}
+          strokeLinecap="round"
+          style={{ transition: 'stroke-dasharray 0.6s ease' }}
+        />
+      </g>
+      <text
+        x={size / 2}
+        y={size / 2}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        style={{ fontSize: 13, fontWeight: 700, fill: color }}
+      >
         {value != null ? `${value.toFixed(0)}%` : '—'}
       </text>
     </svg>

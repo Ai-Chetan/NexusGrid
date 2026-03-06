@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { faultsApi, layoutApi } from '@/lib/api';
 import { timeAgo, formatDateTime, cn } from '@/lib/utils';
-import type { FaultReport } from '@/types';
+import type { FaultReport, PaginatedResponse, System } from '@/types';
 import PageHeader from '@/components/common/PageHeader';
 import StatusBadge from '@/components/common/StatusBadge';
 import Modal from '@/components/common/Modal';
@@ -29,7 +29,7 @@ function CreateFaultModal({ open, onClose }: { open: boolean; onClose: () => voi
   const qc = useQueryClient();
   const [selectedRoom, setSelectedRoom] = useState('');
 
-  const { data: systems = [] } = useQuery({
+  const { data: systems = [] } = useQuery<System[]>({
     queryKey: ['systems-list'],
     queryFn: () => layoutApi.getSystems().then(r => r.data),
     enabled: open,
@@ -213,9 +213,6 @@ function FaultRow({ fault, onUpdate }: { fault: FaultReport; onUpdate: (f: Fault
   return (
     <tr className="hover:bg-slate-50 transition-colors">
       <td className="px-4 py-3">
-        <span className="text-xs font-mono text-slate-400">#{fault.fault_id}</span>
-      </td>
-      <td className="px-4 py-3">
         <div>
           <p className="text-sm font-medium text-slate-800">{fault.system_host_name}</p>
           {fault.lab_name && <p className="text-xs text-slate-500">{fault.lab_name}</p>}
@@ -269,7 +266,7 @@ export default function FaultsPage() {
   const [sort, setSort] = useState('newest');
   const [page, setPage] = useState(1);
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery<PaginatedResponse<FaultReport>>({
     queryKey: ['faults', { search, status, time, sort, page }],
     queryFn: ({ signal }) => faultsApi.list({ search, status, time, sort, page, page_size: 15 }, signal).then(r => r.data),
     placeholderData: prev => prev,
@@ -341,7 +338,7 @@ export default function FaultsPage() {
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    {['ID', 'System', 'Type', 'Description', 'Status', 'Reported By', ''].map(h => (
+                    {['System', 'Type', 'Description', 'Status', 'Reported By', ''].map(h => (
                       <th key={h} className="px-4 py-3 table-header">{h}</th>
                     ))}
                   </tr>

@@ -156,7 +156,7 @@ export default function DashboardPage() {
     backgroundColor: dark ? '#1e293b' : '#ffffff',
     color: dark ? '#f1f5f9' : '#0f172a',
   };
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery<DashboardMetrics>({
     queryKey: ['dashboard-metrics'],
     queryFn: () => dashboardApi.metrics().then((r) => r.data),
     refetchInterval: 60_000,

@@ -10,7 +10,7 @@ import PageHeader from '@/components/common/PageHeader';
 import ErrorState from '@/components/common/ErrorState';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuthStore } from '@/store/authStore';
-import type { LayoutItem, Lab } from '@/types';
+import type { LayoutItem, Lab, ReportsData } from '@/types';
 
 const COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#06b6d4', '#ec4899'];
 
@@ -210,7 +210,7 @@ export default function ReportsPage() {
     color: dark ? '#94a3b8' : '#475569',
   });
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery<ReportsData>({
     queryKey: ['reports', reportParams],
     queryFn: () => reportsApi.get(reportParams).then(r => r.data),
     // Match backend cache TTL — don't re-fetch data that's still fresh
@@ -234,7 +234,7 @@ export default function ReportsPage() {
   const months = [...new Set(faultMonthly.map(x => x.month))];
   const types = [...new Set(faultMonthly.map(x => x.type))];
   const faultTrendData = months.map(m => {
-    const row: Record<string, any> = { month: m };
+    const row: Record<string, string | number> = { month: m };
     types.forEach(t => {
       row[t] = faultMonthly.find(x => x.month === m && x.type === t)?.count ?? 0;
     });

@@ -8,7 +8,7 @@ import ErrorState from '@/components/common/ErrorState';
 import EmptyState from '@/components/common/EmptyState';
 
 // ─── Gauge Bar ────────────────────────────────────────────────────────────────
-function GaugeBar({ value, color }: { value: number | null; color: string }) {
+function GaugeBar({ value, color }: { value: number | null | undefined; color: string }) {
   const pct = value ?? 0;
   return (
     <div>
@@ -107,7 +107,7 @@ function SystemCard({ info }: { info: SystemInfo }) {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function MonitoringPage() {
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery<{ systems: SystemInfo[] }>({
     queryKey: ['monitoring'],
     queryFn: () => monitoringApi.latest().then(r => r.data),
     refetchInterval: 30_000, // auto-refresh every 30s

@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { resourcesApi, layoutApi } from '@/lib/api';
 import { timeAgo, cn } from '@/lib/utils';
-import type { ResourceRequest } from '@/types';
+import type { PaginatedResponse, ResourceRequest, System } from '@/types';
 import PageHeader from '@/components/common/PageHeader';
 import StatusBadge from '@/components/common/StatusBadge';
 import Modal from '@/components/common/Modal';
@@ -29,7 +29,7 @@ function CreateResourceModal({ open, onClose }: { open: boolean; onClose: () => 
   const qc = useQueryClient();
   const [selectedRoom, setSelectedRoom] = useState('');
 
-  const { data: systems = [] } = useQuery({
+  const { data: systems = [] } = useQuery<System[]>({
     queryKey: ['systems-list'],
     queryFn: () => layoutApi.getSystems().then(r => r.data),
     enabled: open,
@@ -217,9 +217,6 @@ function ResourceRow({ resource, onUpdate }: { resource: ResourceRequest; onUpda
   return (
     <tr className="hover:bg-slate-50 transition-colors">
       <td className="px-4 py-3">
-        <span className="text-xs font-mono text-slate-400">#{resource.resource_id}</span>
-      </td>
-      <td className="px-4 py-3">
         <div>
           <p className="text-sm font-medium text-slate-800">{resource.system_host_name}</p>
           {resource.lab_name && <p className="text-xs text-slate-500">{resource.lab_name}</p>}
@@ -254,8 +251,8 @@ function ResourceRow({ resource, onUpdate }: { resource: ResourceRequest; onUpda
 }
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
-const STATUS_OPTIONS = ['all', 'Pending', 'Fulfilled', 'Denied'];
-const TIME_OPTIONS = ['all', 'today', 'week', 'month'];
+const STATUS_OPTIONS: Array<'all' | 'Pending' | 'Fulfilled' | 'Denied'> = ['all', 'Pending', 'Fulfilled', 'Denied'];
+const TIME_OPTIONS: Array<'all' | 'today' | 'week' | 'month'> = ['all', 'today', 'week', 'month'];
 
 export default function ResourcesPage() {
   const [createOpen, setCreateOpen] = useState(false);
@@ -266,7 +263,7 @@ export default function ResourcesPage() {
   const [sort, setSort] = useState('newest');
   const [page, setPage] = useState(1);
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery<PaginatedResponse<ResourceRequest>>({
     queryKey: ['resources', { search, status, time, sort, page }],
     queryFn: ({ signal }) => resourcesApi.list({ search, status, time, sort, page, page_size: 15 }, signal).then(r => r.data),
     placeholderData: prev => prev,
@@ -337,7 +334,7 @@ export default function ResourcesPage() {
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    {['ID', 'System', 'Resource', 'Description', 'Status', 'Requested By', ''].map(h => (
+                    {['System', 'Resource', 'Description', 'Status', 'Requested By', ''].map(h => (
                       <th key={h} className="px-4 py-3 table-header">{h}</th>
                     ))}
                   </tr>

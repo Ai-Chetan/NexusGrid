@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useEffect, useRef } from 'react';
+﻿import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -65,7 +65,7 @@ function QuickFaultModal({ item, onClose }: QuickFaultModalProps) {
   });
 
   return (
-    <Modal open onClose={onClose} title={`Report Fault — ${item.name}`} size="sm">
+    <Modal open onClose={onClose} title={`Report Fault for ${item.name}`} size="sm">
       <div className="space-y-4">
         {systemsLoading && <p className="text-xs text-slate-400 text-center">Loading…</p>}
         {!systemsLoading && !system && (
@@ -138,7 +138,7 @@ function QuickResourceModal({ item, onClose }: QuickResourceModalProps) {
   });
 
   return (
-    <Modal open onClose={onClose} title={`Request Resource — ${item.name}`} size="sm">
+    <Modal open onClose={onClose} title={`Request Resource for ${item.name}`} size="sm">
       <div className="space-y-4">
         {systemsLoading && <p className="text-xs text-slate-400 text-center">Loading…</p>}
         {!systemsLoading && !system && (
@@ -191,9 +191,10 @@ interface AddItemModalProps {
   onClose: () => void;
   parentType: string;
   parentId: number | null;
+  existingItems: LayoutItem[];
 }
 
-function AddItemModal({ open, onClose, parentType, parentId }: AddItemModalProps) {
+function AddItemModal({ open, onClose, parentType, parentId, existingItems }: AddItemModalProps) {
   const [name, setName] = useState('');
   const [itemType, setItemType] = useState('');
   const qc = useQueryClient();
@@ -201,7 +202,7 @@ function AddItemModal({ open, onClose, parentType, parentId }: AddItemModalProps
   const options = getChildTypes(parentType);
 
   const mutation = useMutation({
-    mutationFn: (data: { name: string; item_type: string; parent?: number | null }) =>
+    mutationFn: (data: { name: string; item_type: string; parent?: number | null; position_x?: number; position_y?: number }) =>
       layoutApi.createItem(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['layout-items'] });
@@ -216,8 +217,51 @@ function AddItemModal({ open, onClose, parentType, parentId }: AddItemModalProps
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !itemType) return;
-    mutation.mutate({ name: name.trim(), item_type: itemType, parent: parentId });
+    mutation.mutate({
+      name: name.trim(),
+      item_type: itemType,
+      parent: parentId,
+      position_x: suggestedSpawn.x,
+      position_y: suggestedSpawn.y,
+    });
   };
+
+  const suggestedSpawn = useMemo(() => {
+    const SNAP = 24;
+    const STEP_X = 192;
+    const STEP_Y = 168;
+    const snap = (v: number) => Math.round(v / SNAP) * SNAP;
+
+    if (existingItems.length === 0) {
+      return { x: 0, y: 0 };
+    }
+
+    const positions = existingItems.map((i) => ({ x: snap(i.position_x), y: snap(i.position_y) }));
+    const minX = Math.min(...positions.map((p) => p.x));
+    const maxX = Math.max(...positions.map((p) => p.x));
+    const minY = Math.min(...positions.map((p) => p.y));
+    const maxY = Math.max(...positions.map((p) => p.y));
+
+    const anchor = { x: maxX + STEP_X, y: minY };
+    const occupied = (x: number, y: number) =>
+      positions.some((p) => Math.abs(p.x - x) < STEP_X * 0.7 && Math.abs(p.y - y) < STEP_Y * 0.7);
+
+    if (!occupied(anchor.x, anchor.y)) return anchor;
+
+    // Spiral search around anchor to keep new nodes near existing ones.
+    for (let ring = 1; ring <= 6; ring++) {
+      for (let dx = -ring; dx <= ring; dx++) {
+        for (let dy = -ring; dy <= ring; dy++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
+          const x = snap(anchor.x + dx * STEP_X);
+          const y = snap(anchor.y + dy * STEP_Y);
+          if (!occupied(x, y)) return { x, y };
+        }
+      }
+    }
+
+    return { x: snap(maxX + STEP_X), y: snap(maxY + STEP_Y) };
+  }, [existingItems]);
 
   return (
     <Modal open={open} onClose={onClose} title="Add New Item">
@@ -927,6 +971,7 @@ export default function LayoutPage() {
         onClose={() => setAddOpen(false)}
         parentType={parentType}
         parentId={parentId}
+        existingItems={items}
       />
       <EditItemModal
         item={editItem}

@@ -86,6 +86,15 @@ const statusColour: Record<string, string> = {
 const NETWORK_HUB_TYPES = new Set(['network_switch', 'router']);
 const CLUSTER_TYPES    = new Set(['building', 'floor', 'room']);
 
+function getItemAccentColor(item: LayoutItem, fallbackHeader: string): string {
+  const isDevice = !CLUSTER_TYPES.has(item.item_type);
+  if (!isDevice) return fallbackHeader;
+  if (item.alert_status === 'fault_active') return '#ef4444';
+  if (item.alert_status === 'resource_pending') return '#3b82f6';
+  if (item.monitoring_status === 'online' || item.alert_status === 'fault_resolved' || item.alert_status === 'resource_done') return '#10b981';
+  return '#94a3b8';
+}
+
 // ─── Node "shape" visual bodies ───────────────────────────────────────────────
 // Each returns the inner decorative area beneath the header.
 
@@ -409,42 +418,42 @@ function ItemNode({ data }: NodeProps<ItemFlowNode>) {
   const alertStatus = item.alert_status;
   const BodyEl = typeBodyMap[item.item_type];
 
-  // Card accent color based on fault/resource alert state
+  // Card accent color based on fault/resource/monitoring state
+  const accentColor = getItemAccentColor(item, col.header);
   let cardBorderColor: string;
   let cardGlow: string | undefined;
   const isDeviceActive = isMonitored || !!alertStatus;
 
-  if (!isDevice) {
-    cardBorderColor = col.header;
-  } else if (alertStatus === 'fault_active') {
-    cardBorderColor = '#ef4444';
-    cardGlow = '0 0 0 2px #ef4444, 0 0 12px 2px #ef444440';
-  } else if (alertStatus === 'resource_pending') {
-    cardBorderColor = '#3b82f6';
-    cardGlow = '0 0 0 2px #3b82f6, 0 0 12px 2px #3b82f640';
-  } else if (isMonitored || alertStatus === 'fault_resolved' || alertStatus === 'resource_done') {
-    cardBorderColor = '#10b981';
-    cardGlow = isMonitored ? '0 0 0 2px #10b981, 0 0 12px 2px #10b98140' : undefined;
-  } else {
-    cardBorderColor = '#94a3b8';
+  cardBorderColor = accentColor;
+  if (isDevice) {
+    if (alertStatus === 'fault_active') {
+      cardGlow = '0 0 0 2px #ef4444, 0 0 12px 2px #ef444440';
+    } else if (alertStatus === 'resource_pending') {
+      cardGlow = '0 0 0 2px #3b82f6, 0 0 12px 2px #3b82f640';
+    } else if (isMonitored) {
+      cardGlow = '0 0 0 2px #10b981, 0 0 12px 2px #10b98140';
+    }
   }
 
   // Fill colours derived from cardBorderColor
   const hasAlertFill = isDevice && isDeviceActive;
-  const cardHeaderColor = hasAlertFill ? cardBorderColor : col.header;
+  const cardHeaderColor = hasAlertFill ? accentColor : col.header;
   const cardBodyBg     = hasAlertFill ? cardBorderColor + '18' : col.bg;
   const cardOuterBg    = hasAlertFill
     ? (isDark ? cardBorderColor + '12' : cardBorderColor + '0d')
     : undefined;
 
   // Hover preview: fetch children when hovering a navigable node
-  const { data: children = [], isFetching } = useQuery({
+  const { data: children = [], isFetching } = useQuery<LayoutItem[]>({
     queryKey: ['layout-preview', item.id],
-    queryFn: () => layoutApi.getItems({ parent_id: item.id }).then(r => r.data),
+    queryFn: async () => {
+      const response = await layoutApi.getItems({ parent_id: item.id });
+      return response.data as LayoutItem[];
+    },
     enabled: hovered && isNavigable && !editMode,
     staleTime: 60_000,
   });
-  const childCounts = children.reduce<Record<string, number>>((acc, c) => {
+  const childCounts = children.reduce((acc: Record<string, number>, c: LayoutItem) => {
     acc[c.item_type] = (acc[c.item_type] ?? 0) + 1;
     return acc;
   }, {});
@@ -483,7 +492,7 @@ function ItemNode({ data }: NodeProps<ItemFlowNode>) {
     <NodeToolbar isVisible={hovered && !editMode} position={Position.Right} offset={12}>
       <div className={cn('rounded-xl border shadow-2xl w-52 overflow-hidden', isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200')}>
         {/* Toolbar header */}
-        <div className="px-3 py-2 flex items-center gap-2" style={{ background: col.header }}>
+        <div className="px-3 py-2 flex items-center gap-2" style={{ background: isDevice ? accentColor : col.header }}>
           {(() => { const Icon = typeIcons[item.item_type] ?? Package; return <Icon className="w-3.5 h-3.5 text-white shrink-0" />; })()}
           <span className="text-white text-[11px] font-semibold truncate flex-1">{item.name}</span>
           {isNavigable && !isFetching && children.length > 0 && (
@@ -650,6 +659,7 @@ function ItemNode({ data }: NodeProps<ItemFlowNode>) {
                     {/* Mini cards */}
                     {positioned.map(({ child, cx, cy }) => {
                       const c = (isDark ? darkTypeColours : typeColours)[child.item_type] ?? (isDark ? darkFallbackCol : fallbackCol);
+                      const childAccent = getItemAccentColor(child, c.header);
                       const Icon = typeIcons[child.item_type] ?? Package;
                       const bodyBg = isDark ? '#1e293b' : '#ffffff';
                       return (
@@ -658,13 +668,13 @@ function ItemNode({ data }: NodeProps<ItemFlowNode>) {
                             left: cx, top: cy,
                             transform: 'translate(-50%,-50%)',
                             width: CW, height: CH,
-                            border: `1px solid ${c.header}`,
+                            border: `1px solid ${childAccent}`,
                           }}
                           title={child.name}
                         >
                           {/* Header strip */}
                           <div className="flex items-center justify-center gap-[2px]"
-                            style={{ height: HEADER, background: c.header }}>
+                            style={{ height: HEADER, background: childAccent }}>
                             <Icon style={{ width: 5, height: 5, color: '#fff', flexShrink: 0 }} />
                           </div>
                           {/* Body */}
@@ -765,7 +775,7 @@ function ItemNode({ data }: NodeProps<ItemFlowNode>) {
       <div
         style={{ background: cardBodyBg, ...(isNavigable ? {} : { height: 110, overflow: 'hidden', display: 'flex', alignItems: 'stretch' }) }}
       >
-        {BodyEl ? BodyEl(item.name, col.header) : <div className="h-12" />}
+        {BodyEl ? BodyEl(item.name, cardHeaderColor) : <div className="h-12" />}
       </div>
 
       {/* ── Footer: status only for navigable cluster nodes ── */}
@@ -973,7 +983,7 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
 
     return { nodes, edges: rawEdges };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.map((i) => `${i.id}:${i.position_x},${i.position_y}:${i.name}:${i.status ?? ''}`).join('|'), parentType]);
+  }, [items.map((i) => `${i.id}:${i.position_x},${i.position_y}:${i.name}:${i.status ?? ''}:${i.monitoring_status ?? ''}:${i.alert_status ?? ''}`).join('|'), parentType]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<ItemFlowNode>(initialElements.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialElements.edges);
@@ -1120,7 +1130,11 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
         <Background gap={24} color={isDark ? '#1e293b' : '#e2e8f0'} />
         <Controls showInteractive={false} />
         <MiniMap
-          nodeColor={(n) => (isDark ? darkTypeColours : typeColours)[(n.data as ItemNodeData).item.item_type]?.dot ?? '#94a3b8'}
+          nodeColor={(n) => {
+            const item = (n.data as ItemNodeData).item;
+            const palette = (isDark ? darkTypeColours : typeColours)[item.item_type] ?? (isDark ? darkFallbackCol : fallbackCol);
+            return getItemAccentColor(item, palette.dot);
+          }}
         />
         <Panel position="top-right">
           <div className="group relative flex items-start justify-end">
@@ -1150,6 +1164,21 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
               )}
             >
               <p className={cn('font-semibold text-xs mb-2', isDark ? 'text-slate-300' : 'text-slate-700')}>Legend</p>
+              <div className="space-y-1.5 pb-2 mb-2 border-b border-slate-200 dark:border-slate-700">
+                <p className={cn('text-[10px] font-semibold uppercase tracking-wide', isDark ? 'text-slate-500' : 'text-slate-400')}>Status</p>
+                {[
+                  { color: '#10b981', label: 'Online / Active' },
+                  { color: '#ef4444', label: 'Active Fault' },
+                  { color: '#3b82f6', label: 'Resource Pending' },
+                  { color: '#94a3b8', label: 'No Data / Offline' },
+                ].map((s) => (
+                  <div key={s.label} className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: s.color }} />
+                    <span className={isDark ? 'text-slate-300' : 'text-slate-600'}>{s.label}</span>
+                  </div>
+                ))}
+              </div>
+              <p className={cn('text-[10px] font-semibold uppercase tracking-wide mb-1', isDark ? 'text-slate-500' : 'text-slate-400')}>Types</p>
               {Object.entries(isDark ? darkTypeColours : typeColours).map(([type, col]) => {
                 const Icon = typeIcons[type] ?? Package;
                 return (
