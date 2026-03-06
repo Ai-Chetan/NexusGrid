@@ -52,3 +52,39 @@ class SystemInfo(models.Model):
 
     def __str__(self):
         return f"{self.hostname} @ {self.timestamp:%Y-%m-%d %H:%M:%S}"
+
+
+class SystemCurrent(models.Model):
+    """Latest-known snapshot pointer and health state for each host."""
+
+    STATE_ONLINE = 'online'
+    STATE_OFFLINE = 'offline'
+    STATE_UNKNOWN = 'unknown'
+    HEALTH_CHOICES = [
+        (STATE_ONLINE, 'Online'),
+        (STATE_OFFLINE, 'Offline'),
+        (STATE_UNKNOWN, 'Unknown'),
+    ]
+
+    # Lower-cased, normalized key used for matching and unique lookups.
+    hostname_key = models.CharField(max_length=255, unique=True, db_index=True)
+    # Original host casing for display.
+    hostname = models.CharField(max_length=255, db_index=True)
+    latest_info = models.ForeignKey(
+        SystemInfo,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='current_rows',
+    )
+    last_seen_at = models.DateTimeField(db_index=True)
+    health_state = models.CharField(max_length=16, choices=HEALTH_CHOICES, default=STATE_UNKNOWN, db_index=True)
+
+    class Meta:
+        ordering = ['hostname']
+        indexes = [
+            models.Index(fields=['health_state', '-last_seen_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.hostname} ({self.health_state})"

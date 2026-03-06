@@ -44,14 +44,39 @@ def collect_metrics() -> dict:
         hostname = "unknown"
         ip_address = None
 
+    cpu_freq = psutil.cpu_freq()
+    vm = psutil.virtual_memory()
+    disk = psutil.disk_usage('/')
+    net = psutil.net_io_counters()
+    users = psutil.users()
+
     return {
         "hostname": hostname,
         "ip_address": ip_address,
-        "os_name": platform.system(),
-        "os_version": platform.version(),
+        "system": platform.system(),
+        "version": platform.version(),
+        "release": platform.release(),
+        "machine": platform.machine(),
+        "processor": platform.processor(),
+        "architecture": platform.architecture()[0],
+        "cpu_physical_cores": psutil.cpu_count(logical=False),
+        "cpu_total_cores": psutil.cpu_count(logical=True),
+        "cpu_max_freq": cpu_freq.max if cpu_freq else None,
+        "cpu_min_freq": cpu_freq.min if cpu_freq else None,
+        "cpu_current_freq": cpu_freq.current if cpu_freq else None,
         "cpu_usage": psutil.cpu_percent(interval=1),
-        "ram_usage": psutil.virtual_memory().percent,
-        "disk_usage": psutil.disk_usage("/").percent,
+        "memory_total": round(vm.total / (1024 ** 3), 2),
+        "memory_available": round(vm.available / (1024 ** 3), 2),
+        "memory_used": round(vm.used / (1024 ** 3), 2),
+        "memory_usage_percent": vm.percent,
+        "disk_total": round(disk.total / (1024 ** 3), 2),
+        "disk_used": round(disk.used / (1024 ** 3), 2),
+        "disk_free": round(disk.free / (1024 ** 3), 2),
+        "disk_usage_percent": disk.percent,
+        "bytes_sent": net.bytes_sent if net else None,
+        "bytes_received": net.bytes_recv if net else None,
+        "users_count": len(users),
+        "logged_in_users": ", ".join(user.name for user in users),
     }
 
 
@@ -107,8 +132,8 @@ class Command(BaseCommand):
                 metrics = collect_metrics()
                 self.stdout.write(f"  Hostname : {metrics['hostname']}")
                 self.stdout.write(f"  CPU      : {metrics['cpu_usage']}%")
-                self.stdout.write(f"  RAM      : {metrics['ram_usage']}%")
-                self.stdout.write(f"  Disk     : {metrics['disk_usage']}%")
+                self.stdout.write(f"  RAM      : {metrics['memory_usage_percent']}%")
+                self.stdout.write(f"  Disk     : {metrics['disk_usage_percent']}%")
 
                 success = send_metrics(url, metrics, token, self.stderr)
                 if success:
