@@ -29,20 +29,27 @@ class LayoutItemSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     quick_info = serializers.SerializerMethodField()
     parent_name = serializers.SerializerMethodField()
+    monitoring_status = serializers.SerializerMethodField()
+    alert_status = serializers.SerializerMethodField()
 
     class Meta:
         model = LayoutItem
         fields = [
             'id', 'name', 'item_type', 'parent', 'parent_name',
             'position_x', 'position_y', 'width', 'height',
-            'created_at', 'updated_at', 'status', 'quick_info',
+            'created_at', 'updated_at', 'status', 'quick_info', 'monitoring_status', 'alert_status',
         ]
 
     def get_status(self, obj):
         system_types = ['computer', 'server', 'network_switch', 'router', 'printer', 'ups', 'rack']
         if obj.item_type in system_types:
             system = getattr(obj, 'system', None)
-            return system.status if system else None
+            if system is None:
+                return None
+            monitored = self.context.get('monitored_hostnames', set())
+            if system.host_name and system.host_name.lower() in monitored:
+                return 'active'
+            return system.status
         return None
 
     def get_quick_info(self, obj):
@@ -53,6 +60,31 @@ class LayoutItemSerializer(serializers.ModelSerializer):
 
     def get_parent_name(self, obj):
         return obj.parent.name if obj.parent else None
+
+    def get_monitoring_status(self, obj):
+        system_types = ['computer', 'server', 'network_switch', 'router', 'printer', 'ups', 'rack']
+        if obj.item_type not in system_types:
+            return None
+        system = getattr(obj, 'system', None)
+        if system is None or not system.host_name:
+            return None
+        monitored = self.context.get('monitored_hostnames', set())
+        return 'online' if system.host_name.lower() in monitored else None
+
+    def get_alert_status(self, obj):
+        system_types = ['computer', 'server', 'network_switch', 'router', 'printer', 'ups', 'rack']
+        if obj.item_type not in system_types:
+            return None
+
+        active_fault_ids = self.context.get('active_fault_layout_ids', set())
+        pending_resource_ids = self.context.get('pending_resource_layout_ids', set())
+
+        # Frontend color priority: fault (red) > resource (blue) > monitoring (green) > grey.
+        if obj.id in active_fault_ids:
+            return 'fault_active'
+        if obj.id in pending_resource_ids:
+            return 'resource_pending'
+        return None
 
 
 class LayoutItemCreateSerializer(serializers.ModelSerializer):

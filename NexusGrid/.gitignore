@@ -42,12 +42,20 @@ media/
 staticfiles/
 local_settings.py
 
+# Python virtual environment
+.venv/
+venv/
+env/
+
 # Environment variables
 .env
 .env.*
 
 # Node.js (if using with frontend tools)
 node_modules/
+
+# Frontend build output
+frontend/dist/
 
 # Vercel deployment
 .vercel

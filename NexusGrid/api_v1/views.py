@@ -13,7 +13,7 @@ from login_manager.models import User
 from system_layout.models import LayoutItem, Lab, System, LabAssignment, PrivilegesConfig
 from faults.models import FaultReport
 from resources.models import ResourceRequest
-from monitoring.models import SystemInfo
+from monitoring.models import SystemInfo, SystemCurrent
 
 from .serializers import (
     UserSerializer, UserUpdateSerializer,
@@ -409,6 +409,36 @@ def _get_restricted_item_ids(user):
     return frozenset(allowed)
 
 
+def _latest_monitored_hostname_set():
+    """Return all hostnames that have monitoring data in the current-state table."""
+    return set(
+        SystemCurrent.objects
+        .values_list('hostname_key', flat=True)
+    )
+
+
+def _layout_alert_context():
+    active_fault_layout_ids = set(
+        FaultReport.objects.filter(status__in=['unaddressed', 'in-progress', 'scheduled'])
+        .values_list('system_name__layout_item_id', flat=True)
+    )
+    pending_resource_layout_ids = set(
+        ResourceRequest.objects.filter(status='Pending')
+        .values_list('system_name__layout_item_id', flat=True)
+    )
+    return {
+        'active_fault_layout_ids': active_fault_layout_ids,
+        'pending_resource_layout_ids': pending_resource_layout_ids,
+    }
+
+
+def _layout_serializer_context():
+    return {
+        'monitored_hostnames': _latest_monitored_hostname_set(),
+        **_layout_alert_context(),
+    }
+
+
 class LayoutItemsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -426,7 +456,7 @@ class LayoutItemsView(APIView):
                 return Response([])
             items = items.filter(id__in=allowed_ids)
 
-        return Response(LayoutItemSerializer(items, many=True).data)
+        return Response(LayoutItemSerializer(items, many=True, context=_layout_serializer_context()).data)
 
     def post(self, request):
         ser = LayoutItemCreateSerializer(data=request.data)
@@ -470,7 +500,7 @@ class LayoutItemDetailView(APIView):
 
     def get(self, request, pk):
         item = get_object_or_404(LayoutItem.objects.select_related('system', 'lab'), pk=pk)
-        return Response(LayoutItemSerializer(item).data)
+        return Response(LayoutItemSerializer(item, context=_layout_serializer_context()).data)
 
     def patch(self, request, pk):
         from django.db import transaction
@@ -796,12 +826,43 @@ class MonitoringView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        item_id = request.GET.get('item_id', '').strip()
+        if item_id.isdigit():
+            item = get_object_or_404(
+                LayoutItem.objects.select_related('system'),
+                pk=int(item_id),
+            )
+            system = getattr(item, 'system', None)
+            hostname = (system.host_name if system else item.name) or ''
+            hostname = hostname.strip()
+            if not hostname:
+                return Response({'detail': 'No hostname found for this item.'}, status=404)
+
+            key = hostname.lower()
+            current = SystemCurrent.objects.select_related('latest_info').filter(hostname_key=key).first()
+            info = current.latest_info if current and current.latest_info_id else None
+            if info is None:
+                info = (
+                    SystemInfo.objects
+                    .filter(hostname__iexact=hostname)
+                    .order_by('-timestamp', '-id')
+                    .first()
+                )
+            if not info:
+                return Response({'detail': 'No monitoring data for this host.'}, status=404)
+            return Response(SystemInfoSerializer(info).data)
+
         from django.core.cache import cache
         cached = cache.get(MONITORING_CACHE_KEY)
         if cached is not None:
             return Response(cached)
-        infos = SystemInfo.objects.order_by('hostname')
-        data = {'systems': SystemInfoSerializer(infos, many=True).data}
+
+        systems = [
+            row.latest_info
+            for row in SystemCurrent.objects.select_related('latest_info').order_by('hostname')
+            if row.latest_info_id
+        ]
+        data = {'systems': SystemInfoSerializer(systems, many=True).data}
         cache.set(MONITORING_CACHE_KEY, data, MONITORING_CACHE_TTL)
         return Response(data)
 

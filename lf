@@ -1,0 +1,144 @@
+[1mdiff --git a/NexusGrid/api_v1/serializers.py b/NexusGrid/api_v1/serializers.py[m
+[1mindex aad5d6a..c86f3ed 100644[m
+[1m--- a/NexusGrid/api_v1/serializers.py[m
+[1m+++ b/NexusGrid/api_v1/serializers.py[m
+[36m@@ -27,6 +27,8 @@[m [mclass LayoutItemSerializer(serializers.ModelSerializer):[m
+     status = serializers.SerializerMethodField()[m
+     quick_info = serializers.SerializerMethodField()[m
+     parent_name = serializers.SerializerMethodField()[m
+[32m+[m[32m    monitoring_status = serializers.SerializerMethodField()[m
+[32m+[m[32m    alert_status = serializers.SerializerMethodField()[m
+ [m
+     class Meta:[m
+         model = LayoutItem[m
+[36m@@ -34,6 +36,7 @@[m [mclass LayoutItemSerializer(serializers.ModelSerializer):[m
+             'id', 'name', 'item_type', 'parent', 'parent_name',[m
+             'position_x', 'position_y', 'width', 'height',[m
+             'created_at', 'updated_at', 'status', 'quick_info',[m
+[32m+[m[32m            'monitoring_status', 'alert_status',[m
+         ][m
+ [m
+     def get_status(self, obj):[m
+[36m@@ -52,6 +55,28 @@[m [mclass LayoutItemSerializer(serializers.ModelSerializer):[m
+     def get_parent_name(self, obj):[m
+         return obj.parent.name if obj.parent else None[m
+ [m
+[32m+[m[32m    def get_monitoring_status(self, obj):[m
+[32m+[m[32m        DEVICE_TYPES = {'computer', 'server', 'network_switch', 'router', 'printer', 'ups', 'rack'}[m
+[32m+[m[32m        if obj.item_type not in DEVICE_TYPES:[m
+[32m+[m[32m            return None[m
+[32m+[m[32m        monitored = self.context.get('monitored_hostnames', set())[m
+[32m+[m[32m        return 'online' if obj.name.lower() in monitored else None[m
+[32m+[m
+[32m+[m[32m    def get_alert_status(self, obj):[m
+[32m+[m[32m        DEVICE_TYPES = {'computer', 'server', 'network_switch', 'router', 'printer', 'ups', 'rack'}[m
+[32m+[m[32m        if obj.item_type not in DEVICE_TYPES:[m
+[32m+[m[32m            return None[m
+[32m+[m[32m        ctx = self.context[m
+[32m+[m[32m        if obj.id in ctx.get('active_fault_ids', set()):[m
+[32m+[m[32m            return 'fault_active'[m
+[32m+[m[32m        if obj.id in ctx.get('pending_resource_ids', set()):[m
+[32m+[m[32m            return 'resource_pending'[m
+[32m+[m[32m        if obj.id in ctx.get('resolved_fault_ids', set()):[m
+[32m+[m[32m            return 'fault_resolved'[m
+[32m+[m[32m        if obj.id in ctx.get('done_resource_ids', set()):[m
+[32m+[m[32m            return 'resource_done'[m
+[32m+[m[32m        return None[m
+[32m+[m
+ [m
+ class LayoutItemCreateSerializer(serializers.ModelSerializer):[m
+     class Meta:[m
+[1mdiff --git a/NexusGrid/api_v1/urls.py b/NexusGrid/api_v1/urls.py[m
+[1mindex 8798a3a..41ad292 100644[m
+[1m--- a/NexusGrid/api_v1/urls.py[m
+[1m+++ b/NexusGrid/api_v1/urls.py[m
+[36m@@ -14,6 +14,7 @@[m [murlpatterns = [[m
+     # Layout Items[m
+     path('layout/items/', views.LayoutItemsView.as_view(), name='api-layout-items'),[m
+     path('layout/items/<int:pk>/', views.LayoutItemDetailView.as_view(), name='api-layout-item-detail'),[m
+[32m+[m[32m    path('layout/items/<int:pk>/monitoring/', views.SystemMonitoringDetailView.as_view(), name='api-item-monitoring'),[m
+     path('layout/breadcrumb/<int:pk>/', views.LayoutBreadcrumbView.as_view(), name='api-layout-breadcrumb'),[m
+ [m
+     # Systems[m
+[1mdiff --git a/NexusGrid/api_v1/views.py b/NexusGrid/api_v1/views.py[m
+[1mindex 765e64a..ae82adb 100644[m
+[1m--- a/NexusGrid/api_v1/views.py[m
+[1m+++ b/NexusGrid/api_v1/views.py[m
+[36m@@ -138,6 +138,32 @@[m [mclass DashboardMetricsView(APIView):[m
+ [m
+ # ─── Layout ──────────────────────────────────────────────────────────────────[m
+ [m
+[32m+[m[32mdef _layout_alert_context() -> dict:[m
+[32m+[m[32m    """Build fault/resource alert ID sets for use as serializer context."""[m
+[32m+[m[32m    active_fault_ids = set([m
+[32m+[m[32m        FaultReport.objects.filter(status__in=['unaddressed', 'in-progress', 'scheduled'])[m
+[32m+[m[32m        .values_list('system_name__layout_item_id', flat=True)[m
+[32m+[m[32m    )[m
+[32m+[m[32m    resolved_fault_ids = set([m
+[32m+[m[32m        FaultReport.objects.filter(status__in=['resolved', 'ignored'])[m
+[32m+[m[32m        .values_list('system_name__layout_item_id', flat=True)[m
+[32m+[m[32m    ) - active_fault_ids[m
+[32m+[m[32m    pending_resource_ids = set([m
+[32m+[m[32m        ResourceRequest.objects.filter(status='Pending')[m
+[32m+[m[32m        .values_list('system_name__layout_item_id', flat=True)[m
+[32m+[m[32m    )[m
+[32m+[m[32m    done_resource_ids = set([m
+[32m+[m[32m        ResourceRequest.objects.filter(status__in=['Fulfilled', 'Denied'])[m
+[32m+[m[32m        .values_list('system_name__layout_item_id', flat=True)[m
+[32m+[m[32m    ) - pending_resource_ids[m
+[32m+[m[32m    return {[m
+[32m+[m[32m        'active_fault_ids': active_fault_ids,[m
+[32m+[m[32m        'resolved_fault_ids': resolved_fault_ids,[m
+[32m+[m[32m        'pending_resource_ids': pending_resource_ids,[m
+[32m+[m[32m        'done_resource_ids': done_resource_ids,[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m
+ class LayoutItemsView(APIView):[m
+     permission_classes = [IsAuthenticated][m
+ [m
+[36m@@ -146,7 +172,11 @@[m [mclass LayoutItemsView(APIView):[m
+         parent_id = int(parent_id) if parent_id and parent_id.isdigit() else None[m
+         qs = LayoutItem.objects.select_related('system', 'lab')[m
+         items = qs.filter(parent_id=parent_id) if parent_id else qs.filter(parent__isnull=True)[m
+[31m-        return Response(LayoutItemSerializer(items, many=True).data)[m
+[32m+[m[32m        monitored_hostnames = set([m
+[32m+[m[32m            h.lower() for h in SystemInfo.objects.values_list('hostname', flat=True).distinct()[m
+[32m+[m[32m        )[m
+[32m+[m[32m        ctx = {'monitored_hostnames': monitored_hostnames, **_layout_alert_context()}[m
+[32m+[m[32m        return Response(LayoutItemSerializer(items, many=True, context=ctx).data)[m
+ [m
+     def post(self, request):[m
+         ser = LayoutItemCreateSerializer(data=request.data)[m
+[36m@@ -190,7 +220,11 @@[m [mclass LayoutItemDetailView(APIView):[m
+ [m
+     def get(self, request, pk):[m
+         item = get_object_or_404(LayoutItem.objects.select_related('system', 'lab'), pk=pk)[m
+[31m-        return Response(LayoutItemSerializer(item).data)[m
+[32m+[m[32m        monitored_hostnames = set([m
+[32m+[m[32m            h.lower() for h in SystemInfo.objects.values_list('hostname', flat=True).distinct()[m
+[32m+[m[32m        )[m
+[32m+[m[32m        ctx = {'monitored_hostnames': monitored_hostnames, **_layout_alert_context()}[m
+[32m+[m[32m        return Response(LayoutItemSerializer(item, context=ctx).data)[m
+ [m
+     def patch(self, request, pk):[m
+         from django.db import transaction[m
+[36m@@ -222,6 +256,18 @@[m [mclass LayoutItemDetailView(APIView):[m
+         return Response(status=204)[m
+ [m
+ [m
+[32m+[m[32mclass SystemMonitoringDetailView(APIView):[m
+[32m+[m[32m    """Return the latest monitoring snapshot for a layout item matched by hostname."""[m
+[32m+[m[32m    permission_classes = [IsAuthenticated][m
+[32m+[m
+[32m+[m[32m    def get(self, request, pk):[m
+[32m+[m[32m        item = get_object_or_404(LayoutItem, pk=pk)[m
+[32m+[m[32m        info = SystemInfo.objects.filter(hostname__iexact=item.name).order_by('-timestamp').first()[m
+[32m+[m[32m        if not info:[m
+[32m+[m[32m            return Response({'detail': 'No monitoring data found for this item.'}, status=404)[m
+[32m+[m[32m        return Response(SystemInfoSerializer(info).data)[m
+[32m+[m
+[32m+[m
+ class LayoutBreadcrumbView(APIView):[m
+     permission_classes = [IsAuthenticated][m
+ [m
