@@ -7,8 +7,9 @@ import {
   Wifi, Printer, Zap, HardDrive, Package, Loader2,
   Copy, ClipboardPaste, Undo2, Redo2, AlertTriangle, PackageSearch,
 } from 'lucide-react';
-import { layoutApi, faultsApi, resourcesApi } from '@/lib/api';
+import { layoutApi, faultsApi, resourcesApi, privilegesApi } from '@/lib/api';
 import { itemTypeLabel, cn, getChildTypes } from '@/lib/utils';
+import { useAuthStore } from '@/store/authStore';
 import type { LayoutItem, BreadcrumbItem, SimpleSystem } from '@/types';
 import Modal from '@/components/common/Modal';
 import EmptyState from '@/components/common/EmptyState';
@@ -521,6 +522,9 @@ export default function LayoutPage() {
   const navigate = useNavigate();
   const parentId = id ? parseInt(id) : null;
   const qc = useQueryClient();
+  const user = useAuthStore(s => s.user);
+  const isNoRole     = user?.role === 'No Roles';
+  const isRestricted = user?.role === 'Lab Incharge' || user?.role === 'Lab Assistant';
 
   // ─── Persist & restore layout position across page navigations ───────────────────
   const didRestoreRef = useRef(false);
@@ -662,10 +666,22 @@ export default function LayoutPage() {
     setRedoStack([]);
   }, [parentId]);
 
-  const { data: items = [], isLoading, isError, refetch } = useQuery({
+  const { data: rawItems = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['layout-items', parentId],
     queryFn: () => layoutApi.getItems({ parent_id: parentId }).then((r) => r.data),
   });
+
+  // Fetch this user's lab assignments — used to gate content for restricted roles
+  const { data: myAssignments = [] } = useQuery({
+    queryKey: ['my-assignments'],
+    queryFn: () => privilegesApi.getAssignments().then(r => r.data as { id: number }[]),
+    enabled: isRestricted,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // No Roles → always empty; Restricted with no assignments → also empty
+  const hasNoAccess = isNoRole || (isRestricted && myAssignments.length === 0);
+  const items = hasNoAccess ? [] : rawItems;
 
   const { data: breadcrumb = [] } = useQuery({
     queryKey: ['layout-breadcrumb', parentId],
@@ -764,18 +780,18 @@ export default function LayoutPage() {
           )}
 
           {/* ── View mode: Edit + Quick Build buttons ── */}
-          {!editMode && items.length > 0 && canAddChildren && (
+          {!isNoRole && !isRestricted && !editMode && items.length > 0 && canAddChildren && (
             <button onClick={() => setEditMode(true)} className="btn-secondary">
               Edit Layout
             </button>
           )}
-          {!editMode && canAddChildren && (
+          {!isNoRole && !isRestricted && !editMode && canAddChildren && (
             <button onClick={() => setQuickCreateOpen(true)} className="btn-secondary flex items-center gap-1.5">
               <Zap className="w-4 h-4" /> Quick Build
             </button>
           )}
           {/* ── Paste — always visible when clipboard is compatible, regardless of edit mode ── */}
-          {canPaste && (
+          {!isNoRole && !isRestricted && canPaste && (
             <button
               onClick={() => setPasteOpen(true)}
               title="Paste copied layout here"
@@ -786,7 +802,7 @@ export default function LayoutPage() {
           )}
 
           {/* ── Edit mode: Discard | Undo | Redo | Copy | + Add | Save ── */}
-          {editMode && (
+          {!isNoRole && !isRestricted && editMode && (
             <div className="flex items-stretch rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">
               <button
                 onClick={() => flowRef.current?.discard()}
@@ -868,14 +884,18 @@ export default function LayoutPage() {
         <EmptyState
 
           icon={<Package className="w-7 h-7" />}
-          title="No items here"
+          title={hasNoAccess ? 'No access' : 'No items here'}
           description={
-            canAddChildren
+            hasNoAccess
+              ? isNoRole
+                ? 'Your account has no role. Contact an administrator to get access.'
+                : 'You have no labs assigned. Contact an administrator.'
+              : !isRestricted && canAddChildren
               ? "Click 'Add Item' to start building your layout."
               : 'This item has no configurable children.'
           }
           action={
-            canAddChildren ? (
+            !hasNoAccess && !isRestricted && canAddChildren ? (
               <button onClick={() => setAddOpen(true)} className="btn-primary">
                 <Plus className="w-4 h-4" /> Add Item
               </button>

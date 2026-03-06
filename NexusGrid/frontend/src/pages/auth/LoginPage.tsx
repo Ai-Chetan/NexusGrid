@@ -3,19 +3,246 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useMutation } from '@tanstack/react-query';
 import {
   Zap, Eye, EyeOff, Loader2, Activity, AlertTriangle,
-  Package, Map, BarChart3, Users, ArrowRight, CheckCircle, Shield,
+  Package, Map, BarChart3, Users, ArrowRight, CheckCircle, Shield, X, Mail, Lock, KeyRound,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { authApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 
-// ─── Schema ────────────────────────────────────────────────────────────────────
+// ─── Schema ─────────────────────────────────────────────────────────────────────────────
 const schema = z.object({
   username: z.string().min(1, 'Username or email is required'),
   password: z.string().min(1, 'Password is required'),
 });
 type FormData = z.infer<typeof schema>;
+
+// ─── Forgot Password Modal ──────────────────────────────────────────────────────
+function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
+  const [step, setStep] = useState<'email' | 'reset'>('email');
+  const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [otp, setOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const requestMutation = useMutation({
+    mutationFn: () => authApi.forgotPasswordRequest({ email: email.trim().toLowerCase() }),
+    onSuccess: () => {
+      setStep('reset');
+      setOtp('');
+      setFieldErrors({});
+      toast.success('OTP sent! Check your email.');
+    },
+    onError: (err: any) => {
+      const data = err?.response?.data;
+      const msg = data?.email ?? data?.detail ?? 'Failed to send OTP. Please try again.';
+      setEmailError(msg);
+    },
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: () => authApi.forgotPasswordVerify({
+      otp,
+      new_password: newPassword,
+      confirm_password: confirmPassword,
+    }),
+    onSuccess: (res) => {
+      toast.success(res.data.detail ?? 'Password reset! You can now log in.');
+      onClose();
+    },
+    onError: (err: any) => {
+      const data = err?.response?.data;
+      if (data && typeof data === 'object') {
+        setFieldErrors(data as Record<string, string>);
+      } else {
+        setFieldErrors({ detail: 'Verification failed. Please try again.' });
+      }
+    },
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Panel */}
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 z-10">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-lg
+                     text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        {step === 'email' ? (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-extrabold text-slate-900 mb-1">Reset your password</h2>
+              <p className="text-sm text-slate-500">
+                Enter your registered email address and we'll send a 6-digit OTP to reset your password.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); setEmailError(''); }}
+                  placeholder="john@university.edu"
+                  className={`w-full pl-10 pr-4 py-3 bg-slate-100 border rounded-xl text-slate-900 text-sm
+                             placeholder:text-slate-400 focus:outline-none focus:ring-2
+                             focus:ring-brand-500 focus:border-transparent transition-all
+                             ${emailError ? 'border-red-400' : 'border-slate-300 hover:border-slate-400'}`}
+                  autoFocus
+                  onKeyDown={e => e.key === 'Enter' && !requestMutation.isPending && requestMutation.mutate()}
+                />
+              </div>
+              {emailError && <p className="mt-1.5 text-xs text-red-400">⚠ {emailError}</p>}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => requestMutation.mutate()}
+              disabled={!email.trim() || requestMutation.isPending}
+              className="w-full flex items-center justify-center gap-2.5 py-3.5
+                         bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:pointer-events-none
+                         text-white font-semibold text-sm rounded-xl transition-all
+                         shadow-lg shadow-brand-600/30 focus:outline-none focus:ring-2 focus:ring-brand-400"
+            >
+              {requestMutation.isPending ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Sending OTP…</>
+              ) : (
+                <><KeyRound className="w-4 h-4" /> Send OTP</>
+              )}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            <div>
+              <h2 className="text-xl font-extrabold text-slate-900 mb-1">Enter your new password</h2>
+              <p className="text-sm text-slate-500">
+                Check <span className="font-medium text-slate-700">{email}</span> for a 6-digit code.
+              </p>
+            </div>
+
+            {/* OTP */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">
+                Verification Code
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={otp}
+                onChange={e => { setOtp(e.target.value.replace(/\D/g, '')); setFieldErrors({}); }}
+                placeholder="6-digit OTP"
+                className="w-full px-4 py-3 bg-slate-100 border border-slate-300 hover:border-slate-400 rounded-xl
+                           text-slate-900 text-center tracking-[0.5em] text-lg font-mono
+                           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+                autoFocus
+              />
+              {fieldErrors.detail && <p className="mt-1.5 text-xs text-red-400">⚠ {fieldErrors.detail}</p>}
+            </div>
+
+            {/* New Password */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">
+                New Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type={showNew ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={e => { setNewPassword(e.target.value); setFieldErrors({}); }}
+                  placeholder="Min 8 characters"
+                  className={`w-full pl-10 pr-11 py-3 bg-slate-100 border rounded-xl text-slate-900 text-sm
+                             placeholder:text-slate-400 focus:outline-none focus:ring-2
+                             focus:ring-brand-500 focus:border-transparent transition-all
+                             ${fieldErrors.new_password ? 'border-red-400' : 'border-slate-300 hover:border-slate-400'}`}
+                />
+                <button type="button" onClick={() => setShowNew(v => !v)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors">
+                  {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {fieldErrors.new_password && <p className="mt-1.5 text-xs text-red-400">⚠ {fieldErrors.new_password}</p>}
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">
+                Confirm Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type={showConfirm ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={e => { setConfirmPassword(e.target.value); setFieldErrors({}); }}
+                  placeholder="Re-enter new password"
+                  className={`w-full pl-10 pr-11 py-3 bg-slate-100 border rounded-xl text-slate-900 text-sm
+                             placeholder:text-slate-400 focus:outline-none focus:ring-2
+                             focus:ring-brand-500 focus:border-transparent transition-all
+                             ${fieldErrors.confirm_password ? 'border-red-400' : 'border-slate-300 hover:border-slate-400'}`}
+                />
+                <button type="button" onClick={() => setShowConfirm(v => !v)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors">
+                  {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {fieldErrors.confirm_password && <p className="mt-1.5 text-xs text-red-400">⚠ {fieldErrors.confirm_password}</p>}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => verifyMutation.mutate()}
+              disabled={otp.length !== 6 || !newPassword || !confirmPassword || verifyMutation.isPending}
+              className="w-full flex items-center justify-center gap-2.5 py-3.5
+                         bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:pointer-events-none
+                         text-white font-semibold text-sm rounded-xl transition-all
+                         shadow-lg shadow-brand-600/30 focus:outline-none focus:ring-2 focus:ring-brand-400"
+            >
+              {verifyMutation.isPending ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Resetting…</>
+              ) : (
+                <><CheckCircle className="w-4 h-4" /> Reset Password</>
+              )}
+            </button>
+
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <button type="button" onClick={() => setStep('email')}
+                className="hover:text-slate-700 transition-colors">
+                ← Change email
+              </button>
+              <button
+                type="button"
+                disabled={requestMutation.isPending}
+                onClick={() => requestMutation.mutate()}
+                className="text-brand-500 hover:text-brand-400 font-medium transition-colors disabled:opacity-50"
+              >
+                {requestMutation.isPending ? 'Sending…' : 'Resend OTP'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ─── Feature highlight data ───────────────────────────────────────────────────
 const HIGHLIGHTS = [
@@ -106,6 +333,7 @@ export default function LoginPage() {
   const { login, user } = useAuthStore();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   const {
     register,
@@ -129,6 +357,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       <LeftPanel />
+
+      {forgotOpen && <ForgotPasswordModal onClose={() => setForgotOpen(false)} />}
 
       {/* Right — Form */}
       <div className="flex flex-col items-center justify-center min-h-screen
@@ -182,7 +412,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     className="text-xs text-brand-400 hover:text-brand-300 transition-colors"
-                    onClick={() => toast('Contact your administrator to reset your password.', { icon: 'ℹ️' })}
+                    onClick={() => setForgotOpen(true)}
                   >
                     Forgot password?
                   </button>

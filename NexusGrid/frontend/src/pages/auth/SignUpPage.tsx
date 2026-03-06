@@ -3,11 +3,13 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useMutation } from '@tanstack/react-query';
 import {
   Zap, Eye, EyeOff, Loader2, User as UserIcon, Mail, Lock,
-  ArrowRight, CheckCircle, Shield, Cpu, Network, Activity,
+  ArrowRight, CheckCircle, Shield, Cpu, Network, Activity, KeyRound,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { authApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
@@ -139,16 +141,20 @@ function LeftPanel() {
 
 // ─── Sign Up Page ─────────────────────────────────────────────────────────────
 export default function SignUpPage() {
-  const { register: registerUser, user } = useAuthStore();
+  const { updateUser, user } = useAuthStore();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [step, setStep] = useState<'form' | 'otp'>('form');
+  const [otp, setOtp] = useState('');
+  const [otpError, setOtpError] = useState('');
 
   const {
     register,
     handleSubmit,
     watch,
-    formState: { errors, isSubmitting },
+    getValues,
+    formState: { errors },
   } = useForm<FormData>({ resolver: zodResolver(schema), mode: 'onChange' });
 
   // Watch password for strength meter
@@ -156,22 +162,39 @@ export default function SignUpPage() {
 
   if (user) return <Navigate to="/app/dashboard" replace />;
 
-  const onSubmit = async (data: FormData) => {
-    try {
-      await registerUser(data.username, data.email, data.password, data.confirm_password);
-      toast.success('Account created! Welcome to NexusGrid 🎉');
-      navigate('/app/dashboard', { replace: true });
-    } catch (err: any) {
+  const requestOtpMutation = useMutation({
+    mutationFn: (data: FormData) => authApi.signupRequestOtp(data),
+    onSuccess: () => {
+      setStep('otp');
+      setOtp('');
+      setOtpError('');
+      toast.success('Verification code sent to your email!');
+    },
+    onError: (err: any) => {
       const respData = err?.response?.data;
       if (respData && typeof respData === 'object') {
-        // Field-level errors from Django
         const msgs = Object.values(respData).flat().join(' ');
-        toast.error(msgs || 'Registration failed.');
+        toast.error(msgs || 'Failed to send OTP.');
       } else {
-        toast.error('Registration failed. Please try again.');
+        toast.error('Failed to send OTP. Please try again.');
       }
-    }
-  };
+    },
+  });
+
+  const verifyOtpMutation = useMutation({
+    mutationFn: () => authApi.signupVerifyOtp({ otp }),
+    onSuccess: (res) => {
+      updateUser(res.data.user);
+      toast.success('Account created! Welcome to NexusGrid 🎉');
+      navigate('/app/dashboard', { replace: true });
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.detail ?? 'Verification failed.';
+      setOtpError(msg);
+    },
+  });
+
+  const onSubmit = (data: FormData) => requestOtpMutation.mutate(data);
 
   const strength = getPasswordStrength(watchedPassword);
 
@@ -201,6 +224,74 @@ export default function SignUpPage() {
 
           {/* Form card */}
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-8 shadow-2xl">
+
+            {/* ── OTP Step ── */}
+            {step === 'otp' ? (
+              <div className="space-y-6">
+                <div className="flex items-start gap-3 px-4 py-3 bg-brand-600/10 border border-brand-500/20 rounded-xl">
+                  <KeyRound className="w-4 h-4 text-brand-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    A 6-digit verification code was sent to{' '}
+                    <span className="font-semibold text-slate-800">{getValues('email')}</span>.
+                    Enter it below to complete your registration.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">
+                    Verification Code
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={otp}
+                    onChange={e => { setOtp(e.target.value.replace(/\D/g, '')); setOtpError(''); }}
+                    placeholder="Enter 6-digit code"
+                    className="w-full px-4 py-3 bg-slate-100 border border-slate-300 hover:border-slate-400 rounded-xl
+                               text-slate-900 text-center tracking-[0.5em] text-lg font-mono
+                               focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+                    autoFocus
+                  />
+                  {otpError && <p className="mt-1.5 text-xs text-red-400">⚠ {otpError}</p>}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => verifyOtpMutation.mutate()}
+                  disabled={otp.length !== 6 || verifyOtpMutation.isPending}
+                  className="group w-full flex items-center justify-center gap-2.5 py-3.5
+                             bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:pointer-events-none
+                             text-white font-semibold text-sm rounded-xl transition-all
+                             shadow-lg shadow-brand-600/30 hover:shadow-brand-500/40
+                             focus:outline-none focus:ring-2 focus:ring-brand-400"
+                >
+                  {verifyOtpMutation.isPending ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Verifying…</>
+                  ) : (
+                    <><CheckCircle className="w-4 h-4" /> Create Account</>
+                  )}
+                </button>
+
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <button
+                    type="button"
+                    onClick={() => setStep('form')}
+                    className="hover:text-slate-700 transition-colors"
+                  >
+                    ← Edit details
+                  </button>
+                  <button
+                    type="button"
+                    disabled={requestOtpMutation.isPending}
+                    onClick={() => requestOtpMutation.mutate(getValues())}
+                    className="text-brand-500 hover:text-brand-400 font-medium transition-colors disabled:opacity-50"
+                  >
+                    {requestOtpMutation.isPending ? 'Sending…' : 'Resend code'}
+                  </button>
+                </div>
+              </div>
+            ) : (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
 
               {/* Username */}
@@ -352,34 +443,35 @@ export default function SignUpPage() {
               <div className="flex items-start gap-3 px-4 py-3 bg-brand-600/10 border border-brand-500/20 rounded-xl">
                 <Shield className="w-4 h-4 text-brand-400 shrink-0 mt-0.5" />
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  New accounts are assigned the <span className="text-brand-300 font-semibold">Students</span> role
-                  by default. An administrator can upgrade your access after registration.
+                  New accounts are assigned the <span className="text-brand-300 font-semibold">No Roles</span> role
+                  by default. An administrator will assign the appropriate role after registration.
                 </p>
               </div>
 
               {/* Submit */}
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={requestOtpMutation.isPending}
                 className="group w-full flex items-center justify-center gap-2.5 py-3.5
                            bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:pointer-events-none
                            text-white font-semibold text-sm rounded-xl transition-all
                            shadow-lg shadow-brand-600/30 hover:shadow-brand-500/40
                            focus:outline-none focus:ring-2 focus:ring-brand-400"
               >
-                {isSubmitting ? (
+                {requestOtpMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Creating account…
+                    Sending code…
                   </>
                 ) : (
                   <>
-                    Create Account
+                    Send Verification Code
                     <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                   </>
                 )}
               </button>
             </form>
+            )}
 
             {/* Divider */}
             <div className="flex items-center gap-3 my-6">

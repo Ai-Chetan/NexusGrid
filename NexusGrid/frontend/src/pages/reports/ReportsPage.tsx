@@ -65,8 +65,31 @@ export default function ReportsPage() {
   const { theme } = useTheme();
   const dark = theme === 'dark';
   const user = useAuthStore(s => s.user);
+  const isNoRole = user?.role === 'No Roles';
   const isAdmin = user?.role === 'Administrator';
   const isRestricted = user?.role === 'Lab Incharge' || user?.role === 'Lab Assistant';
+
+  if (isNoRole) {
+    return (
+      <div className="space-y-5 animate-fade-in">
+        <PageHeader
+          title="Reports & Analytics"
+          description="Visual overview of faults, resources, and system status."
+        />
+        <div className={`flex flex-col items-center justify-center py-20 rounded-xl border
+          ${ dark
+            ? 'bg-slate-900 border-slate-700 text-slate-400'
+            : 'bg-white border-slate-200 text-slate-500'
+          }`}>
+          <LayoutDashboard className="w-10 h-10 mb-4 opacity-30" />
+          <p className="text-base font-medium mb-1">No reports available</p>
+          <p className="text-sm text-center max-w-xs">
+            Your account has no role assigned. Contact an administrator to get access.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // ── Admin filter state ──────────────────────────────────────────────────
   const [selectedBuilding, setSelectedBuilding] = useState<number | ''>('');

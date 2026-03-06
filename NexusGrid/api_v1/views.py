@@ -112,6 +112,232 @@ class RegisterView(APIView):
         return Response({'user': UserSerializer(user).data}, status=status.HTTP_201_CREATED)
 
 
+_SIGNUP_OTP_KEY = 'signup_otp_data'
+_FORGOT_OTP_KEY = 'forgot_otp_data'
+
+
+def _send_otp_email(to_email: str, otp: str, subject: str, body_intro: str):
+    from django.core.mail import send_mail
+    message = (
+        f"{body_intro}\n\n"
+        f"    {otp}\n\n"
+        f"This code expires in 5 minutes. Do not share it with anyone.\n\n"
+        f"If you did not request this, please ignore this email."
+    )
+    send_mail(subject, message, None, [to_email], fail_silently=False)
+
+
+class SignupRequestOTPView(APIView):
+    """Step 1 of OTP-verified signup: validate fields and send OTP to email."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from datetime import datetime, timedelta
+        from django.core.validators import validate_email as dj_validate_email
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        import random
+
+        username = request.data.get('username', '').strip()
+        email = request.data.get('email', '').strip().lower()
+        password = request.data.get('password', '')
+        confirm_password = request.data.get('confirm_password', '')
+
+        errors = {}
+        if not username or len(username) < 3:
+            errors['username'] = 'Username must be at least 3 characters.'
+        elif User.objects.filter(username__iexact=username).exists():
+            errors['username'] = 'This username is already taken.'
+
+        if not email:
+            errors['email'] = 'Email is required.'
+        else:
+            try:
+                dj_validate_email(email)
+            except DjangoValidationError:
+                errors['email'] = 'Enter a valid email address.'
+            else:
+                if User.objects.filter(email__iexact=email).exists():
+                    errors['email'] = 'An account with this email already exists.'
+
+        if not password or len(password) < 8:
+            errors['password'] = 'Password must be at least 8 characters.'
+        elif password != confirm_password:
+            errors['confirm_password'] = 'Passwords do not match.'
+
+        if errors:
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
+        otp = f"{random.randint(100000, 999999):06d}"
+        expiry = (datetime.now() + timedelta(minutes=5)).timestamp()
+
+        request.session[_SIGNUP_OTP_KEY] = {
+            'otp': otp,
+            'username': username,
+            'email': email,
+            'password': password,
+            'expires_at': expiry,
+            'attempts': 0,
+        }
+        request.session.modified = True
+
+        try:
+            _send_otp_email(
+                email, otp,
+                subject='NexusGrid — Verify your email address',
+                body_intro=f"Hi {username},\n\nYour NexusGrid email verification code is:",
+            )
+        except Exception:
+            del request.session[_SIGNUP_OTP_KEY]
+            return Response(
+                {'detail': 'Failed to send OTP email. Please try again.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response({'detail': 'OTP sent to your email address.'})
+
+
+class SignupVerifyOTPView(APIView):
+    """Step 2 of OTP-verified signup: verify OTP and create the account."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from datetime import datetime
+
+        otp_data = request.session.get(_SIGNUP_OTP_KEY)
+        if not otp_data:
+            return Response({'detail': 'No pending verification. Please fill the form again.'}, status=400)
+
+        if datetime.now().timestamp() > otp_data['expires_at']:
+            del request.session[_SIGNUP_OTP_KEY]
+            return Response({'detail': 'OTP has expired. Please request a new one.'}, status=400)
+
+        attempts = otp_data.get('attempts', 0)
+        if attempts >= 5:
+            del request.session[_SIGNUP_OTP_KEY]
+            return Response({'detail': 'Too many failed attempts. Please fill the form again.'}, status=400)
+
+        submitted_otp = request.data.get('otp', '').strip()
+        if submitted_otp != otp_data['otp']:
+            otp_data['attempts'] = attempts + 1
+            request.session[_SIGNUP_OTP_KEY] = otp_data
+            request.session.modified = True
+            remaining = 5 - otp_data['attempts']
+            return Response({'detail': f'Incorrect OTP. {remaining} attempt(s) remaining.'}, status=400)
+
+        # OTP correct — create account
+        try:
+            user = User.objects.create_user(
+                username=otp_data['username'],
+                email=otp_data['email'],
+                password=otp_data['password'],
+                role='No Roles',
+            )
+        except Exception:
+            # Rare race condition if username/email was taken between steps
+            del request.session[_SIGNUP_OTP_KEY]
+            return Response({'detail': 'Account could not be created. The username or email may already be taken.'}, status=400)
+
+        del request.session[_SIGNUP_OTP_KEY]
+        login(request, user)
+        return Response({'user': UserSerializer(user).data}, status=status.HTTP_201_CREATED)
+
+
+class ForgotPasswordRequestView(APIView):
+    """Step 1 of forgot-password: find user by email and send OTP."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from datetime import datetime, timedelta
+        from django.core.validators import validate_email as dj_validate_email
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        import random
+
+        email = request.data.get('email', '').strip().lower()
+        if not email:
+            return Response({'email': 'Email is required.'}, status=400)
+        try:
+            dj_validate_email(email)
+        except DjangoValidationError:
+            return Response({'email': 'Enter a valid email address.'}, status=400)
+
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            # Don't reveal whether email exists — generic message
+            return Response({'detail': 'OTP sent to your email address if an account exists.'})
+
+        otp = f"{random.randint(100000, 999999):06d}"
+        expiry = (datetime.now() + timedelta(minutes=5)).timestamp()
+
+        request.session[_FORGOT_OTP_KEY] = {
+            'otp': otp,
+            'user_id': user.pk,
+            'expires_at': expiry,
+            'attempts': 0,
+        }
+        request.session.modified = True
+
+        try:
+            _send_otp_email(
+                user.email, otp,
+                subject='NexusGrid — Password Reset OTP',
+                body_intro=f"Hi {user.username},\n\nYour NexusGrid password reset code is:",
+            )
+        except Exception:
+            del request.session[_FORGOT_OTP_KEY]
+            return Response({'detail': 'Failed to send OTP email. Please try again.'}, status=503)
+
+        return Response({'detail': 'OTP sent to your email address if an account exists.'})
+
+
+class ForgotPasswordVerifyView(APIView):
+    """Step 2 of forgot-password: verify OTP and set new password."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from datetime import datetime
+
+        otp_data = request.session.get(_FORGOT_OTP_KEY)
+        if not otp_data:
+            return Response({'detail': 'No pending reset. Please request a new OTP.'}, status=400)
+
+        if datetime.now().timestamp() > otp_data['expires_at']:
+            del request.session[_FORGOT_OTP_KEY]
+            return Response({'detail': 'OTP has expired. Please request a new one.'}, status=400)
+
+        attempts = otp_data.get('attempts', 0)
+        if attempts >= 5:
+            del request.session[_FORGOT_OTP_KEY]
+            return Response({'detail': 'Too many failed attempts. Please request a new OTP.'}, status=400)
+
+        submitted_otp = request.data.get('otp', '').strip()
+        new_password = request.data.get('new_password', '')
+        confirm_password = request.data.get('confirm_password', '')
+
+        if submitted_otp != otp_data['otp']:
+            otp_data['attempts'] = attempts + 1
+            request.session[_FORGOT_OTP_KEY] = otp_data
+            request.session.modified = True
+            remaining = 5 - otp_data['attempts']
+            return Response({'detail': f'Incorrect OTP. {remaining} attempt(s) remaining.'}, status=400)
+
+        if not new_password or len(new_password) < 8:
+            return Response({'new_password': 'Password must be at least 8 characters.'}, status=400)
+        if new_password != confirm_password:
+            return Response({'confirm_password': 'Passwords do not match.'}, status=400)
+
+        try:
+            user = User.objects.get(pk=otp_data['user_id'])
+        except User.DoesNotExist:
+            del request.session[_FORGOT_OTP_KEY]
+            return Response({'detail': 'User not found.'}, status=400)
+
+        user.set_password(new_password)
+        user.save()
+        del request.session[_FORGOT_OTP_KEY]
+        return Response({'detail': 'Password reset successfully. You can now log in.'})
+
+
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -835,6 +1061,19 @@ class PrivilegesConfigView(APIView):
             return Response(ser.errors, status=400)
         ser.save()
         return Response(PrivilegesConfigSerializer(config).data)
+
+
+# ─── Delete Account ───────────────────────────────────────────────────────────
+
+class DeleteAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        user = request.user
+        LabAssignment.objects.filter(user=user).delete()
+        logout(request)
+        user.delete()
+        return Response({'detail': 'Account permanently deleted.'}, status=status.HTTP_204_NO_CONTENT)
 
 
 # ─── Profile / OTP ────────────────────────────────────────────────────────────

@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
   User as UserIcon, Mail, Lock, Edit2, CheckCircle2,
-  Loader2, Shield, Calendar, Clock,
+  Loader2, Shield, Calendar, Clock, Trash2, AlertTriangle,
 } from 'lucide-react';
 import { profileApi } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
@@ -363,6 +364,81 @@ function ChangePasswordSection({ onUpdated }: { onUpdated: (u: unknown) => void 
   );
 }
 
+// ─── Delete Account Section ───────────────────────────────────────────────────
+
+function DeleteAccountSection() {
+  const { logout } = useAuthStore();
+  const navigate = useNavigate();
+  const [confirming, setConfirming] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+
+  const deleteMutation = useMutation({
+    mutationFn: () => profileApi.deleteAccount(),
+    onSuccess: () => {
+      logout();
+      navigate('/login', { replace: true });
+      toast.success('Your account has been permanently deleted.');
+    },
+    onError: () => toast.error('Failed to delete account. Please try again.'),
+  });
+
+  if (!confirming) {
+    return (
+      <button
+        onClick={() => setConfirming(true)}
+        className="inline-flex items-center gap-1.5 text-xs text-red-500 dark:text-red-400
+                   hover:underline font-medium"
+      >
+        <Trash2 className="w-3.5 h-3.5" /> Delete Account
+      </button>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start gap-2.5 px-3 py-2.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40 rounded-lg">
+        <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+        <p className="text-xs text-red-700 dark:text-red-400 leading-relaxed">
+          This action is <strong>permanent and irreversible</strong>. Your account, all lab assignments,
+          and all associated data will be deleted immediately.
+        </p>
+      </div>
+      <p className="text-xs text-slate-600 dark:text-slate-400">
+        Type <span className="font-semibold text-slate-800 dark:text-slate-200">DELETE</span> to confirm:
+      </p>
+      <input
+        type="text"
+        value={confirmText}
+        onChange={e => setConfirmText(e.target.value)}
+        placeholder="Type DELETE here"
+        className="w-full sm:w-64 px-3 py-2 rounded-lg border border-red-300 dark:border-red-700
+                   bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-red-500"
+      />
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => deleteMutation.mutate()}
+          disabled={confirmText !== 'DELETE' || deleteMutation.isPending}
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm
+                     font-medium hover:bg-red-700 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+        >
+          {deleteMutation.isPending
+            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            : <Trash2 className="w-3.5 h-3.5" />}
+          Delete Permanently
+        </button>
+        <button
+          onClick={() => { setConfirming(false); setConfirmText(''); }}
+          className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm
+                     text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
@@ -486,6 +562,21 @@ export default function ProfilePage() {
           <div className="mt-2 ml-7">
             <ChangePasswordSection onUpdated={handleUpdated} />
           </div>
+        </div>
+      </div>
+
+      {/* ── Danger Zone ── */}
+      <div className="mt-4 bg-white dark:bg-slate-900 rounded-xl border border-red-200 dark:border-red-900/50 divide-y divide-red-100 dark:divide-red-900/40">
+        <div className="px-6 py-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-red-400 dark:text-red-500">
+            Danger Zone
+          </h3>
+        </div>
+        <div className="px-6 py-4">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+            Permanently delete your account and all associated data. This cannot be undone.
+          </p>
+          <DeleteAccountSection />
         </div>
       </div>
     </div>

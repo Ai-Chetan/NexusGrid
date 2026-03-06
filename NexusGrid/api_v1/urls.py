@@ -7,6 +7,10 @@ urlpatterns = [
     path('auth/logout/', views.LogoutView.as_view(), name='api-logout'),
     path('auth/me/', views.MeView.as_view(), name='api-me'),
     path('auth/register/', views.RegisterView.as_view(), name='api-register'),
+    path('auth/signup-otp/', views.SignupRequestOTPView.as_view(), name='api-signup-otp'),
+    path('auth/signup-verify/', views.SignupVerifyOTPView.as_view(), name='api-signup-verify'),
+    path('auth/forgot-password/', views.ForgotPasswordRequestView.as_view(), name='api-forgot-password'),
+    path('auth/forgot-password-verify/', views.ForgotPasswordVerifyView.as_view(), name='api-forgot-password-verify'),
 
     # Dashboard
     path('dashboard/metrics/', views.DashboardMetricsView.as_view(), name='api-dashboard-metrics'),
@@ -49,4 +53,5 @@ urlpatterns = [
     # Profile / OTP
     path('profile/request-otp/', views.ProfileRequestOTPView.as_view(), name='api-profile-request-otp'),
     path('profile/verify-otp/', views.ProfileVerifyOTPView.as_view(), name='api-profile-verify-otp'),
+    path('profile/delete/', views.DeleteAccountView.as_view(), name='api-profile-delete'),
 ]

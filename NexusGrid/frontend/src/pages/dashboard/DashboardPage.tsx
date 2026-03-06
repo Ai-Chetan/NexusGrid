@@ -13,7 +13,21 @@ import { timeAgo, statusColors } from '@/lib/utils';
 import StatusBadge from '@/components/common/StatusBadge';
 import ErrorState from '@/components/common/ErrorState';
 import { useTheme } from '@/hooks/useTheme';
+import { useAuthStore } from '@/store/authStore';
 import type { DashboardMetrics } from '@/types';
+
+const ZERO_DATA: DashboardMetrics = {
+  systems: { total: 0, functional: 0, active: 0, critical: 0,
+             functional_pct: 0, active_pct: 0, critical_pct: 0, utilization_pct: 0 },
+  faults:    { open: 0, total: 0 },
+  resources: { pending: 0, total: 0 },
+  labs_total: 0,
+  fault_trend: [],
+  resource_trend: [],
+  fault_by_type: {},
+  fault_by_status: {},
+  recent_activity: [],
+};
 
 // ─── Metric Card ─────────────────────────────────────────────────────────────
 interface MetricCardProps {
@@ -131,6 +145,8 @@ function ActivityFeed({ items }: { items: DashboardMetrics['recent_activity'] })
 export default function DashboardPage() {
   const { theme } = useTheme();
   const dark = theme === 'dark';
+  const user = useAuthStore(s => s.user);
+  const isNoRole = user?.role === 'No Roles';
 
   const gridStroke   = dark ? '#334155' : '#cbd5e1';
   const tickFill     = dark ? '#64748b' : '#94a3b8';
@@ -144,9 +160,10 @@ export default function DashboardPage() {
     queryKey: ['dashboard-metrics'],
     queryFn: () => dashboardApi.metrics().then((r) => r.data),
     refetchInterval: 60_000,
+    enabled: !isNoRole,
   });
 
-  if (isLoading) {
+  if (!isNoRole && isLoading) {
     return (
       <div className="space-y-4 animate-pulse">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -158,12 +175,13 @@ export default function DashboardPage() {
     );
   }
 
-  if (isError || !data) {
+  if (!isNoRole && (isError || !data)) {
     return <ErrorState message="Failed to load dashboard metrics." onRetry={refetch} />;
   }
 
+  const effective = isNoRole ? ZERO_DATA : data!;
   const { systems, faults, resources, labs_total, fault_trend, resource_trend,
-          fault_by_type, fault_by_status, recent_activity } = data;
+          fault_by_type, fault_by_status, recent_activity } = effective;
 
   const trendData = fault_trend.map((f, i) => ({
     month: f.month,
