@@ -73,15 +73,23 @@ export default function Sidebar({ onClose }: SidebarProps) {
       {user && (
         <div className="px-3 py-3 border-t border-slate-100 dark:border-slate-700/60">
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-800">
-            <div className="w-8 h-8 bg-brand-100 rounded-full flex items-center justify-center shrink-0">
+            <button
+              onClick={() => { navigate('/app/profile'); onClose?.(); }}
+              title="View profile"
+              className="w-8 h-8 bg-brand-100 rounded-full flex items-center justify-center shrink-0
+                         hover:bg-brand-200 dark:hover:bg-brand-800/60 transition-colors"
+            >
               <span className="text-xs font-bold text-brand-700">
                 {user.username.charAt(0).toUpperCase()}
               </span>
-            </div>
-            <div className="flex-1 min-w-0">
+            </button>
+            <button
+              onClick={() => { navigate('/app/profile'); onClose?.(); }}
+              className="flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
+            >
               <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{user.username}</p>
               <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user.role}</p>
-            </div>
+            </button>
             <button
               onClick={handleLogout}
               title="Logout"

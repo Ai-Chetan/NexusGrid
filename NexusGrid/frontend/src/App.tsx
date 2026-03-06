@@ -12,6 +12,7 @@ import ResourcesPage from '@/pages/resources/ResourcesPage';
 import ReportsPage from '@/pages/reports/ReportsPage';
 import MonitoringPage from '@/pages/monitoring/MonitoringPage';
 import UsersPage from '@/pages/users/UsersPage';
+import ProfilePage from '@/pages/profile/ProfilePage';
 import LoadingScreen from '@/components/common/LoadingScreen';
 
 import type { User } from '@/types';
@@ -68,6 +69,7 @@ export default function App() {
           <Route path="reports" element={<ReportsPage />} />
           <Route path="monitoring" element={<RoleRoute allowedRoles={['Administrator', 'Lab Assistant']}><MonitoringPage /></RoleRoute>} />
           <Route path="users" element={<RoleRoute allowedRoles={['Administrator']}><UsersPage /></RoleRoute>} />
+          <Route path="profile" element={<ProfilePage />} />
         </Route>
 
         {/* Legacy redirects */}

@@ -677,23 +677,70 @@ function LabAssignmentsTab() {
 }
 
 // ─── Role Update Cell ─────────────────────────────────────────────────────────
+const ASSIGNABLE_ROLES = ['Lab Incharge', 'Lab Assistant'];
+
 function RoleCell({ user }: { user: User }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [role, setRole] = useState<string>(user.role);
+  const [confirming, setConfirming] = useState(false);
 
   const mutation = useMutation({
     mutationFn: (newRole: string) => usersApi.update(user.id, { role: newRole }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['users'] });
       qc.invalidateQueries({ queryKey: ['privileges-stats'] });
+      qc.invalidateQueries({ queryKey: ['assignments'] });
       setEditing(false);
-      toast.success(`Role updated to ${res.data.role}`);
+      setConfirming(false);
+      const revoked = res.data.revoked_assignments;
+      if (revoked > 0) {
+        toast.success(`Role updated. ${revoked} lab assignment${revoked > 1 ? 's' : ''} revoked.`);
+      } else {
+        toast.success(`Role updated to ${res.data.role}`);
+      }
     },
-    onError: () => toast.error('Failed to update role'),
+    onError: () => { setConfirming(false); toast.error('Failed to update role'); },
   });
 
+  const handleSaveClick = () => {
+    if (role === user.role) { setEditing(false); return; }
+    if (ASSIGNABLE_ROLES.includes(user.role)) {
+      setConfirming(true);
+    } else {
+      mutation.mutate(role);
+    }
+  };
+
   if (editing) {
+    if (confirming) {
+      return (
+        <div className="space-y-2">
+          <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/50 rounded-lg px-3 py-2 max-w-xs">
+            <strong>{user.username}</strong> is currently a <strong>{user.role}</strong>.
+            Changing their role will <strong>revoke all lab assignments</strong> for this user.
+            Are you sure?
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => mutation.mutate(role)}
+              disabled={mutation.isPending}
+              className="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg font-medium flex items-center gap-1.5 transition-colors"
+            >
+              {mutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+              Yes, change role
+            </button>
+            <button
+              onClick={() => setConfirming(false)}
+              className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex items-center gap-2">
         <select
@@ -705,7 +752,7 @@ function RoleCell({ user }: { user: User }) {
           {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
         <button
-          onClick={() => mutation.mutate(role)}
+          onClick={handleSaveClick}
           disabled={mutation.isPending}
           className="text-xs text-brand-600 font-medium hover:underline"
         >

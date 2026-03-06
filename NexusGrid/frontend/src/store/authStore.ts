@@ -10,6 +10,7 @@ interface AuthState {
   register: (username: string, email: string, password: string, confirmPassword: string) => Promise<void>;
   logout: () => Promise<void>;
   initialize: () => Promise<void>;
+  updateUser: (user: User) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -56,6 +57,10 @@ export const useAuthStore = create<AuthState>()(
       } finally {
         set({ user: null, isInitialized: true });
       }
+    },
+
+    updateUser: (user: User) => {
+      set({ user });
     },
   })
 );

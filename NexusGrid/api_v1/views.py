@@ -134,7 +134,7 @@ class DashboardMetricsView(APIView):
 
     def get(self, request):
         from .services.metrics import get_dashboard_metrics
-        return Response(get_dashboard_metrics())
+        return Response(get_dashboard_metrics(user=request.user))
 
 
 # ─── Layout ──────────────────────────────────────────────────────────────────
@@ -353,6 +353,9 @@ class FaultListView(APIView):
 
     def get(self, request):
         qs = FaultReport.objects.select_related('system_name', 'system_name__lab', 'reported_by', 'resolved_by')
+        # Non-admins can only see their own reports
+        if request.user.role != 'Administrator':
+            qs = qs.filter(reported_by=request.user)
         q = request.GET.get('search', '').strip()
         s = request.GET.get('status', '').strip()
         t = request.GET.get('time', '').strip()
@@ -431,6 +434,9 @@ class ResourceListView(APIView):
 
     def get(self, request):
         qs = ResourceRequest.objects.select_related('system_name', 'system_name__lab', 'requested_by', 'provided_by')
+        # Non-admins can only see their own requests
+        if request.user.role != 'Administrator':
+            qs = qs.filter(requested_by=request.user)
         q = request.GET.get('search', '').strip()
         s = request.GET.get('status', '').strip()
         t = request.GET.get('time', '').strip()
@@ -603,23 +609,56 @@ class UserDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, pk):
+        if request.user.role != 'Administrator':
+            return Response({'detail': 'Admin only.'}, status=403)
         user = get_object_or_404(User, pk=pk)
+        old_role = user.role
         ser = UserUpdateSerializer(user, data=request.data, partial=True)
         if not ser.is_valid():
             return Response(ser.errors, status=400)
         ser.save()
+
+        # If role changed away from an assignable role, revoke all lab assignments
+        new_role = user.role
+        revoked_count = 0
+        if old_role != new_role and old_role in ('Lab Incharge', 'Lab Assistant'):
+            revoked_count = LabAssignment.objects.filter(user=user).count()
+            LabAssignment.objects.filter(user=user).delete()
+
         # Bust the cached user list
         from django.core.cache import cache
         cache.delete(USER_LIST_CACHE_KEY)
-        return Response(UserSerializer(user).data)
+        data = UserSerializer(user).data
+        data['revoked_assignments'] = revoked_count
+        return Response(data)
 
 
 class SystemsListView(APIView):
-    """Return all systems for dropdowns."""
+    """Return systems for dropdowns.
+
+    Administrators receive all systems.
+    Lab Incharge / Lab Assistant receive only the systems belonging to labs
+    they are currently actively assigned to, so the fault-report and
+    resource-request modals only offer relevant options.
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        systems = System.objects.select_related('lab', 'layout_item').all()
+        user = request.user
+        qs = System.objects.select_related('lab', 'layout_item')
+
+        if user.role in ('Lab Incharge', 'Lab Assistant'):
+            today = timezone.now().date()
+            assigned_lab_ids = list(
+                LabAssignment.objects
+                .filter(user=user)
+                .filter(Q(start_date__isnull=True) | Q(start_date__lte=today))
+                .filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
+                .values_list('lab_id', flat=True)
+                .distinct()
+            )
+            qs = qs.filter(lab_id__in=assigned_lab_ids)
+
         data = [
             {
                 'id': s.id,
@@ -627,7 +666,7 @@ class SystemsListView(APIView):
                 'lab_name': s.lab.lab_name if s.lab else None,
                 'status': s.status,
             }
-            for s in systems
+            for s in qs
         ]
         return Response(data)
 
@@ -796,3 +835,144 @@ class PrivilegesConfigView(APIView):
             return Response(ser.errors, status=400)
         ser.save()
         return Response(PrivilegesConfigSerializer(config).data)
+
+
+# ─── Profile / OTP ────────────────────────────────────────────────────────────
+
+_PROFILE_OTP_SESSION_KEY = 'profile_otp_data'
+
+def _generate_profile_otp():
+    import random
+    return f"{random.randint(100000, 999999):06d}"
+
+
+def _send_profile_otp_email(to_email: str, otp: str, action: str):
+    from django.core.mail import send_mail
+    action_labels = {
+        'change_username': 'change your username',
+        'change_email': 'change your email address',
+        'change_password': 'change your password',
+    }
+    label = action_labels.get(action, 'update your profile')
+    subject = 'NexusGrid — Profile Update OTP'
+    message = (
+        f"Your one-time password (OTP) to {label} is:\n\n"
+        f"    {otp}\n\n"
+        f"This code expires in 5 minutes. Do not share it with anyone.\n\n"
+        f"If you did not request this, please ignore this email."
+    )
+    send_mail(subject, message, None, [to_email], fail_silently=False)
+
+
+class ProfileRequestOTPView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from datetime import datetime, timedelta
+        from django.core.validators import validate_email
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        action = request.data.get('action', '').strip()
+        new_value = request.data.get('new_value', '').strip()
+
+        valid_actions = ('change_username', 'change_email', 'change_password')
+        if action not in valid_actions:
+            return Response({'detail': 'Invalid action.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+
+        # Validate the new value before sending OTP
+        if action == 'change_username':
+            if not new_value or len(new_value) < 3:
+                return Response({'new_value': 'Username must be at least 3 characters.'}, status=400)
+            if User.objects.filter(username__iexact=new_value).exclude(pk=user.pk).exists():
+                return Response({'new_value': 'This username is already taken.'}, status=400)
+
+        elif action == 'change_email':
+            if not new_value:
+                return Response({'new_value': 'Email is required.'}, status=400)
+            try:
+                validate_email(new_value)
+            except DjangoValidationError:
+                return Response({'new_value': 'Enter a valid email address.'}, status=400)
+            if User.objects.filter(email__iexact=new_value).exclude(pk=user.pk).exists():
+                return Response({'new_value': 'An account with this email already exists.'}, status=400)
+
+        elif action == 'change_password':
+            if not new_value or len(new_value) < 8:
+                return Response({'new_value': 'Password must be at least 8 characters.'}, status=400)
+
+        otp = _generate_profile_otp()
+        expiry = (datetime.now() + timedelta(minutes=5)).timestamp()
+
+        request.session[_PROFILE_OTP_SESSION_KEY] = {
+            'otp': otp,
+            'action': action,
+            'new_value': new_value,
+            'expires_at': expiry,
+            'attempts': 0,
+        }
+        request.session.modified = True
+
+        try:
+            _send_profile_otp_email(user.email, otp, action)
+        except Exception:
+            del request.session[_PROFILE_OTP_SESSION_KEY]
+            return Response(
+                {'detail': 'Failed to send OTP email. Please try again.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response({'detail': 'OTP sent to your registered email address.'})
+
+
+class ProfileVerifyOTPView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from datetime import datetime
+
+        otp_data = request.session.get(_PROFILE_OTP_SESSION_KEY)
+        if not otp_data:
+            return Response({'detail': 'No pending OTP. Please request a new one.'}, status=400)
+
+        # Check expiry
+        if datetime.now().timestamp() > otp_data['expires_at']:
+            del request.session[_PROFILE_OTP_SESSION_KEY]
+            return Response({'detail': 'OTP has expired. Please request a new one.'}, status=400)
+
+        # Limit attempts
+        attempts = otp_data.get('attempts', 0)
+        if attempts >= 5:
+            del request.session[_PROFILE_OTP_SESSION_KEY]
+            return Response({'detail': 'Too many failed attempts. Please request a new OTP.'}, status=400)
+
+        submitted_otp = request.data.get('otp', '').strip()
+        if submitted_otp != otp_data['otp']:
+            otp_data['attempts'] = attempts + 1
+            request.session[_PROFILE_OTP_SESSION_KEY] = otp_data
+            request.session.modified = True
+            remaining = 5 - otp_data['attempts']
+            return Response({'detail': f'Incorrect OTP. {remaining} attempt(s) remaining.'}, status=400)
+
+        # OTP is correct — apply the change
+        user = request.user
+        action = otp_data['action']
+        new_value = otp_data['new_value']
+
+        if action == 'change_username':
+            user.username = new_value
+        elif action == 'change_email':
+            user.email = new_value.lower()
+        elif action == 'change_password':
+            user.set_password(new_value)
+
+        user.save()
+        del request.session[_PROFILE_OTP_SESSION_KEY]
+
+        # Re-login to refresh session after password change
+        if action == 'change_password':
+            from django.contrib.auth import update_session_auth_hash
+            update_session_auth_hash(request, user)
+
+        return Response({'user': UserSerializer(user).data})

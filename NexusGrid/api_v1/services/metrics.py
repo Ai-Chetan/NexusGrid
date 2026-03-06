@@ -47,31 +47,68 @@ def _pct(n: int, d: int) -> float:
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 
-def get_dashboard_metrics() -> dict:
+def get_dashboard_metrics(user=None) -> dict:
     """
-    Return the full dashboard metrics payload.
+    Return the full dashboard metrics payload, optionally scoped to a user.
 
-    Fires 10 DB queries on a cold cache, then serves from Redis for up to
-    METRICS_CACHE_TTL seconds on subsequent calls.
+    Scoping rules
+    -------------
+    Administrator (or no user supplied):
+        All records — result served from / stored in the global Redis cache.
 
-    Queries executed (cold path):
-      1.  System aggregate          (total / functional / critical / active)
-      2.  FaultReport aggregate     (open / total)
-      3.  ResourceRequest aggregate (pending / total)
-      4.  FaultReport trend         (6-month monthly counts)
-      5.  ResourceRequest trend     (6-month monthly counts)
-      6.  FaultReport by type       (group-by)
-      7.  FaultReport by status     (group-by)
-      8.  Recent faults             (top-5, select_related)
-      9.  Recent resources          (top-5, select_related)
-      10. Lab count
+    Lab Incharge / Lab Assistant:
+        Systems, faults, resources, and labs scoped to the labs they are
+        currently actively assigned to.  Not cached (per-user data).
+
+    All other roles (Students, No Roles, …):
+        Faults and resources scoped to records *they personally created*.
+        System / lab counts remain global (they don't own labs).
+        Not cached (per-user data).
     """
-    cached = cache.get(DASHBOARD_CACHE_KEY)
-    if cached is not None:
-        return cached
+    from system_layout.models import LabAssignment
+    from django.db.models import Q as _Q
+
+    is_admin = (user is None or getattr(user, 'role', 'Administrator') == 'Administrator')
+
+    # ── Admin: global cache path (unchanged behaviour) ────────────────────
+    if is_admin:
+        cached = cache.get(DASHBOARD_CACHE_KEY)
+        if cached is not None:
+            return cached
+
+    today = timezone.now().date()
+    six_months_ago = timezone.now() - timezone.timedelta(days=180)
+
+    # ── Resolve base querysets depending on role ──────────────────────────
+    role = getattr(user, 'role', None)
+
+    if role in ('Lab Incharge', 'Lab Assistant'):
+        assigned_lab_ids = list(
+            LabAssignment.objects
+            .filter(user=user)
+            .filter(_Q(start_date__isnull=True) | _Q(start_date__lte=today))
+            .filter(_Q(end_date__isnull=True)   | _Q(end_date__gte=today))
+            .values_list('lab_id', flat=True)
+            .distinct()
+        )
+        system_qs   = System.objects.filter(lab_id__in=assigned_lab_ids)
+        fault_qs    = FaultReport.objects.filter(system_name__lab_id__in=assigned_lab_ids)
+        resource_qs = ResourceRequest.objects.filter(system_name__lab_id__in=assigned_lab_ids)
+        labs_total  = len(assigned_lab_ids)
+    elif not is_admin and user is not None:
+        # Students / No Roles / etc. — show only their own submissions
+        system_qs   = System.objects.all()       # systems are global for these users
+        fault_qs    = FaultReport.objects.filter(reported_by=user)
+        resource_qs = ResourceRequest.objects.filter(requested_by=user)
+        labs_total  = Lab.objects.count()        # global count
+    else:
+        system_qs   = System.objects.all()
+        fault_qs    = FaultReport.objects.all()
+        resource_qs = ResourceRequest.objects.all()
+        labs_total  = None  # computed below for admin
 
     # 1 ── System counts
-    counts = System.objects.aggregate(
+    counts = system_qs.aggregate(
         total=Count('id'),
         functional=Count(Case(When(status__in=['active', 'inactive'], then=1), output_field=IntegerField())),
         critical=Count(Case(When(status='non-functional', then=1), output_field=IntegerField())),
@@ -83,19 +120,18 @@ def get_dashboard_metrics() -> dict:
     active     = counts['active']
 
     # 2 ── Fault / resource headline counts
-    fault_counts = FaultReport.objects.aggregate(
+    fault_counts = fault_qs.aggregate(
         open=Count(Case(When(status__in=['unaddressed', 'in-progress'], then=1), output_field=IntegerField())),
         total=Count('fault_id'),
     )
-    resource_counts = ResourceRequest.objects.aggregate(
+    resource_counts = resource_qs.aggregate(
         pending=Count(Case(When(status='Pending', then=1), output_field=IntegerField())),
         total=Count('resource_id'),
     )
 
     # 3 ── 6-month trend lines
-    six_months_ago = timezone.now() - timezone.timedelta(days=180)
     fault_trend = list(
-        FaultReport.objects
+        fault_qs
         .filter(reported_at__gte=six_months_ago)
         .annotate(month=TruncMonth('reported_at'))
         .values('month')
@@ -103,7 +139,7 @@ def get_dashboard_metrics() -> dict:
         .order_by('month')
     )
     resource_trend = list(
-        ResourceRequest.objects
+        resource_qs
         .filter(requested_at__gte=six_months_ago)
         .annotate(month=TruncMonth('requested_at'))
         .values('month')
@@ -113,26 +149,26 @@ def get_dashboard_metrics() -> dict:
 
     # 4 ── Fault breakdowns
     fault_by_type = dict(
-        FaultReport.objects
+        fault_qs
         .values('fault_type')
         .annotate(n=Count('fault_id'))
         .values_list('fault_type', 'n')
     )
     fault_by_status = dict(
-        FaultReport.objects
+        fault_qs
         .values('status')
         .annotate(n=Count('fault_id'))
         .values_list('status', 'n')
     )
 
-    # 5 ── Recent activity (5 faults + 5 resources, merged and sorted in Python)
+    # 5 ── Recent activity
     recent_faults = list(
-        FaultReport.objects
+        fault_qs
         .select_related('system_name', 'reported_by')
         .order_by('-reported_at')[:5]
     )
     recent_resources = list(
-        ResourceRequest.objects
+        resource_qs
         .select_related('system_name', 'requested_by')
         .order_by('-requested_at')[:5]
     )
@@ -160,10 +196,11 @@ def get_dashboard_metrics() -> dict:
         })
     activity.sort(key=lambda x: x['time'], reverse=True)
 
-    # 6 ── Labs total
-    labs_total = Lab.objects.count()
+    # 6 ── Labs total (admin computes it here)
+    if labs_total is None:
+        labs_total = Lab.objects.count()
 
-    # ── Assemble payload (shape is frozen — React frontend depends on it)
+    # ── Assemble payload
     payload = {
         'systems': {
             'total':           total,
@@ -185,7 +222,8 @@ def get_dashboard_metrics() -> dict:
         'recent_activity': activity[:8],
     }
 
-    cache.set(DASHBOARD_CACHE_KEY, payload, METRICS_CACHE_TTL)
+    if is_admin:
+        cache.set(DASHBOARD_CACHE_KEY, payload, METRICS_CACHE_TTL)
     return payload
 
 
