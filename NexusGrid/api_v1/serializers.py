@@ -1,6 +1,8 @@
 from rest_framework import serializers
+from django.utils import timezone
+from django.db.models import Q
 from login_manager.models import User
-from system_layout.models import LayoutItem, Lab, System
+from system_layout.models import LayoutItem, Lab, System, LabAssignment, PrivilegesConfig
 from faults.models import FaultReport
 from resources.models import ResourceRequest
 from monitoring.models import SystemInfo
@@ -88,6 +90,8 @@ class LabSerializer(serializers.ModelSerializer):
     parent_name = serializers.SerializerMethodField()
     # Populated via Count('system', distinct=True) annotation in the view
     systems_count = serializers.IntegerField(read_only=True)
+    current_incharge = serializers.SerializerMethodField()
+    current_assistant = serializers.SerializerMethodField()
 
     class Meta:
         model = Lab
@@ -95,6 +99,7 @@ class LabSerializer(serializers.ModelSerializer):
             'id', 'lab_name', 'lab_code', 'location', 'capacity', 'dimension',
             'quick_info', 'instructors', 'assistants',
             'layout_item_id', 'layout_item_name', 'parent_name', 'systems_count',
+            'current_incharge', 'current_assistant',
         ]
 
     def get_parent_name(self, obj):
@@ -106,6 +111,63 @@ class LabSerializer(serializers.ModelSerializer):
     def get_systems_count(self, obj):
         # Fall back to a direct count only if annotation is absent (e.g. detail view)
         return getattr(obj, 'systems_count', None) or System.objects.filter(lab=obj).count()
+
+    def _assignment_data(self, obj, role_type):
+        """Return current active assignment for a role, using prefetch cache when available."""
+        today = timezone.now().date()
+        # Use prefetched queryset (no extra DB hit when prefetch_related is set in the view)
+        for a in obj.assignments.all():
+            if a.role_type != role_type:
+                continue
+            if a.start_date and a.start_date > today:
+                continue
+            if a.end_date and a.end_date < today:
+                continue
+            return {
+                'assignment_id': a.id,
+                'user_id': a.user_id,
+                'username': a.user.username,
+                'start_date': a.start_date,
+                'end_date': a.end_date,
+            }
+        return None
+
+    def get_current_incharge(self, obj):
+        return self._assignment_data(obj, LabAssignment.ROLE_INCHARGE)
+
+    def get_current_assistant(self, obj):
+        return self._assignment_data(obj, LabAssignment.ROLE_ASSISTANT)
+
+
+# ─── Lab Assignments & Privileges Config ────────────────────────────────────
+
+class LabAssignmentSerializer(serializers.ModelSerializer):
+    lab_name = serializers.CharField(source='lab.lab_name', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    assigned_by_username = serializers.CharField(source='assigned_by.username', read_only=True)
+    is_active = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = LabAssignment
+        fields = [
+            'id', 'lab', 'lab_name', 'user', 'username', 'user_email',
+            'role_type', 'assigned_by', 'assigned_by_username',
+            'assigned_at', 'start_date', 'end_date', 'is_active',
+        ]
+        read_only_fields = ['id', 'assigned_at', 'assigned_by']
+
+
+class LabAssignmentCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LabAssignment
+        fields = ['lab', 'user', 'role_type', 'start_date', 'end_date']
+
+
+class PrivilegesConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PrivilegesConfig
+        fields = ['max_labs_per_incharge', 'max_labs_per_assistant']
 
 
 class LabUpdateSerializer(serializers.ModelSerializer):

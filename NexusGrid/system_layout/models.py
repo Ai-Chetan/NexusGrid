@@ -148,6 +148,104 @@ class Lab(models.Model):
     def get_quick_info(self):
         return self.quick_info or {}
 
+class PrivilegesConfig(models.Model):
+    """Singleton row that stores admin-configurable limits for lab assignments."""
+    max_labs_per_incharge = models.PositiveIntegerField(
+        default=5,
+        help_text="Maximum number of labs a single Lab Incharge can be concurrently assigned to.",
+    )
+    max_labs_per_assistant = models.PositiveIntegerField(
+        default=3,
+        help_text="Maximum number of labs a single Lab Assistant can be concurrently assigned to.",
+    )
+
+    class Meta:
+        verbose_name = "Privileges Configuration"
+
+    def __str__(self):
+        return f"PrivilegesConfig (max incharge={self.max_labs_per_incharge}, max assistant={self.max_labs_per_assistant})"
+
+    @classmethod
+    def get_config(cls):
+        obj, _ = cls.objects.get_or_create(pk=1, defaults={
+            'max_labs_per_incharge': 5,
+            'max_labs_per_assistant': 3,
+        })
+        return obj
+
+
+class LabAssignment(models.Model):
+    """
+    Records the assignment of a Lab Incharge or Lab Assistant to a specific Lab,
+    optionally within a date range (time-slot based).
+
+    Constraints enforced programmatically:
+    - At most one active incharge per lab at any time.
+    - At most one active assistant per lab at any time.
+    - A user's concurrent active assignments may not exceed the PrivilegesConfig limit.
+    """
+    ROLE_INCHARGE = 'incharge'
+    ROLE_ASSISTANT = 'assistant'
+    ROLE_CHOICES = [
+        (ROLE_INCHARGE, 'Lab Incharge'),
+        (ROLE_ASSISTANT, 'Lab Assistant'),
+    ]
+
+    lab = models.ForeignKey(Lab, on_delete=models.CASCADE, related_name='assignments')
+    user = models.ForeignKey(
+        'login_manager.User',
+        on_delete=models.CASCADE,
+        related_name='lab_assignments',
+    )
+    role_type = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    assigned_by = models.ForeignKey(
+        'login_manager.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_assignments',
+    )
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    start_date = models.DateField(null=True, blank=True, help_text="Leave blank to start immediately.")
+    end_date = models.DateField(null=True, blank=True, help_text="Leave blank for an indefinite assignment.")
+
+    class Meta:
+        ordering = ['-assigned_at']
+
+    def __str__(self):
+        return f"{self.user} → {self.lab} ({self.role_type})"
+
+    @property
+    def is_active(self):
+        from django.utils import timezone
+        today = timezone.now().date()
+        if self.start_date and self.start_date > today:
+            return False
+        if self.end_date and self.end_date < today:
+            return False
+        return True
+
+    @classmethod
+    def active_qs(cls):
+        """QuerySet base filter for currently active assignments (date-wise)."""
+        from django.utils import timezone
+        from django.db.models import Q
+        today = timezone.now().date()
+        return cls.objects.filter(
+            Q(start_date__isnull=True) | Q(start_date__lte=today),
+            Q(end_date__isnull=True) | Q(end_date__gte=today),
+        )
+
+    @classmethod
+    def get_active_for_lab(cls, lab_id, role_type):
+        """Return the currently active assignment for a specific lab + role, or None."""
+        return cls.active_qs().filter(lab_id=lab_id, role_type=role_type).select_related('user').first()
+
+    @classmethod
+    def get_active_labs_for_user(cls, user):
+        """Return all currently active assignments for a specific user."""
+        return cls.active_qs().filter(user=user).select_related('lab', 'lab__layout_item')
+
+
 class System(models.Model):
     STATUS_CHOICES = [
         ('active', 'Active (System is turned on)'),

@@ -72,6 +72,8 @@ export interface Lab {
   layout_item_name: string;
   parent_name: string | null;
   systems_count: number;
+  current_incharge: CurrentAssignment | null;
+  current_assistant: CurrentAssignment | null;
 }
 
 export interface BreadcrumbItem {
@@ -235,4 +237,35 @@ export interface SimpleSystem {
   host_name: string;
   lab_name: string | null;
   status: SystemStatus;
+}
+
+// ─── Lab Assignment & Privileges ──────────────────────────────────────────────
+
+export interface LabAssignment {
+  id: number;
+  lab: number;
+  lab_name: string;
+  user: number;
+  username: string;
+  user_email: string;
+  role_type: 'incharge' | 'assistant';
+  assigned_by: number | null;
+  assigned_by_username: string | null;
+  assigned_at: string;
+  start_date: string | null;
+  end_date: string | null;
+  is_active: boolean;
+}
+
+export interface PrivilegesConfig {
+  max_labs_per_incharge: number;
+  max_labs_per_assistant: number;
+}
+
+export interface CurrentAssignment {
+  assignment_id: number;
+  user_id: number;
+  username: string;
+  start_date: string | null;
+  end_date: string | null;
 }

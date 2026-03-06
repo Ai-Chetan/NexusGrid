@@ -42,4 +42,7 @@ urlpatterns = [
     path('users/', views.UserListView.as_view(), name='api-users-list'),
     path('users/<int:pk>/', views.UserDetailView.as_view(), name='api-user-detail'),
     path('privileges/stats/', views.UserPrivilegesStatsView.as_view(), name='api-privileges-stats'),
+    path('privileges/assignments/', views.LabAssignmentListView.as_view(), name='api-lab-assignments'),
+    path('privileges/assignments/<int:pk>/', views.LabAssignmentDetailView.as_view(), name='api-lab-assignment-detail'),
+    path('privileges/config/', views.PrivilegesConfigView.as_view(), name='api-privileges-config'),
 ]

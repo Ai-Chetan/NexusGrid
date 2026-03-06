@@ -10,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.pagination import PageNumberPagination
 
 from login_manager.models import User
-from system_layout.models import LayoutItem, Lab, System
+from system_layout.models import LayoutItem, Lab, System, LabAssignment, PrivilegesConfig
 from faults.models import FaultReport
 from resources.models import ResourceRequest
 from monitoring.models import SystemInfo
@@ -22,6 +22,7 @@ from .serializers import (
     FaultReportSerializer, FaultReportCreateSerializer, FaultStatusUpdateSerializer,
     ResourceRequestSerializer, ResourceCreateSerializer, ResourceStatusUpdateSerializer,
     SystemInfoSerializer,
+    LabAssignmentSerializer, LabAssignmentCreateSerializer, PrivilegesConfigSerializer,
 )
 
 
@@ -138,6 +139,50 @@ class DashboardMetricsView(APIView):
 
 # ─── Layout ──────────────────────────────────────────────────────────────────
 
+# ─── Layout helpers ─────────────────────────────────────────────────────────────
+
+def _get_restricted_item_ids(user):
+    """
+    For Lab Incharge / Lab Assistant users: compute the set of LayoutItem IDs
+    that the user is allowed to see.
+
+    Includes:
+    - The room LayoutItems for the user's currently active assigned labs.
+    - All children of those rooms (devices).
+    - All ancestor items (floors, buildings) needed for navigation.
+    """
+    assigned_room_ids = list(
+        LabAssignment.get_active_labs_for_user(user)
+        .values_list('lab__layout_item_id', flat=True)
+    )
+    if not assigned_room_ids:
+        return frozenset()
+
+    allowed: set = set(assigned_room_ids)
+
+    # Include all direct children (devices inside the assigned rooms)
+    children = LayoutItem.objects.filter(
+        parent_id__in=assigned_room_ids
+    ).values_list('id', flat=True)
+    allowed.update(children)
+
+    # Walk up the hierarchy (room → floor → building → …)
+    current = set(assigned_room_ids)
+    for _ in range(4):  # max tree depth guard
+        parent_ids = set(
+            LayoutItem.objects
+            .filter(id__in=current, parent__isnull=False)
+            .values_list('parent_id', flat=True)
+        )
+        new_parents = parent_ids - allowed
+        if not new_parents:
+            break
+        allowed.update(new_parents)
+        current = new_parents
+
+    return frozenset(allowed)
+
+
 class LayoutItemsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -146,6 +191,15 @@ class LayoutItemsView(APIView):
         parent_id = int(parent_id) if parent_id and parent_id.isdigit() else None
         qs = LayoutItem.objects.select_related('system', 'lab')
         items = qs.filter(parent_id=parent_id) if parent_id else qs.filter(parent__isnull=True)
+
+        # Restrict non-admin users to only their assigned labs and related items
+        user = request.user
+        if user.role in ('Lab Incharge', 'Lab Assistant'):
+            allowed_ids = _get_restricted_item_ids(user)
+            if not allowed_ids:
+                return Response([])
+            items = items.filter(id__in=allowed_ids)
+
         return Response(LayoutItemSerializer(items, many=True).data)
 
     def post(self, request):
@@ -263,7 +317,7 @@ class LabListView(APIView):
         labs = (
             Lab.objects
             .select_related('layout_item', 'layout_item__parent')
-            .prefetch_related('instructors', 'assistants')
+            .prefetch_related('instructors', 'assistants', 'assignments__user')
             .annotate(systems_count=Count('system', distinct=True))
         )
         return Response(LabSerializer(labs, many=True).data)
@@ -276,7 +330,7 @@ class LabDetailView(APIView):
         lab = get_object_or_404(
             Lab.objects
             .select_related('layout_item', 'layout_item__parent')
-            .prefetch_related('instructors', 'assistants')
+            .prefetch_related('instructors', 'assistants', 'assignments__user')
             .annotate(systems_count=Count('system', distinct=True)),
             pk=pk,
         )
@@ -482,6 +536,11 @@ class UserListView(APIView):
 
     def get(self, request):
         from django.core.cache import cache
+        role = request.GET.get('role', '').strip()
+        # Skip cache when filtering by role
+        if role:
+            users = User.objects.filter(role=role)
+            return Response(UserSerializer(users, many=True).data)
         cached = cache.get(USER_LIST_CACHE_KEY)
         if cached is not None:
             return Response(cached)
@@ -528,13 +587,143 @@ class UserPrivilegesStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        today = timezone.now().date()
+        active_incharge_lab_ids = LabAssignment.active_qs().filter(
+            role_type=LabAssignment.ROLE_INCHARGE
+        ).values_list('lab_id', flat=True)
+        active_assistant_lab_ids = LabAssignment.active_qs().filter(
+            role_type=LabAssignment.ROLE_ASSISTANT
+        ).values_list('lab_id', flat=True)
+
         user_counts = User.objects.aggregate(
             total_users=Count('id'),
             unassigned_users=Count(Case(When(role='No Roles', then=1), output_field=IntegerField())),
         )
+        total_labs = Lab.objects.count()
+        config = PrivilegesConfig.get_config()
         return Response({
             **user_counts,
-            'total_labs': Lab.objects.count(),
-            'labs_without_instructor': Lab.objects.filter(instructors__isnull=True).count(),
-            'labs_without_assistant': Lab.objects.filter(assistants__isnull=True).count(),
+            'total_labs': total_labs,
+            'labs_without_instructor': Lab.objects.exclude(id__in=active_incharge_lab_ids).count(),
+            'labs_without_assistant': Lab.objects.exclude(id__in=active_assistant_lab_ids).count(),
+            'max_labs_per_incharge': config.max_labs_per_incharge,
+            'max_labs_per_assistant': config.max_labs_per_assistant,
         })
+
+
+# ─── Lab Assignment & Privileges Config ───────────────────────────────────────
+
+class LabAssignmentListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """List all assignments. Optionally filter by ?lab_id=<id>."""
+        if request.user.role != 'Administrator':
+            return Response({'detail': 'Admin only.'}, status=403)
+        lab_id = request.GET.get('lab_id')
+        qs = LabAssignment.objects.select_related('lab', 'user', 'assigned_by').order_by('-assigned_at')
+        if lab_id and lab_id.isdigit():
+            qs = qs.filter(lab_id=int(lab_id))
+        return Response(LabAssignmentSerializer(qs, many=True).data)
+
+    def post(self, request):
+        """Create a new lab assignment (admin only)."""
+        if request.user.role != 'Administrator':
+            return Response({'detail': 'Admin only.'}, status=403)
+
+        ser = LabAssignmentCreateSerializer(data=request.data)
+        if not ser.is_valid():
+            return Response(ser.errors, status=400)
+
+        lab = ser.validated_data['lab']
+        user = ser.validated_data['user']
+        role_type = ser.validated_data['role_type']
+        start_date = ser.validated_data.get('start_date')
+        end_date = ser.validated_data.get('end_date')
+
+        # Validate that user's role matches the assignment role
+        expected_role = 'Lab Incharge' if role_type == LabAssignment.ROLE_INCHARGE else 'Lab Assistant'
+        if user.role != expected_role:
+            return Response(
+                {'detail': f'User must have the "{expected_role}" role to be assigned as {role_type}.'},
+                status=400,
+            )
+
+        # Validate no overlapping active assignment for same lab + role_type
+        today = timezone.now().date()
+        effective_start = start_date or today
+        overlap_qs = LabAssignment.objects.filter(lab=lab, role_type=role_type).filter(
+            Q(start_date__isnull=True) | Q(start_date__lte=(end_date or timezone.datetime.max.date())),
+            Q(end_date__isnull=True)   | Q(end_date__gte=effective_start),
+        )
+        if overlap_qs.exists():
+            label = 'Lab Incharge' if role_type == LabAssignment.ROLE_INCHARGE else 'Lab Assistant'
+            return Response(
+                {'detail': f'This lab already has an active {label} during the selected period.'},
+                status=400,
+            )
+
+        # Validate per-user concurrent assignment limit
+        config = PrivilegesConfig.get_config()
+        limit = config.max_labs_per_incharge if role_type == LabAssignment.ROLE_INCHARGE else config.max_labs_per_assistant
+        concurrent_count = LabAssignment.objects.filter(user=user, role_type=role_type).filter(
+            Q(start_date__isnull=True) | Q(start_date__lte=(end_date or timezone.datetime.max.date())),
+            Q(end_date__isnull=True)   | Q(end_date__gte=effective_start),
+        ).count()
+        if concurrent_count >= limit:
+            return Response(
+                {'detail': f'This user already has {concurrent_count} concurrent assignment(s) (limit: {limit}).'},
+                status=400,
+            )
+
+        assignment = ser.save(assigned_by=request.user)
+
+        # Keep M2M in sync for backward compat
+        if role_type == LabAssignment.ROLE_INCHARGE:
+            lab.instructors.add(user)
+        else:
+            lab.assistants.add(user)
+
+        return Response(LabAssignmentSerializer(assignment).data, status=201)
+
+
+class LabAssignmentDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        """Revoke an assignment (admin only)."""
+        if request.user.role != 'Administrator':
+            return Response({'detail': 'Admin only.'}, status=403)
+        assignment = get_object_or_404(LabAssignment, pk=pk)
+        lab = assignment.lab
+        user = assignment.user
+        role_type = assignment.role_type
+        assignment.delete()
+
+        # Remove from M2M only if no other assignments remain for this user+lab
+        has_other = LabAssignment.objects.filter(user=user, lab=lab, role_type=role_type).exists()
+        if not has_other:
+            if role_type == LabAssignment.ROLE_INCHARGE:
+                lab.instructors.remove(user)
+            else:
+                lab.assistants.remove(user)
+
+        return Response(status=204)
+
+
+class PrivilegesConfigView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        config = PrivilegesConfig.get_config()
+        return Response(PrivilegesConfigSerializer(config).data)
+
+    def patch(self, request):
+        if request.user.role != 'Administrator':
+            return Response({'detail': 'Admin only.'}, status=403)
+        config = PrivilegesConfig.get_config()
+        ser = PrivilegesConfigSerializer(config, data=request.data, partial=True)
+        if not ser.is_valid():
+            return Response(ser.errors, status=400)
+        ser.save()
+        return Response(PrivilegesConfigSerializer(config).data)
