@@ -1,5 +1,10 @@
 import axios from 'axios';
 
+const configuredApiBase = import.meta.env.VITE_API_BASE_URL?.trim();
+const apiBaseURL = configuredApiBase
+  ? configuredApiBase.replace(/\/+$/, '')
+  : '/api/v1';
+
 function getCsrfToken(): string {
   return (
     document.cookie
@@ -10,7 +15,7 @@ function getCsrfToken(): string {
 }
 
 const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: apiBaseURL,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });

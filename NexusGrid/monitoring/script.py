@@ -2,10 +2,11 @@ import socket
 import platform
 import psutil
 import requests
+import os
 from datetime import datetime
 
-# API URL (Replace with your actual API URL)
-API_URL ="http://127.0.0.1:8000/api/ingest/"
+# Configure ingest endpoint with an environment variable.
+API_URL = os.getenv("NEXUSGRID_INGEST_URL", "http://127.0.0.1:8000/api/ingest/")
 # Function to fetch system information
 def get_system_info():
     try:
@@ -52,9 +53,9 @@ def get_system_info():
 # Function to send data to API
 def send_data_to_api(system_info):
     try:
-        headers = {"Content-Type": "application/json"}  # ✅ Add this
+        headers = {"Content-Type": "application/json"}
         response = requests.post(API_URL, json=system_info, headers=headers)
-        print(f" Sent to API! Status: {response.status_code}, Response: {response.json()}headers: {headers}")  # ✅ Add this
+        print(f" Sent to API! Status: {response.status_code}, Response: {response.json()} headers: {headers}")
     except Exception as e:
         print(f" Error sending data to API: {e}")
 
