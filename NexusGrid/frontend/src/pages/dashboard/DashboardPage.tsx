@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 import {
   ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis,
   Tooltip, PieChart, Pie, Cell, Legend,
@@ -6,15 +7,15 @@ import {
 import {
   Monitor, AlertTriangle, Package, Building2,
   TrendingUp, Clock, CheckCircle2, XCircle,
-  ArrowUpRight, Zap,
+  ArrowUpRight, Zap, Filter,
 } from 'lucide-react';
-import { dashboardApi } from '@/lib/api';
+import { dashboardApi, layoutApi } from '@/lib/api';
 import { timeAgo } from '@/lib/utils';
 import StatusBadge from '@/components/common/StatusBadge';
 import ErrorState from '@/components/common/ErrorState';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuthStore } from '@/store/authStore';
-import type { DashboardMetrics } from '@/types';
+import type { DashboardFilterParams, DashboardMetrics, LayoutItem } from '@/types';
 
 const ZERO_DATA: DashboardMetrics = {
   systems: { total: 0, functional: 0, active: 0, critical: 0,
@@ -147,6 +148,11 @@ export default function DashboardPage() {
   const dark = theme === 'dark';
   const user = useAuthStore(s => s.user);
   const isNoRole = user?.role === 'No Roles';
+  const [buildingId, setBuildingId] = useState<string>('');
+  const [floorId, setFloorId] = useState<string>('');
+  const [roomId, setRoomId] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
 
   const gridStroke   = dark ? '#334155' : '#cbd5e1';
   const tickFill     = dark ? '#64748b' : '#94a3b8';
@@ -156,9 +162,44 @@ export default function DashboardPage() {
     backgroundColor: dark ? '#1e293b' : '#ffffff',
     color: dark ? '#f1f5f9' : '#0f172a',
   };
+  const { data: rootItems = [] } = useQuery<LayoutItem[]>({
+    queryKey: ['layout-items-root-dashboard'],
+    queryFn: () => layoutApi.getItems({ parent_id: null }).then((r) => r.data as LayoutItem[]),
+    enabled: !isNoRole,
+    staleTime: 60_000,
+  });
+
+  const { data: floorItems = [] } = useQuery<LayoutItem[]>({
+    queryKey: ['layout-items-floor-dashboard', buildingId],
+    queryFn: () => layoutApi.getItems({ parent_id: Number(buildingId) }).then((r) => r.data as LayoutItem[]),
+    enabled: !!buildingId && !isNoRole,
+    staleTime: 60_000,
+  });
+
+  const { data: roomItems = [] } = useQuery<LayoutItem[]>({
+    queryKey: ['layout-items-room-dashboard', floorId],
+    queryFn: () => layoutApi.getItems({ parent_id: Number(floorId) }).then((r) => r.data as LayoutItem[]),
+    enabled: !!floorId && !isNoRole,
+    staleTime: 60_000,
+  });
+
+  const buildingOptions = useMemo(() => rootItems.filter((i) => i.item_type === 'building'), [rootItems]);
+  const floorOptions = useMemo(() => floorItems.filter((i) => i.item_type === 'floor'), [floorItems]);
+  const roomOptions = useMemo(() => roomItems.filter((i) => i.item_type === 'room'), [roomItems]);
+
+  const metricParams = useMemo<DashboardFilterParams>(() => {
+    const params: DashboardFilterParams = {};
+    if (buildingId) params.building_id = Number(buildingId);
+    if (floorId) params.floor_id = Number(floorId);
+    if (roomId) params.room_id = Number(roomId);
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    return params;
+  }, [buildingId, floorId, roomId, startDate, endDate]);
+
   const { data, isLoading, isError, refetch } = useQuery<DashboardMetrics>({
-    queryKey: ['dashboard-metrics'],
-    queryFn: () => dashboardApi.metrics().then((r) => r.data),
+    queryKey: ['dashboard-metrics', metricParams],
+    queryFn: () => dashboardApi.metrics(metricParams).then((r) => r.data),
     refetchInterval: 60_000,
     enabled: !isNoRole,
   });
@@ -197,10 +238,108 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <div className="card p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Filter className="w-4 h-4 text-slate-500" />
+          <p className="text-sm font-semibold text-slate-700">Dashboard Filters</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Building</label>
+            <select
+              className="input mt-1"
+              value={buildingId}
+              onChange={(e) => {
+                setBuildingId(e.target.value);
+                setFloorId('');
+                setRoomId('');
+              }}
+            >
+              <option value="">All Buildings</option>
+              {buildingOptions.map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Floor</label>
+            <select
+              className="input mt-1"
+              value={floorId}
+              onChange={(e) => {
+                setFloorId(e.target.value);
+                setRoomId('');
+              }}
+              disabled={!buildingId}
+            >
+              <option value="">All Floors</option>
+              {floorOptions.map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Room</label>
+            <select
+              className="input mt-1"
+              value={roomId}
+              onChange={(e) => setRoomId(e.target.value)}
+              disabled={!floorId}
+            >
+              <option value="">All Rooms</option>
+              {roomOptions.map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">From</label>
+            <input
+              type="date"
+              className="input mt-1"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              max={endDate || undefined}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">To</label>
+            <input
+              type="date"
+              className="input mt-1"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              min={startDate || undefined}
+            />
+          </div>
+        </div>
+
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => {
+              setBuildingId('');
+              setFloorId('');
+              setRoomId('');
+              setStartDate('');
+              setEndDate('');
+            }}
+          >
+            Reset Filters
+          </button>
+        </div>
+      </div>
+
       {/* Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
-          label="Total Systems"
+          label="Functional Systems"
           value={systems.total}
           sub={`${systems.functional} functional`}
           icon={Monitor}
@@ -208,9 +347,9 @@ export default function DashboardPage() {
           pct={systems.functional_pct}
         />
         <MetricCard
-          label="Active Now"
+          label="Active Systems"
           value={systems.active}
-          sub={`${systems.utilization_pct}% utilization`}
+          sub={`${systems.active_pct}% of total systems`}
           icon={Zap}
           color="bg-emerald-500"
           pct={systems.active_pct}

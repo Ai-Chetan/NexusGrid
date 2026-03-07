@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import {
-  Zap, Eye, EyeOff, Loader2, Activity, AlertTriangle,
+  Eye, EyeOff, Loader2, Activity, AlertTriangle,
   Package, Map, BarChart3, Users, ArrowRight, CheckCircle, Shield, X, Mail, Lock, KeyRound,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
@@ -100,7 +100,7 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
                   type="email"
                   value={email}
                   onChange={e => { setEmail(e.target.value); setEmailError(''); }}
-                  placeholder="john@university.edu"
+                  placeholder="Enter your email"
                   className={`w-full pl-10 pr-4 py-3 bg-slate-100 border rounded-xl text-slate-900 text-sm
                              placeholder:text-slate-400 focus:outline-none focus:ring-2
                              focus:ring-brand-500 focus:border-transparent transition-all
@@ -257,7 +257,7 @@ const HIGHLIGHTS = [
 // ─── Left Panel ───────────────────────────────────────────────────────────────
 function LeftPanel() {
   return (
-    <div className="hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-brand-950 via-brand-900 to-slate-900 relative overflow-hidden">
+    <div className="hidden lg:flex h-screen flex-col justify-start gap-8 p-10 xl:p-12 bg-gradient-to-br from-brand-950 via-brand-900 to-slate-900 relative overflow-hidden">
       {/* Grid overlay */}
       <div
         className="absolute inset-0 pointer-events-none opacity-40"
@@ -273,56 +273,35 @@ function LeftPanel() {
 
       {/* Logo */}
       <div className="relative flex items-center gap-3">
-        <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center shadow-lg shadow-brand-600/50">
-          <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
-        </div>
+        <img src="/favicon.svg" alt="NexusGrid logo" className="w-10 h-10 rounded-xl shadow-lg shadow-brand-600/50" />
         <div>
           <p className="text-white font-bold text-lg leading-tight">NexusGrid</p>
-          <p className="text-brand-300 text-xs">Lab Management Platform</p>
+          <p className="text-brand-300 text-xs">System Monitoring and Management Platform</p>
         </div>
       </div>
 
       {/* Main copy */}
       <div className="relative">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-brand-500/20 border border-brand-400/30
-                        rounded-full text-brand-300 text-xs font-semibold mb-6">
-          <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-          Trusted by institutions nationwide
-        </div>
-        <h2 className="text-3xl xl:text-4xl font-extrabold text-white leading-tight mb-4">
+        <h2 className="text-2xl xl:text-3xl font-extrabold text-white leading-tight mb-3">
           One platform for<br />
           <span className="bg-gradient-to-r from-brand-300 via-cyan-300 to-violet-300 bg-clip-text text-transparent">
             every lab, every system
           </span>
         </h2>
-        <p className="text-slate-400 text-sm leading-relaxed mb-10 max-w-sm">
+        <p className="text-slate-400 text-sm leading-relaxed mb-6 max-w-sm">
           Monitor machines in real time, report faults instantly, manage resources and visualise
-          your entire lab layout — all from a single, secure dashboard.
+          your entire lab layout; all from a single, secure dashboard.
         </p>
-        <ul className="space-y-3.5">
+        <ul className="space-y-2.5">
           {HIGHLIGHTS.map(({ icon: Icon, label }) => (
             <li key={label} className="flex items-center gap-3 text-sm text-slate-300">
-              <div className="w-7 h-7 rounded-lg bg-brand-600/30 flex items-center justify-center shrink-0">
+              <div className="w-6 h-6 rounded-lg bg-brand-600/30 flex items-center justify-center shrink-0">
                 <Icon className="w-3.5 h-3.5 text-brand-400" />
               </div>
               {label}
             </li>
           ))}
         </ul>
-      </div>
-
-      {/* Bottom testimonial */}
-      <div className="relative bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-sm">
-        <div className="flex gap-1 mb-2">
-          {[...Array(5)].map((_, i) => (
-            <span key={i} className="text-amber-400 text-xs">★</span>
-          ))}
-        </div>
-        <p className="text-slate-300 text-xs leading-relaxed italic">
-          "NexusGrid replaced three separate tools. Our technicians now identify and resolve
-          lab issues in half the time."
-        </p>
-        <p className="text-brand-400 text-xs font-semibold mt-2">— IT Manager, Faculty of Computing</p>
       </div>
     </div>
   );
@@ -355,25 +334,23 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
+    <div className="min-h-screen lg:h-screen lg:overflow-hidden grid lg:grid-cols-2">
       <LeftPanel />
 
       {forgotOpen && <ForgotPasswordModal onClose={() => setForgotOpen(false)} />}
 
       {/* Right — Form */}
-      <div className="flex flex-col items-center justify-center min-h-screen
-                      bg-white px-6 py-12 relative">
+      <div className="flex flex-col items-center justify-center min-h-screen lg:min-h-0 lg:h-screen
+                      bg-white px-4 sm:px-6 py-8 lg:py-6 relative overflow-y-auto">
         {/* Mobile logo */}
-        <div className="lg:hidden flex items-center gap-2.5 mb-10 self-start">
-          <div className="w-9 h-9 bg-brand-600 rounded-xl flex items-center justify-center shadow-lg shadow-brand-600/40">
-            <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
-          </div>
+        <div className="lg:hidden flex items-center gap-2.5 mb-6 self-start">
+          <img src="/favicon.svg" alt="NexusGrid logo" className="w-9 h-9 rounded-xl shadow-lg shadow-brand-600/40" />
           <span className="text-slate-900 font-bold text-lg">NexusGrid</span>
         </div>
 
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-md lg:max-w-lg">
           {/* Header */}
-          <div className="mb-8">
+          <div className="mb-6">
             <h1 className="text-2xl font-extrabold text-slate-900 mb-1.5">Welcome back</h1>
             <p className="text-slate-500 text-sm">
               Sign in to your NexusGrid account to continue.
@@ -381,7 +358,7 @@ export default function LoginPage() {
           </div>
 
           {/* Form card */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-8 shadow-2xl">
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-2xl">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
               {/* Username / Email */}
               <div>
@@ -392,7 +369,7 @@ export default function LoginPage() {
                   {...register('username')}
                   type="text"
                   autoComplete="username"
-                  placeholder="e.g. john_smith or john@uni.edu"
+                  placeholder="Enter your username or email"
                   className={`w-full px-4 py-3 bg-slate-100 border rounded-xl text-slate-900 text-sm
                              placeholder:text-slate-400 focus:outline-none focus:ring-2
                              focus:ring-brand-500 focus:border-transparent transition-all
@@ -486,7 +463,7 @@ export default function LoginPage() {
           </div>
 
           {/* Trust strip */}
-          <div className="mt-8 flex items-center justify-center gap-6 flex-wrap">
+          <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
             {[
               { icon: Shield,       text: 'Secure login' },
               { icon: CheckCircle,  text: 'Role-based access' },
@@ -500,7 +477,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="absolute bottom-5 text-xs text-slate-400">
+        <p className="mt-6 text-xs text-slate-400">
           © {new Date().getFullYear()} NexusGrid. All rights reserved.
         </p>
       </div>

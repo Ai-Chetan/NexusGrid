@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import {
-  Zap, Eye, EyeOff, Loader2, User as UserIcon, Mail, Lock,
+  Eye, EyeOff, Loader2, User as UserIcon, Mail, Lock,
   ArrowRight, CheckCircle, Shield, Cpu, Network, Activity, KeyRound,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
@@ -67,7 +67,7 @@ function LeftPanel() {
   ];
 
   return (
-    <div className="hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-slate-950 via-brand-950 to-slate-900 relative overflow-hidden">
+    <div className="hidden lg:flex h-screen flex-col justify-between gap-8 p-10 xl:p-12 bg-gradient-to-br from-slate-950 via-brand-950 to-slate-900 relative overflow-hidden">
       {/* Grid */}
       <div
         className="absolute inset-0 pointer-events-none opacity-30"
@@ -82,37 +82,30 @@ function LeftPanel() {
 
       {/* Logo */}
       <div className="relative flex items-center gap-3">
-        <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center shadow-lg shadow-brand-600/50">
-          <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
-        </div>
+        <img src="/favicon.svg" alt="NexusGrid logo" className="w-10 h-10 rounded-xl shadow-lg shadow-brand-600/50" />
         <div>
           <p className="text-white font-bold text-lg leading-tight">NexusGrid</p>
-          <p className="text-brand-300 text-xs">Lab Management Platform</p>
+          <p className="text-brand-300 text-xs">System Monitoring and Management Platform</p>
         </div>
       </div>
 
       {/* Copy */}
       <div className="relative">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-500/20 border border-emerald-400/30
-                        rounded-full text-emerald-300 text-xs font-semibold mb-6">
-          <CheckCircle className="w-3 h-3" />
-          Free account · No credit card required
-        </div>
-        <h2 className="text-3xl xl:text-4xl font-extrabold text-white leading-tight mb-4">
+        <h2 className="text-2xl xl:text-3xl font-extrabold text-white leading-tight mb-3">
           Join NexusGrid and<br />
           <span className="bg-gradient-to-r from-emerald-300 via-cyan-300 to-brand-300 bg-clip-text text-transparent">
             transform your labs
           </span>
         </h2>
-        <p className="text-slate-400 text-sm leading-relaxed mb-10 max-w-sm">
+        <p className="text-slate-400 text-sm leading-relaxed mb-6 max-w-sm">
           Create your account and get instant access to the most comprehensive
           academic lab management platform.
         </p>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           {PERKS.map(({ icon: Icon, title, desc }) => (
-            <div key={title} className="bg-white/5 border border-white/8 rounded-2xl p-4">
-              <div className="w-8 h-8 bg-brand-600/25 rounded-xl flex items-center justify-center mb-3">
+            <div key={title} className="bg-white/5 border border-white/8 rounded-2xl p-3">
+              <div className="w-7 h-7 bg-brand-600/25 rounded-xl flex items-center justify-center mb-2">
                 <Icon className="w-4 h-4 text-brand-400" />
               </div>
               <p className="text-white text-xs font-semibold mb-1">{title}</p>
@@ -120,20 +113,33 @@ function LeftPanel() {
             </div>
           ))}
         </div>
-      </div>
 
-      {/* Stats */}
-      <div className="relative grid grid-cols-3 gap-3">
-        {[
-          { value: '6+', label: 'Core modules' },
-          { value: '5', label: 'User roles' },
-          { value: '24/7', label: 'Monitoring' },
-        ].map(({ value, label }) => (
-          <div key={label} className="text-center bg-white/5 border border-white/10 rounded-xl py-3">
-            <p className="text-white font-bold text-lg">{value}</p>
-            <p className="text-slate-500 text-xs mt-0.5">{label}</p>
+          {/* Role info */}
+          <div className="flex items-start gap-3 px-4 py-3 bg-brand-600/10 border border-brand-500/20 rounded-xl mt-6">
+            <Shield className="w-4 h-4 text-brand-400 shrink-0 mt-0.5" />
+            <p className="text-xs text-slate-500 leading-relaxed">
+              New accounts are assigned the <span className="text-brand-300 font-semibold">No Roles</span> role
+              by default. An administrator will assign the appropriate role after registration.
+            </p>
           </div>
-        ))}
+
+          {/* Trust strip */}
+          <div className="mt-5 flex items-center justify-center gap-4 flex-wrap">
+            {[
+              { icon: Shield,      text: 'No spam ever' },
+              { icon: CheckCircle, text: 'Free to use' },
+              { icon: CheckCircle, text: 'Secure & encrypted' },
+            ].map(({ icon: Icon, text }) => (
+              <div key={text} className="flex items-center gap-1.5 text-slate-400 text-xs">
+                <Icon className="w-3 h-3 text-emerald-500" />
+                {text}
+              </div>
+            ))}
+          </div>
+
+        <p className="mt-5 text-xs text-slate-400 text-center">
+          © {new Date().getFullYear()} NexusGrid. All rights reserved.
+        </p>
       </div>
     </div>
   );
@@ -199,23 +205,21 @@ export default function SignUpPage() {
   const strength = getPasswordStrength(watchedPassword);
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
+    <div className="min-h-screen lg:h-screen lg:overflow-hidden grid lg:grid-cols-2">
       <LeftPanel />
 
       {/* Right — Form */}
-      <div className="flex flex-col items-center justify-center min-h-screen
-                      bg-white px-6 py-12 relative overflow-y-auto">
+      <div className="flex flex-col items-center justify-center min-h-screen lg:min-h-0 lg:h-screen
+                      bg-white px-4 sm:px-6 py-8 lg:py-6 relative overflow-y-auto">
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center gap-2.5 mb-8 self-start">
-          <div className="w-9 h-9 bg-brand-600 rounded-xl flex items-center justify-center shadow-lg shadow-brand-600/40">
-            <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
-          </div>
+          <img src="/favicon.svg" alt="NexusGrid logo" className="w-9 h-9 rounded-xl shadow-lg shadow-brand-600/40" />
           <span className="text-slate-900 font-bold text-lg">NexusGrid</span>
         </div>
 
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-md lg:max-w-lg">
           {/* Header */}
-          <div className="mb-8">
+          <div className="mb-6">
             <h1 className="text-2xl font-extrabold text-slate-900 mb-1.5">Create your account</h1>
             <p className="text-slate-500 text-sm">
               Get started with NexusGrid — it's free.
@@ -223,7 +227,7 @@ export default function SignUpPage() {
           </div>
 
           {/* Form card */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-8 shadow-2xl">
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-2xl">
 
             {/* ── OTP Step ── */}
             {step === 'otp' ? (
@@ -305,7 +309,7 @@ export default function SignUpPage() {
                     {...register('username')}
                     type="text"
                     autoComplete="username"
-                    placeholder="e.g. john_smith"
+                    placeholder="Enter your desired username"
                     className={`w-full pl-10 pr-4 py-3 bg-slate-100 border rounded-xl text-slate-900 text-sm
                                placeholder:text-slate-400 focus:outline-none focus:ring-2
                                focus:ring-brand-500 focus:border-transparent transition-all
@@ -331,7 +335,7 @@ export default function SignUpPage() {
                     {...register('email')}
                     type="email"
                     autoComplete="email"
-                    placeholder="john@university.edu"
+                    placeholder="Enter your email address"
                     className={`w-full pl-10 pr-4 py-3 bg-slate-100 border rounded-xl text-slate-900 text-sm
                                placeholder:text-slate-400 focus:outline-none focus:ring-2
                                focus:ring-brand-500 focus:border-transparent transition-all
@@ -439,15 +443,6 @@ export default function SignUpPage() {
                 )}
               </div>
 
-              {/* Role info */}
-              <div className="flex items-start gap-3 px-4 py-3 bg-brand-600/10 border border-brand-500/20 rounded-xl">
-                <Shield className="w-4 h-4 text-brand-400 shrink-0 mt-0.5" />
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  New accounts are assigned the <span className="text-brand-300 font-semibold">No Roles</span> role
-                  by default. An administrator will assign the appropriate role after registration.
-                </p>
-              </div>
-
               {/* Submit */}
               <button
                 type="submit"
@@ -491,25 +486,7 @@ export default function SignUpPage() {
               </Link>
             </p>
           </div>
-
-          {/* Trust strip */}
-          <div className="mt-8 flex items-center justify-center gap-6 flex-wrap">
-            {[
-              { icon: Shield,      text: 'No spam ever' },
-              { icon: CheckCircle, text: 'Free to use' },
-              { icon: CheckCircle, text: 'Secure & encrypted' },
-            ].map(({ icon: Icon, text }) => (
-              <div key={text} className="flex items-center gap-1.5 text-slate-400 text-xs">
-                <Icon className="w-3 h-3 text-emerald-500" />
-                {text}
-              </div>
-            ))}
-          </div>
         </div>
-
-        <p className="mt-8 text-xs text-slate-400 text-center">
-          © {new Date().getFullYear()} NexusGrid. All rights reserved.
-        </p>
       </div>
     </div>
   );

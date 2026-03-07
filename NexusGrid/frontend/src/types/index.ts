@@ -203,6 +203,14 @@ export interface DashboardMetrics {
   recent_activity: ActivityItem[];
 }
 
+export interface DashboardFilterParams {
+  building_id?: number;
+  floor_id?: number;
+  room_id?: number;
+  start_date?: string;
+  end_date?: string;
+}
+
 export interface ActivityItem {
   type: 'fault' | 'resource';
   id: number;

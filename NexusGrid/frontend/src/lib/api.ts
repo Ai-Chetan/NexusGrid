@@ -66,7 +66,13 @@ export const authApi = {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 export const dashboardApi = {
-  metrics: () => api.get('/dashboard/metrics/'),
+  metrics: (params?: {
+    building_id?: number;
+    floor_id?: number;
+    room_id?: number;
+    start_date?: string;
+    end_date?: string;
+  }) => api.get('/dashboard/metrics/', { params }),
 };
 
 // ─── Layout ───────────────────────────────────────────────────────────────────

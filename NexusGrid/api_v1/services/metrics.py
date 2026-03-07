@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
 from django.core.cache import cache
 from django.db import close_old_connections
@@ -30,8 +31,9 @@ from django.db.models.functions import TruncMonth
 from django.utils import timezone
 
 from faults.models import FaultReport
+from monitoring.models import SystemCurrent, SystemInfo
 from resources.models import ResourceRequest
-from system_layout.models import Lab, System
+from system_layout.models import Lab, System, LayoutItem
 
 # ── Cache config ──────────────────────────────────────────────────────────────
 
@@ -45,9 +47,63 @@ def _pct(n: int, d: int) -> float:
     return round((n / d) * 100, 1) if d else 0.0
 
 
+def _safe_parse_date(value: str | None):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, '%Y-%m-%d').date()
+    except ValueError:
+        return None
+
+
+def _resolve_filtered_lab_ids(building_id=None, floor_id=None, room_id=None):
+    """Resolve lab IDs from selected layout hierarchy filters."""
+    room_ids: list[int] = []
+
+    if room_id:
+        room_ids = [room_id]
+    elif floor_id:
+        room_ids = list(
+            LayoutItem.objects
+            .filter(parent_id=floor_id, item_type='room')
+            .values_list('id', flat=True)
+        )
+    elif building_id:
+        floor_ids = list(
+            LayoutItem.objects
+            .filter(parent_id=building_id, item_type='floor')
+            .values_list('id', flat=True)
+        )
+        if floor_ids:
+            room_ids = list(
+                LayoutItem.objects
+                .filter(parent_id__in=floor_ids, item_type='room')
+                .values_list('id', flat=True)
+            )
+
+    if not (building_id or floor_id or room_id):
+        return None
+
+    if not room_ids:
+        return []
+
+    return list(
+        Lab.objects
+        .filter(layout_item_id__in=room_ids)
+        .values_list('id', flat=True)
+    )
+
+
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 
-def get_dashboard_metrics(user=None) -> dict:
+def get_dashboard_metrics(
+    user=None,
+    building_id: int | None = None,
+    floor_id: int | None = None,
+    room_id: int | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict:
     """
     Return the full dashboard metrics payload, optionally scoped to a user.
 
@@ -69,9 +125,13 @@ def get_dashboard_metrics(user=None) -> dict:
     from django.db.models import Q as _Q
 
     is_admin = (user is None or getattr(user, 'role', 'Administrator') == 'Administrator')
+    has_filters = any([building_id, floor_id, room_id, start_date, end_date])
+    location_lab_ids = _resolve_filtered_lab_ids(building_id, floor_id, room_id)
+    start_date_obj = _safe_parse_date(start_date)
+    end_date_obj = _safe_parse_date(end_date)
 
     # ── Admin: global cache path (unchanged behaviour) ────────────────────
-    if is_admin:
+    if is_admin and not has_filters:
         cached = cache.get(DASHBOARD_CACHE_KEY)
         if cached is not None:
             return cached
@@ -91,6 +151,9 @@ def get_dashboard_metrics(user=None) -> dict:
             .values_list('lab_id', flat=True)
             .distinct()
         )
+        if location_lab_ids is not None:
+            assigned_lab_ids = [lab_id for lab_id in assigned_lab_ids if lab_id in set(location_lab_ids)]
+
         system_qs   = System.objects.filter(lab_id__in=assigned_lab_ids)
         fault_qs    = FaultReport.objects.filter(system_name__lab_id__in=assigned_lab_ids)
         resource_qs = ResourceRequest.objects.filter(system_name__lab_id__in=assigned_lab_ids)
@@ -101,23 +164,69 @@ def get_dashboard_metrics(user=None) -> dict:
         fault_qs    = FaultReport.objects.filter(reported_by=user)
         resource_qs = ResourceRequest.objects.filter(requested_by=user)
         labs_total  = Lab.objects.count()        # global count
+
+        if location_lab_ids is not None:
+            system_qs = system_qs.filter(lab_id__in=location_lab_ids)
+            fault_qs = fault_qs.filter(system_name__lab_id__in=location_lab_ids)
+            resource_qs = resource_qs.filter(system_name__lab_id__in=location_lab_ids)
+            labs_total = len(location_lab_ids)
     else:
         system_qs   = System.objects.all()
         fault_qs    = FaultReport.objects.all()
         resource_qs = ResourceRequest.objects.all()
         labs_total  = None  # computed below for admin
 
+        if location_lab_ids is not None:
+            system_qs = system_qs.filter(lab_id__in=location_lab_ids)
+            fault_qs = fault_qs.filter(system_name__lab_id__in=location_lab_ids)
+            resource_qs = resource_qs.filter(system_name__lab_id__in=location_lab_ids)
+            labs_total = len(location_lab_ids)
+
+    if start_date_obj:
+        fault_qs = fault_qs.filter(reported_at__date__gte=start_date_obj)
+        resource_qs = resource_qs.filter(requested_at__date__gte=start_date_obj)
+
+    if end_date_obj:
+        fault_qs = fault_qs.filter(reported_at__date__lte=end_date_obj)
+        resource_qs = resource_qs.filter(requested_at__date__lte=end_date_obj)
+
     # 1 ── System counts
     counts = system_qs.aggregate(
         total=Count('id'),
-        functional=Count(Case(When(status__in=['active', 'inactive'], then=1), output_field=IntegerField())),
         critical=Count(Case(When(status='non-functional', then=1), output_field=IntegerField())),
-        active=Count(Case(When(status='active', then=1), output_field=IntegerField())),
     )
     total      = counts['total']
-    functional = counts['functional']
     critical   = counts['critical']
-    active     = counts['active']
+    # Functional systems are defined as all non-critical systems.
+    functional = max(total - critical, 0)
+
+    # Active systems are derived from monitoring presence, not manual status values.
+    # If a date range is selected, only hosts with snapshots in that range are counted.
+    system_host_keys = {
+        (host or '').strip().lower()
+        for host in system_qs.values_list('host_name', flat=True)
+        if host
+    }
+
+    if start_date_obj or end_date_obj:
+        monitor_qs = SystemInfo.objects.all()
+        if start_date_obj:
+            monitor_qs = monitor_qs.filter(timestamp__date__gte=start_date_obj)
+        if end_date_obj:
+            monitor_qs = monitor_qs.filter(timestamp__date__lte=end_date_obj)
+        monitored_host_keys = {
+            (host or '').strip().lower()
+            for host in monitor_qs.values_list('hostname', flat=True)
+            if host
+        }
+    else:
+        monitored_host_keys = set(
+            SystemCurrent.objects
+            .filter(latest_info__isnull=False)
+            .values_list('hostname_key', flat=True)
+        )
+
+    active = len(system_host_keys.intersection(monitored_host_keys))
 
     # 2 ── Fault / resource headline counts
     fault_counts = fault_qs.aggregate(
@@ -222,7 +331,7 @@ def get_dashboard_metrics(user=None) -> dict:
         'recent_activity': activity[:8],
     }
 
-    if is_admin:
+    if is_admin and not has_filters:
         cache.set(DASHBOARD_CACHE_KEY, payload, METRICS_CACHE_TTL)
     return payload
 

@@ -360,7 +360,22 @@ class DashboardMetricsView(APIView):
 
     def get(self, request):
         from .services.metrics import get_dashboard_metrics
-        return Response(get_dashboard_metrics(user=request.user))
+        def _to_int(value):
+            if value in (None, ''):
+                return None
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return None
+
+        return Response(get_dashboard_metrics(
+            user=request.user,
+            building_id=_to_int(request.query_params.get('building_id')),
+            floor_id=_to_int(request.query_params.get('floor_id')),
+            room_id=_to_int(request.query_params.get('room_id')),
+            start_date=request.query_params.get('start_date') or None,
+            end_date=request.query_params.get('end_date') or None,
+        ))
 
 
 # ─── Layout ──────────────────────────────────────────────────────────────────
@@ -867,6 +882,45 @@ class MonitoringView(APIView):
         return Response(data)
 
 
+class MonitoringHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        item_id = request.GET.get('item_id', '').strip()
+        if not item_id.isdigit():
+            return Response({'detail': 'item_id is required.'}, status=400)
+
+        limit_raw = request.GET.get('limit', '72').strip()
+        try:
+            limit = int(limit_raw)
+        except ValueError:
+            limit = 72
+        limit = max(10, min(limit, 500))
+
+        item = get_object_or_404(
+            LayoutItem.objects.select_related('system'),
+            pk=int(item_id),
+        )
+        system = getattr(item, 'system', None)
+        hostname = (system.host_name if system else item.name) or ''
+        hostname = hostname.strip()
+        if not hostname:
+            return Response({'detail': 'No hostname found for this item.'}, status=404)
+
+        history_qs = (
+            SystemInfo.objects
+            .filter(hostname__iexact=hostname)
+            .order_by('-timestamp', '-id')[:limit]
+        )
+        history = list(reversed(list(history_qs)))
+
+        return Response({
+            'item_id': item.id,
+            'hostname': hostname,
+            'history': SystemInfoSerializer(history, many=True).data,
+        })
+
+
 # ─── Users ───────────────────────────────────────────────────────────────────
 
 USER_LIST_CACHE_KEY = 'user_list_v1'
@@ -949,8 +1003,11 @@ class SystemsListView(APIView):
         data = [
             {
                 'id': s.id,
+                'unique_code': f'NGSYS-{s.id}',
+                'layout_item_id': s.layout_item_id,
                 'host_name': s.host_name or (s.layout_item.name if s.layout_item else 'Unknown'),
                 'lab_name': s.lab.lab_name if s.lab else None,
+                'lab_id': s.lab_id,
                 'status': s.status,
             }
             for s in qs

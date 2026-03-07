@@ -343,6 +343,7 @@ class SystemInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = SystemInfo
         fields = [
+            'id',
             'hostname', 'ip_address', 'system', 'version', 'release', 'machine',
             'processor', 'architecture', 'cpu_physical_cores', 'cpu_total_cores',
             'cpu_max_freq', 'cpu_min_freq', 'cpu_current_freq', 'cpu_usage',

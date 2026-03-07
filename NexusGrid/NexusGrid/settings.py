@@ -217,18 +217,33 @@ REST_FRAMEWORK = {
 # 11. CORS HEADERS SETTINGS
 # ------------------------------------------------------------------------------
 
+PUBLIC_FRONTEND_ORIGINS = [
+    "https://nexusgrid-systems.vercel.app",
+    "https://nexusgrid.onrender.com",
+]
+
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[
     "http://localhost:8000",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    *PUBLIC_FRONTEND_ORIGINS,
 ])
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGIN_REGEXES = env.list(
+    "CORS_ALLOWED_ORIGIN_REGEXES",
+    default=[r"^https://.*\.vercel\.app$"],
+)
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:8000",
+    *PUBLIC_FRONTEND_ORIGINS,
 ])
 # CORS_ALLOW_ALL_ORIGINS = True # Be careful with this in production!
+
+# Cross-site session auth (frontend on Vercel, API on Render) requires SameSite=None + Secure.
+SESSION_COOKIE_SAMESITE = env('SESSION_COOKIE_SAMESITE', default='None' if not DEBUG else 'Lax')
+CSRF_COOKIE_SAMESITE = env('CSRF_COOKIE_SAMESITE', default='None' if not DEBUG else 'Lax')
 
 # ------------------------------------------------------------------------------
 # 12b. CACHE CONFIGURATION (django-redis)
