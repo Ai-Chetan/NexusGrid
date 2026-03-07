@@ -85,6 +85,8 @@ export const layoutApi = {
     api.patch(`/layout/systems/${systemId}/`, { status }),
   getItemMonitoring: (itemId: number) =>
     api.get('/monitoring/', { params: { item_id: itemId } }),
+  getItemMonitoringHistory: (itemId: number, limit = 72) =>
+    api.get('/monitoring/history/', { params: { item_id: itemId, limit } }),
 };
 
 // ─── Faults ───────────────────────────────────────────────────────────────────

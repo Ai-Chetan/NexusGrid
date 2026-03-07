@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -20,7 +21,7 @@ const sizeClasses = {
 export default function Modal({ open, onClose, title, children, size = 'md' }: ModalProps) {
   if (!open) return null;
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
@@ -51,4 +52,6 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }

@@ -9,7 +9,7 @@ import {
   ArrowUpRight, Zap,
 } from 'lucide-react';
 import { dashboardApi } from '@/lib/api';
-import { timeAgo, statusColors } from '@/lib/utils';
+import { timeAgo } from '@/lib/utils';
 import StatusBadge from '@/components/common/StatusBadge';
 import ErrorState from '@/components/common/ErrorState';
 import { useTheme } from '@/hooks/useTheme';

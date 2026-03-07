@@ -6,7 +6,9 @@ import {
   Building2, Layers, DoorOpen, Monitor, Server, Network,
   Wifi, Printer, Zap, HardDrive, Package, Loader2,
   Copy, ClipboardPaste, Undo2, Redo2, AlertTriangle, PackageSearch,
+  Download,
 } from 'lucide-react';
+import QRCode from 'qrcode';
 import { layoutApi, faultsApi, resourcesApi, privilegesApi } from '@/lib/api';
 import { itemTypeLabel, cn, getChildTypes } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
@@ -14,11 +16,11 @@ import type { LayoutItem, BreadcrumbItem, SimpleSystem } from '@/types';
 import Modal from '@/components/common/Modal';
 import EmptyState from '@/components/common/EmptyState';
 import ErrorState from '@/components/common/ErrorState';
+import { downloadQrPrintSheet } from '@/lib/qrPrint';
 import toast from 'react-hot-toast';
 import NetworkFlowView from './NetworkFlowView';
 import type { NetworkFlowViewRef } from './NetworkFlowView';
 import QuickCreateModal from './QuickCreateModal';
-import ComputerMonitorModal from './ComputerMonitorModal';
 
 // ─── Icon / colour maps ────────────────────────────────────────────────────────
 const typeIcons: Record<string, React.ElementType> = {
@@ -601,7 +603,6 @@ export default function LayoutPage() {
   const [redoStack, setRedoStack] = useState<EditSnapshot[]>([]);
   const [isSavingLayout, setIsSavingLayout] = useState(false);
   const [isSavingFlow, setIsSavingFlow] = useState(false);
-  const [monitorItem, setMonitorItem] = useState<LayoutItem | null>(null);
   const [faultItem, setFaultItem] = useState<LayoutItem | null>(null);
   const [resourceItem, setResourceItem] = useState<LayoutItem | null>(null);
   const isSaving = isSavingLayout || isSavingFlow;
@@ -715,6 +716,12 @@ export default function LayoutPage() {
     queryFn: () => layoutApi.getItems({ parent_id: parentId }).then((r) => r.data),
   });
 
+  const { data: systems = [] } = useQuery({
+    queryKey: ['systems-list'],
+    queryFn: () => layoutApi.getSystems().then((r) => r.data as SimpleSystem[]),
+    staleTime: 60_000,
+  });
+
   // Fetch this user's lab assignments — used to gate content for restricted roles
   const { data: myAssignments = [] } = useQuery({
     queryKey: ['my-assignments'],
@@ -740,6 +747,65 @@ export default function LayoutPage() {
   const parentType = currentItem?.item_type ?? 'root';
   const canAddChildren = getChildTypes(parentType).length > 0;
   const canPaste = copiedLayout !== null && copiedLayout.sourceParentType === parentType;
+
+  const systemsByLayoutItemId = useMemo(() => {
+    const map = new Map<number, SimpleSystem>();
+    systems.forEach((s) => {
+      if (typeof s.layout_item_id === 'number') {
+        map.set(s.layout_item_id, s);
+      }
+    });
+    return map;
+  }, [systems]);
+
+  const roomLabSystems = useMemo(() => {
+    if (parentType !== 'room') return [] as SimpleSystem[];
+    return items
+      .map((item: LayoutItem) => systemsByLayoutItemId.get(item.id))
+      .filter((s: SimpleSystem | undefined): s is SimpleSystem => !!s);
+  }, [items, parentType, systemsByLayoutItemId]);
+
+  const roomLabName = useMemo(() => {
+    if (!currentItem || parentType !== 'room') return null;
+    const fromSystem = roomLabSystems.find((s: SimpleSystem) => !!s.lab_name)?.lab_name;
+    return fromSystem || currentItem.name;
+  }, [currentItem, parentType, roomLabSystems]);
+
+  const roomLocationLine = useMemo(() => {
+    if (parentType !== 'room' || breadcrumb.length === 0) return roomLabName ?? 'Lab';
+    return breadcrumb.map((b: BreadcrumbItem) => b.name).join(' • ');
+  }, [breadcrumb, parentType, roomLabName]);
+
+  const handleDownloadRoomQrs = useCallback(async () => {
+    if (roomLabSystems.length === 0) {
+      toast.error('No systems found in this lab.');
+      return;
+    }
+    try {
+      const entries = await Promise.all(roomLabSystems.map(async (system: SimpleSystem) => {
+        const qrDataUrl = await QRCode.toDataURL(system.unique_code, {
+          width: 220,
+          margin: 2,
+          errorCorrectionLevel: 'M',
+        });
+        return {
+          roomName: roomLabName ?? 'Lab',
+          hostName: system.host_name,
+          uniqueCode: system.unique_code,
+          qrDataUrl,
+        };
+      }));
+
+      await downloadQrPrintSheet({
+        locationLine: roomLocationLine,
+        fileNameBase: roomLabName ?? 'lab',
+        entries,
+      });
+      toast.success(`Downloaded ${roomLabSystems.length} system QR codes`);
+    } catch {
+      toast.error('Failed to generate lab QR sheet.');
+    }
+  }, [roomLabName, roomLabSystems, roomLocationLine]);
 
   const handleCopy = useCallback(() => {
     if (items.length === 0) return;
@@ -820,6 +886,16 @@ export default function LayoutPage() {
           {parentId && (
             <button onClick={handleBack} disabled={editMode} className="btn-secondary disabled:opacity-40 disabled:cursor-not-allowed">
               <ChevronLeft className="w-4 h-4" /> Back
+            </button>
+          )}
+
+          {!isNoRole && !editMode && parentType === 'room' && roomLabSystems.length > 0 && (
+            <button
+              onClick={handleDownloadRoomQrs}
+              className="btn-secondary"
+              title="Download QR codes for all systems in this lab"
+            >
+              <Download className="w-4 h-4" /> Download Lab QRs
             </button>
           )}
 
@@ -951,7 +1027,7 @@ export default function LayoutPage() {
           ref={flowRef}
           onIsSavingChange={setIsSavingFlow}
           onBeforePositionChange={handleBeforePositionChange}
-          onMonitorClick={(item) => setMonitorItem(item)}
+          onMonitorClick={(item) => navigate(`/app/system/${item.id}`)}
           onFaultCreate={(item) => setFaultItem(item)}
           onResourceCreate={(item) => setResourceItem(item)}
           {...sharedProps}
@@ -998,16 +1074,6 @@ export default function LayoutPage() {
         parentId={parentId}
         parentType={parentType}
       />
-      {monitorItem && (
-        <ComputerMonitorModal
-          itemId={monitorItem.id}
-          itemName={monitorItem.name}
-          item={monitorItem}
-          onClose={() => setMonitorItem(null)}
-          onFaultCreate={(item) => { setMonitorItem(null); setFaultItem(item); }}
-          onResourceCreate={(item) => { setMonitorItem(null); setResourceItem(item); }}
-        />
-      )}
       {faultItem && (
         <QuickFaultModal
           item={faultItem}

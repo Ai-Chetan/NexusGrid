@@ -1,11 +1,15 @@
+import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   LayoutDashboard, Map, AlertTriangle, Package,
-  BarChart3, Activity, Users, LogOut, Zap, ChevronRight,
+  BarChart3, Activity, Users, LogOut, Zap, ChevronRight, ScanLine,
 } from 'lucide-react';
+import { layoutApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
-import type { User } from '@/types';
+import type { SimpleSystem, User } from '@/types';
+import QrScannerModal from '@/components/common/QrScannerModal';
 import toast from 'react-hot-toast';
 
 type Role = User['role'];
@@ -27,6 +31,15 @@ interface SidebarProps {
 export default function Sidebar({ onClose }: SidebarProps) {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const isNoRole = user?.role === 'No Roles';
+
+  const { data: systems = [] } = useQuery<SimpleSystem[]>({
+    queryKey: ['systems-list'],
+    queryFn: () => layoutApi.getSystems().then((r) => r.data as SimpleSystem[]),
+    staleTime: 60_000,
+    enabled: !isNoRole,
+  });
 
   const visibleNavItems = navItems.filter(({ allowedRoles }) =>
     !allowedRoles || (user?.role && allowedRoles.includes(user.role))
@@ -36,6 +49,18 @@ export default function Sidebar({ onClose }: SidebarProps) {
     await logout();
     toast.success('Logged out successfully');
     navigate('/login');
+  };
+
+  const handleCodeDetected = (code: string) => {
+    const system = systems.find((s) => s.unique_code.toUpperCase() === code.toUpperCase());
+    if (!system || system.layout_item_id == null) {
+      toast.error('System not found for scanned QR code.');
+      return;
+    }
+    navigate(`/app/system/${system.layout_item_id}?scan=${encodeURIComponent(system.unique_code)}`);
+    setScannerOpen(false);
+    onClose?.();
+    toast.success(`Opened ${system.host_name}`);
   };
 
   return (
@@ -54,18 +79,32 @@ export default function Sidebar({ onClose }: SidebarProps) {
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
         {visibleNavItems.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            onClick={onClose}
-            className={({ isActive }) =>
-              cn('sidebar-link', isActive && 'active')
-            }
-          >
-            <Icon className="w-4.5 h-4.5 shrink-0" />
-            <span className="flex-1">{label}</span>
-            <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-40 transition-opacity" />
-          </NavLink>
+          <div key={to}>
+            <NavLink
+              to={to}
+              onClick={onClose}
+              className={({ isActive }) =>
+                cn('sidebar-link', isActive && 'active')
+              }
+            >
+              <Icon className="w-4.5 h-4.5 shrink-0" />
+              <span className="flex-1">{label}</span>
+              <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-40 transition-opacity" />
+            </NavLink>
+
+            {!isNoRole && to === '/app/dashboard' && (
+              <button
+                type="button"
+                onClick={() => setScannerOpen(true)}
+                className="sidebar-link w-full"
+                title="Scan a system QR code"
+              >
+                <ScanLine className="w-4.5 h-4.5 shrink-0" />
+                <span className="flex-1 text-left">Scan QR</span>
+                <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-40 transition-opacity" />
+              </button>
+            )}
+          </div>
         ))}
       </nav>
 
@@ -101,6 +140,12 @@ export default function Sidebar({ onClose }: SidebarProps) {
           </div>
         </div>
       )}
+
+      <QrScannerModal
+        open={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onCodeDetected={handleCodeDetected}
+      />
     </aside>
   );
 }

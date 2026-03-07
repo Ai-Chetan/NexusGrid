@@ -1,12 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import {
   X, Monitor, Cpu, HardDrive, Wifi, Users, Clock,
   ChevronDown, ChevronUp, Activity, Server as ServerIcon,
-  AlertTriangle, PackageSearch,
+  AlertTriangle, PackageSearch, QrCode, Download,
 } from 'lucide-react';
 import { layoutApi } from '@/lib/api';
-import type { SystemInfo, LayoutItem } from '@/types';
+import type { SystemInfo, LayoutItem, SimpleSystem } from '@/types';
 import { timeAgo, cn } from '@/lib/utils';
+import { safeFileName } from '@/lib/qr';
+import QRCode from 'qrcode';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -133,9 +136,6 @@ function Skeleton({ className }: { className?: string }) {
   return <div className={cn('bg-slate-100 dark:bg-slate-700 animate-pulse rounded', className)} />;
 }
 
-// ─── Main Modal ───────────────────────────────────────────────────────────────
-import { useState } from 'react';
-
 interface Props {
   itemId: number;
   itemName: string;
@@ -146,12 +146,51 @@ interface Props {
 }
 
 export default function ComputerMonitorModal({ itemId, itemName, item, onClose, onFaultCreate, onResourceCreate }: Props) {
+  const [showQr, setShowQr] = useState(false);
+  const [qrUrl, setQrUrl] = useState('');
+
   const { data: info, isLoading, isError } = useQuery<SystemInfo>({
     queryKey: ['item-monitoring', itemId],
     queryFn: () => layoutApi.getItemMonitoring(itemId).then(r => r.data),
     refetchInterval: 30_000,
     staleTime: 15_000,
   });
+
+  const { data: systems = [] } = useQuery<SimpleSystem[]>({
+    queryKey: ['systems-list'],
+    queryFn: () => layoutApi.getSystems().then((r) => r.data as SimpleSystem[]),
+    staleTime: 60_000,
+  });
+
+  const system = systems.find((s) => s.layout_item_id === itemId) ?? null;
+
+  useEffect(() => {
+    let mounted = true;
+    if (!showQr || !system?.unique_code) {
+      setQrUrl('');
+      return;
+    }
+    QRCode.toDataURL(system.unique_code, {
+      width: 260,
+      margin: 2,
+      errorCorrectionLevel: 'M',
+    }).then((url) => {
+      if (mounted) setQrUrl(url);
+    }).catch(() => {
+      // Keep modal usable even if QR render fails.
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [showQr, system?.unique_code]);
+
+  const handleQrDownload = () => {
+    if (!system || !qrUrl) return;
+    const a = document.createElement('a');
+    a.href = qrUrl;
+    a.download = `${safeFileName(system.host_name)}-${system.unique_code}.png`;
+    a.click();
+  };
 
   const cpuColor  = (info?.cpu_usage ?? 0) > 85 ? '#ef4444' : (info?.cpu_usage ?? 0) > 60 ? '#f59e0b' : '#10b981';
   const ramColor  = (info?.memory_usage_percent ?? 0) > 85 ? '#ef4444' : (info?.memory_usage_percent ?? 0) > 60 ? '#f59e0b' : '#3b82f6';
@@ -259,6 +298,19 @@ export default function ComputerMonitorModal({ itemId, itemName, item, onClose, 
                 Last updated {timeAgo(info.timestamp)}
               </div>
 
+              {showQr && system && (
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3 bg-slate-50/60 dark:bg-slate-800/30 max-w-[280px]">
+                  {!qrUrl ? (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Generating QR...</p>
+                  ) : (
+                    <>
+                      <img src={qrUrl} alt="System QR" className="w-full h-auto rounded-lg bg-white" />
+                      <p className="text-[11px] text-center text-slate-500 dark:text-slate-400 mt-2">{system.unique_code}</p>
+                    </>
+                  )}
+                </div>
+              )}
+
               {/* ── Additional: System ── */}
               <Collapsible title="System" icon={ServerIcon} defaultOpen>
                 <div className="space-y-0">
@@ -324,8 +376,24 @@ export default function ComputerMonitorModal({ itemId, itemName, item, onClose, 
         </div>
 
         {/* ── Action Footer ── */}
-        {item && (onFaultCreate || onResourceCreate) && (
+        {item && (
           <div className="flex items-center gap-3 px-5 py-3 border-t border-slate-200 dark:border-slate-700 shrink-0 bg-slate-50 dark:bg-slate-800/50">
+            <button
+              onClick={() => setShowQr((v) => !v)}
+              disabled={!system}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/70 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium transition-colors border border-slate-200 dark:border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <QrCode className="w-4 h-4" />
+              {showQr ? 'Hide QR' : 'Show QR'}
+            </button>
+            <button
+              onClick={handleQrDownload}
+              disabled={!system || !qrUrl}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/70 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium transition-colors border border-slate-200 dark:border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Download className="w-4 h-4" />
+              Download QR
+            </button>
             {onFaultCreate && (
               <button
                 onClick={() => { onClose(); onFaultCreate(item); }}

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="NexusGrid">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0ea5e9" />
+      <stop offset="1" stop-color="#22c55e" />
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#0f172a" />
+  <path d="M16 20h12l8 11 8-11h4L36 40h-8z" fill="url(#g)" />
+  <circle cx="16" cy="44" r="4" fill="#22c55e" />
+  <circle cx="32" cy="44" r="4" fill="#0ea5e9" />
+  <circle cx="48" cy="44" r="4" fill="#22c55e" />
+</svg>

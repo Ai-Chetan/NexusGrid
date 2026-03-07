@@ -11,6 +11,7 @@ import FaultsPage from '@/pages/faults/FaultsPage';
 import ResourcesPage from '@/pages/resources/ResourcesPage';
 import ReportsPage from '@/pages/reports/ReportsPage';
 import MonitoringPage from '@/pages/monitoring/MonitoringPage';
+import SystemDetailPage from '@/pages/system/SystemDetailPage';
 import UsersPage from '@/pages/users/UsersPage';
 import ProfilePage from '@/pages/profile/ProfilePage';
 import LoadingScreen from '@/components/common/LoadingScreen';
@@ -68,6 +69,7 @@ export default function App() {
           <Route path="resources" element={<ResourcesPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="monitoring" element={<RoleRoute allowedRoles={['Administrator', 'Lab Assistant']}><MonitoringPage /></RoleRoute>} />
+          <Route path="system/:itemId" element={<SystemDetailPage />} />
           <Route path="users" element={<RoleRoute allowedRoles={['Administrator']}><UsersPage /></RoleRoute>} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>

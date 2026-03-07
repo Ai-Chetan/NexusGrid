@@ -133,6 +133,7 @@ export interface ResourceRequest {
 
 // ─── Monitoring ──────────────────────────────────────────────────────────────
 export interface SystemInfo {
+  id?: number;
   hostname: string;
   ip_address: string | null;
   // OS
@@ -172,6 +173,12 @@ export interface SystemInfo {
   os_version?: string | null;
   ram_usage?: number | null;
   disk_usage?: number | null;
+}
+
+export interface MonitoringHistoryResponse {
+  item_id: number;
+  hostname: string;
+  history: SystemInfo[];
 }
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
@@ -236,7 +243,10 @@ export interface PrivilegesStats {
 
 export interface SimpleSystem {
   id: number;
+  unique_code: string;
+  layout_item_id: number | null;
   host_name: string;
+  lab_id: number | null;
   lab_name: string | null;
   status: SystemStatus;
 }

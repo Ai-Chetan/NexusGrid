@@ -481,11 +481,11 @@ function ItemNode({ data }: NodeProps<ItemFlowNode>) {
       } else {
         clickTimer.current = setTimeout(() => { clickCount.current = 0; }, 300);
       }
-    } else if (isMonitored && onMonitorClick) {
-      // Single-click on monitored device opens detail
+    } else if (onMonitorClick) {
+      // Single-click on any device opens full system detail page
       onMonitorClick(item);
     }
-  }, [editMode, isNavigable, isMonitored, onEnter, onMonitorClick, item]);
+  }, [editMode, isNavigable, onEnter, onMonitorClick, item]);
 
   return (
     <>
@@ -725,7 +725,7 @@ function ItemNode({ data }: NodeProps<ItemFlowNode>) {
         !isDeviceActive && isDevice && (isDark ? 'opacity-60 grayscale' : 'opacity-70 grayscale'),
         hovered && 'shadow-lg',
         !editMode && isNavigable && 'cursor-pointer',
-        !editMode && isDevice && isMonitored && 'cursor-pointer',
+        !editMode && isDevice && 'cursor-pointer',
         editMode && 'cursor-grab',
       )}
     >
