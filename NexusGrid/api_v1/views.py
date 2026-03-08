@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate, login, logout
+from django.db import connections
 from django.db.models import Count, Case, When, IntegerField, Q
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
@@ -15,6 +16,16 @@ from faults.models import FaultReport
 from resources.models import ResourceRequest
 from monitoring.models import SystemInfo, SystemCurrent
 from api_v1.models import Notification
+from api_v1.feature_permissions import require_any_feature, require_feature
+from rbac.services import (
+    is_administrator_user,
+    is_lab_incharge_or_assistant,
+    sync_user_primary_role_membership,
+    user_permission_codes,
+    user_matches_legacy_or_rbac_role,
+)
+from tenant_control.services.feature_entitlements import get_effective_feature_flags
+from api_v1.throttles import AuthOtpAnonThrottle, AuthOtpUserThrottle
 from .services.notifications import create_notifications, admin_user_ids, create_system_alert_if_needed
 
 from .serializers import (
@@ -111,6 +122,7 @@ class RegisterView(APIView):
             password=password,
             role='Students',
         )
+        sync_user_primary_role_membership(user, assigned_by_id=user.id)
         login(request, user)
         return Response({'user': UserSerializer(user).data}, status=status.HTTP_201_CREATED)
 
@@ -133,6 +145,7 @@ def _send_otp_email(to_email: str, otp: str, subject: str, body_intro: str):
 class SignupRequestOTPView(APIView):
     """Step 1 of OTP-verified signup: validate fields and send OTP to email."""
     permission_classes = [AllowAny]
+    throttle_classes = [AuthOtpAnonThrottle, AuthOtpUserThrottle]
 
     def post(self, request):
         from datetime import datetime, timedelta
@@ -202,6 +215,7 @@ class SignupRequestOTPView(APIView):
 class SignupVerifyOTPView(APIView):
     """Step 2 of OTP-verified signup: verify OTP and create the account."""
     permission_classes = [AllowAny]
+    throttle_classes = [AuthOtpAnonThrottle, AuthOtpUserThrottle]
 
     def post(self, request):
         from datetime import datetime
@@ -235,6 +249,7 @@ class SignupVerifyOTPView(APIView):
                 password=otp_data['password'],
                 role='No Roles',
             )
+            sync_user_primary_role_membership(user, assigned_by_id=user.id)
         except Exception:
             # Rare race condition if username/email was taken between steps
             del request.session[_SIGNUP_OTP_KEY]
@@ -248,6 +263,7 @@ class SignupVerifyOTPView(APIView):
 class ForgotPasswordRequestView(APIView):
     """Step 1 of forgot-password: find user by email and send OTP."""
     permission_classes = [AllowAny]
+    throttle_classes = [AuthOtpAnonThrottle, AuthOtpUserThrottle]
 
     def post(self, request):
         from datetime import datetime, timedelta
@@ -296,6 +312,7 @@ class ForgotPasswordRequestView(APIView):
 class ForgotPasswordVerifyView(APIView):
     """Step 2 of forgot-password: verify OTP and set new password."""
     permission_classes = [AllowAny]
+    throttle_classes = [AuthOtpAnonThrottle, AuthOtpUserThrottle]
 
     def post(self, request):
         from datetime import datetime
@@ -356,10 +373,75 @@ class MeView(APIView):
         return Response({'user': UserSerializer(request.user).data})
 
 
+class ControlPlaneHealthView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            with connections['default'].cursor() as cursor:
+                cursor.execute('SELECT 1')
+                cursor.fetchone()
+        except Exception as exc:
+            return Response(
+                {'status': 'degraded', 'control_db': 'down', 'error': str(exc)},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response({'status': 'ok', 'control_db': 'up'})
+
+
+class TenantHealthView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        alias = getattr(request, 'tenant_db_alias', None) or 'default'
+        tenant = getattr(request, 'tenant', None)
+        try:
+            with connections[alias].cursor() as cursor:
+                cursor.execute('SELECT 1')
+                cursor.fetchone()
+        except Exception as exc:
+            return Response(
+                {
+                    'status': 'degraded',
+                    'tenant_db': 'down',
+                    'tenant_slug': tenant.slug if tenant else None,
+                    'db_alias': alias,
+                    'error': str(exc),
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response(
+            {
+                'status': 'ok',
+                'tenant_db': 'up',
+                'tenant_slug': tenant.slug if tenant else None,
+                'db_alias': alias,
+            }
+        )
+
+
+class CapabilitiesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tenant = getattr(request, 'tenant', None)
+        feature_flags = get_effective_feature_flags(tenant) if tenant is not None else {}
+        return Response({
+            'tenant': {
+                'slug': tenant.slug if tenant else None,
+                'name': tenant.name if tenant else None,
+            },
+            'features': feature_flags,
+            'permissions': sorted(user_permission_codes(request.user)),
+        })
+
+
 # ─── Dashboard ───────────────────────────────────────────────────────────────
 
 class DashboardMetricsView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, require_feature('dashboard')]
 
     def get(self, request):
         from .services.metrics import get_dashboard_metrics
@@ -458,7 +540,7 @@ def _layout_serializer_context():
 
 
 class LayoutItemsView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, require_feature('layout')]
 
     def get(self, request):
         parent_id = request.GET.get('parent_id')
@@ -468,7 +550,7 @@ class LayoutItemsView(APIView):
 
         # Restrict non-admin users to only their assigned labs and related items
         user = request.user
-        if user.role in ('Lab Incharge', 'Lab Assistant'):
+        if is_lab_incharge_or_assistant(user):
             allowed_ids = _get_restricted_item_ids(user)
             if not allowed_ids:
                 return Response([])
@@ -514,7 +596,7 @@ class LayoutItemsView(APIView):
 
 
 class LayoutItemDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, require_feature('layout')]
 
     def get(self, request, pk):
         item = get_object_or_404(LayoutItem.objects.select_related('system', 'lab'), pk=pk)
@@ -551,7 +633,7 @@ class LayoutItemDetailView(APIView):
 
 
 class LayoutBreadcrumbView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, require_feature('layout')]
 
     def get(self, request, pk):
         # Single CTE query: fetches the node itself + all ancestors, root-first.
@@ -565,7 +647,7 @@ class LayoutBreadcrumbView(APIView):
 
 
 class SystemDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, require_feature('layout')]
 
     def get(self, request, pk):
         system = get_object_or_404(System.objects.select_related('layout_item', 'lab', 'updated_by'), pk=pk)
@@ -585,7 +667,7 @@ class SystemDetailView(APIView):
 
 
 class LabListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, require_feature('layout')]
 
     def get(self, request):
         labs = (
@@ -598,7 +680,7 @@ class LabListView(APIView):
 
 
 class LabDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, require_feature('layout')]
 
     def get(self, request, pk):
         lab = get_object_or_404(
@@ -623,12 +705,12 @@ class LabDetailView(APIView):
 # ─── Faults ──────────────────────────────────────────────────────────────────
 
 class FaultListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, require_feature('faults')]
 
     def get(self, request):
         qs = FaultReport.objects.select_related('system_name', 'system_name__lab', 'reported_by', 'resolved_by')
         # Non-admins can only see their own reports
-        if request.user.role != 'Administrator':
+        if not is_administrator_user(request.user):
             qs = qs.filter(reported_by=request.user)
         q = request.GET.get('search', '').strip()
         s = request.GET.get('status', '').strip()
@@ -689,7 +771,7 @@ class FaultListView(APIView):
 
 
 class FaultDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, require_feature('faults')]
 
     def get(self, request, pk):
         fault = get_object_or_404(
@@ -739,12 +821,12 @@ class FaultDetailView(APIView):
 # ─── Resources ───────────────────────────────────────────────────────────────
 
 class ResourceListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, require_feature('resources')]
 
     def get(self, request):
         qs = ResourceRequest.objects.select_related('system_name', 'system_name__lab', 'requested_by', 'provided_by')
         # Non-admins can only see their own requests
-        if request.user.role != 'Administrator':
+        if not is_administrator_user(request.user):
             qs = qs.filter(requested_by=request.user)
         q = request.GET.get('search', '').strip()
         s = request.GET.get('status', '').strip()
@@ -802,7 +884,7 @@ class ResourceListView(APIView):
 
 
 class ResourceDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, require_feature('resources')]
 
     def patch(self, request, pk):
         resource = get_object_or_404(ResourceRequest, pk=pk)
@@ -845,7 +927,7 @@ class ResourceDetailView(APIView):
 # ─── Reports ─────────────────────────────────────────────────────────────────
 
 class ReportsView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, require_feature('reports')]
 
     def get(self, request):
         from .services.metrics import get_report_metrics
@@ -853,7 +935,7 @@ class ReportsView(APIView):
         today = timezone.now().date()
 
         # Non-admin roles: restrict to the user's own active lab assignments
-        if user.role in ('Lab Incharge', 'Lab Assistant'):
+        if is_lab_incharge_or_assistant(user):
             assigned_lab_ids = list(
                 LabAssignment.objects
                 .filter(user=user)
@@ -908,7 +990,7 @@ MONITORING_CACHE_TTL = 30  # seconds — matches the frontend 30s polling interv
 
 
 class MonitoringView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, require_feature('monitoring')]
 
     def get(self, request):
         item_id = request.GET.get('item_id', '').strip()
@@ -978,7 +1060,7 @@ class NotificationListView(APIView):
         return paginator.get_paginated_response(NotificationSerializer(page, many=True).data)
 
     def post(self, request):
-        if request.user.role != 'Administrator':
+        if not is_administrator_user(request.user):
             return Response({'detail': 'Admin only.'}, status=403)
 
         ser = AdminNotificationCreateSerializer(data=request.data)
@@ -1031,7 +1113,7 @@ class NotificationMarkAllReadView(APIView):
 
 
 class MonitoringHistoryView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, require_feature('monitoring')]
 
     def get(self, request):
         item_id = request.GET.get('item_id', '').strip()
@@ -1076,7 +1158,7 @@ USER_LIST_CACHE_TTL = 60 * 5  # 5 minutes
 
 
 class UserListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, require_feature('users')]
 
     def get(self, request):
         from django.core.cache import cache
@@ -1095,10 +1177,10 @@ class UserListView(APIView):
 
 
 class UserDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, require_feature('users')]
 
     def patch(self, request, pk):
-        if request.user.role != 'Administrator':
+        if not is_administrator_user(request.user):
             return Response({'detail': 'Admin only.'}, status=403)
         user = get_object_or_404(User, pk=pk)
         old_role = user.role
@@ -1106,6 +1188,7 @@ class UserDetailView(APIView):
         if not ser.is_valid():
             return Response(ser.errors, status=400)
         ser.save()
+        sync_user_primary_role_membership(user, assigned_by_id=request.user.id)
 
         # If role changed away from an assignable role, revoke all lab assignments
         new_role = user.role
@@ -1130,13 +1213,13 @@ class SystemsListView(APIView):
     they are currently actively assigned to, so the fault-report and
     resource-request modals only offer relevant options.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, require_any_feature('layout', 'faults', 'resources')]
 
     def get(self, request):
         user = request.user
         qs = System.objects.select_related('lab', 'layout_item')
 
-        if user.role in ('Lab Incharge', 'Lab Assistant'):
+        if is_lab_incharge_or_assistant(user):
             today = timezone.now().date()
             assigned_lab_ids = list(
                 LabAssignment.objects
@@ -1206,7 +1289,7 @@ class LabAssignmentListView(APIView):
         user = request.user
         today = timezone.now().date()
 
-        if user.role in ('Lab Incharge', 'Lab Assistant'):
+        if is_lab_incharge_or_assistant(user):
             qs = (
                 LabAssignment.objects
                 .select_related('lab', 'user', 'assigned_by')
@@ -1217,7 +1300,7 @@ class LabAssignmentListView(APIView):
             )
             return Response(LabAssignmentSerializer(qs, many=True).data)
 
-        if user.role != 'Administrator':
+        if not is_administrator_user(user):
             return Response({'detail': 'Admin only.'}, status=403)
 
         lab_id = request.GET.get('lab_id')
@@ -1228,7 +1311,7 @@ class LabAssignmentListView(APIView):
 
     def post(self, request):
         """Create a new lab assignment (admin only)."""
-        if request.user.role != 'Administrator':
+        if not is_administrator_user(request.user):
             return Response({'detail': 'Admin only.'}, status=403)
 
         ser = LabAssignmentCreateSerializer(data=request.data)
@@ -1243,7 +1326,7 @@ class LabAssignmentListView(APIView):
 
         # Validate that user's role matches the assignment role
         expected_role = 'Lab Incharge' if role_type == LabAssignment.ROLE_INCHARGE else 'Lab Assistant'
-        if user.role != expected_role:
+        if not user_matches_legacy_or_rbac_role(user, expected_role):
             return Response(
                 {'detail': f'User must have the "{expected_role}" role to be assigned as {role_type}.'},
                 status=400,
@@ -1292,7 +1375,7 @@ class LabAssignmentDetailView(APIView):
 
     def delete(self, request, pk):
         """Revoke an assignment (admin only)."""
-        if request.user.role != 'Administrator':
+        if not is_administrator_user(request.user):
             return Response({'detail': 'Admin only.'}, status=403)
         assignment = get_object_or_404(LabAssignment, pk=pk)
         lab = assignment.lab
@@ -1319,7 +1402,7 @@ class PrivilegesConfigView(APIView):
         return Response(PrivilegesConfigSerializer(config).data)
 
     def patch(self, request):
-        if request.user.role != 'Administrator':
+        if not is_administrator_user(request.user):
             return Response({'detail': 'Admin only.'}, status=403)
         config = PrivilegesConfig.get_config()
         ser = PrivilegesConfigSerializer(config, data=request.data, partial=True)

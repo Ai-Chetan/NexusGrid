@@ -4,6 +4,7 @@ from datetime import timedelta
 from typing import Iterable
 
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.utils import timezone
 
 from api_v1.models import Notification
@@ -43,7 +44,16 @@ def create_notifications(
 
 
 def admin_user_ids() -> list[int]:
-    return list(User.objects.filter(role='Administrator').values_list('id', flat=True))
+    return list(
+        User.objects.filter(
+            Q(is_superuser=True)
+            | Q(role='Administrator')
+            | Q(rbac_roles__role__name='Administrator')
+            | Q(rbac_roles__role__name='role.admin')
+        )
+        .distinct()
+        .values_list('id', flat=True)
+    )
 
 
 def create_system_alert_if_needed(*, hostname: str, memory_usage_percent: float | None, threshold: float = 90.0) -> None:

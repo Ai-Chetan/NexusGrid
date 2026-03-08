@@ -9,11 +9,14 @@ def copy_provided_to_resource(apps, schema_editor):
     """Copy data from the Provided table into the new ResourceRequest columns."""
     Provided = apps.get_model('resources', 'Provided')
     ResourceRequest = apps.get_model('resources', 'ResourceRequest')
-    for provided in Provided.objects.select_related('resource_request').iterator():
-        ResourceRequest.objects.filter(pk=provided.resource_request_id).update(
-            provision_summary=provided.provision_summary,
-            provided_by_id=provided.provided_by_id,
-            provided_at=provided.provided_at,
+    db_alias = schema_editor.connection.alias
+    for provided in Provided.objects.using(db_alias).all().values(
+        'resource_request_id', 'provision_summary', 'provided_by_id', 'provided_at'
+    ):
+        ResourceRequest.objects.using(db_alias).filter(pk=provided['resource_request_id']).update(
+            provision_summary=provided['provision_summary'],
+            provided_by_id=provided['provided_by_id'],
+            provided_at=provided['provided_at'],
         )
 
 

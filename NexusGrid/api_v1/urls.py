@@ -2,10 +2,15 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # Health
+    path('health/control/', views.ControlPlaneHealthView.as_view(), name='api-health-control'),
+    path('health/tenant/', views.TenantHealthView.as_view(), name='api-health-tenant'),
+
     # Auth
     path('auth/login/', views.LoginView.as_view(), name='api-login'),
     path('auth/logout/', views.LogoutView.as_view(), name='api-logout'),
     path('auth/me/', views.MeView.as_view(), name='api-me'),
+    path('auth/capabilities/', views.CapabilitiesView.as_view(), name='api-capabilities'),
     path('auth/register/', views.RegisterView.as_view(), name='api-register'),
     path('auth/signup-otp/', views.SignupRequestOTPView.as_view(), name='api-signup-otp'),
     path('auth/signup-verify/', views.SignupVerifyOTPView.as_view(), name='api-signup-verify'),

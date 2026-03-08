@@ -10,6 +10,17 @@ export interface User {
   last_login: string | null;
 }
 
+export type FeatureFlags = Record<string, boolean>;
+
+export interface CapabilitiesResponse {
+  tenant: {
+    slug: string | null;
+    name: string | null;
+  };
+  features: FeatureFlags;
+  permissions: string[];
+}
+
 // ─── Layout ─────────────────────────────────────────────────────────────────
 export type ItemType =
   | 'building'

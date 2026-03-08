@@ -20,7 +20,7 @@ SECRET_KEY = env('SECRET_KEY') # No default here for production safety
 DEBUG = env.bool('DEBUG', default=False)
 
 # Allowed hosts for the application
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost', '.onrender.com'])
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost', '.localtest.me', '.onrender.com'])
 
 # ── Cache + Session backend ───────────────────────────────────────────────────
 # Set USE_REDIS=True in .env / production environment when Redis is available.
@@ -28,6 +28,33 @@ ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost', '.o
 # sharing, but avoids every cache.get() silently returning None and running
 # 10+ DB queries per dashboard load).
 USE_REDIS = env.bool('USE_REDIS', default=False)
+
+# ------------------------------------------------------------------------------
+# 1b. MULTI-TENANCY (LOCAL-FIRST)
+# ------------------------------------------------------------------------------
+# Keep disabled by default so existing single-tenant behavior remains unchanged.
+MULTI_TENANT_ENABLED = env.bool('MULTI_TENANT_ENABLED', default=False)
+MULTI_TENANT_STRICT_MIGRATIONS = env.bool('MULTI_TENANT_STRICT_MIGRATIONS', default=False)
+MULTI_TENANT_BASE_DOMAIN = env('MULTI_TENANT_BASE_DOMAIN', default='localtest.me')
+MULTI_TENANT_CONTROL_HOSTS = env.list(
+    'MULTI_TENANT_CONTROL_HOSTS',
+    default=['localhost', '127.0.0.1', 'control.localtest.me'],
+)
+TENANT_DB_SSLMODE = env('TENANT_DB_SSLMODE', default='')
+TENANT_CONN_MAX_AGE = env.int('TENANT_CONN_MAX_AGE', default=0)
+TENANT_DB_NAME_PREFIX = env('TENANT_DB_NAME_PREFIX', default='nexusgrid_tenant_')
+TENANT_DB_USER_PREFIX = env('TENANT_DB_USER_PREFIX', default='ng_tenant_')
+TENANT_DEFAULT_DB_HOST = env('TENANT_DEFAULT_DB_HOST', default='127.0.0.1')
+TENANT_DEFAULT_DB_PORT = env.int('TENANT_DEFAULT_DB_PORT', default=5432)
+
+# Local/ops connection used only for CREATE DATABASE/ROLE operations.
+TENANT_DB_ADMIN_NAME = env('TENANT_DB_ADMIN_NAME', default='postgres')
+TENANT_DB_ADMIN_USER = env('TENANT_DB_ADMIN_USER', default='postgres')
+TENANT_DB_ADMIN_PASSWORD = env('TENANT_DB_ADMIN_PASSWORD', default='')
+TENANT_DB_ADMIN_HOST = env('TENANT_DB_ADMIN_HOST', default='127.0.0.1')
+TENANT_DB_ADMIN_PORT = env.int('TENANT_DB_ADMIN_PORT', default=5432)
+PROVISION_TENANT_RATE_LIMIT_SECONDS = env.int('PROVISION_TENANT_RATE_LIMIT_SECONDS', default=30)
+DEPROVISION_TENANT_RATE_LIMIT_SECONDS = env.int('DEPROVISION_TENANT_RATE_LIMIT_SECONDS', default=30)
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -63,6 +90,8 @@ INSTALLED_APPS = [
     'monitoring',
     'faults',
     'resources',
+    'tenant_control',
+    'rbac',
 ]
 
 # ------------------------------------------------------------------------------
@@ -74,6 +103,8 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',      # CORS Middleware (place after SessionMiddleware)
     'django.middleware.common.CommonMiddleware',
+    'NexusGrid.tenant.request_context_middleware.RequestContextLoggingMiddleware',
+    'NexusGrid.tenant.middleware.TenantResolutionMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware', # For serving static files in production
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -130,6 +161,10 @@ DATABASES = {
         'CONN_MAX_AGE': 0,  # Disable persistent connections (required for Neon serverless)
     }
 }
+
+DATABASE_ROUTERS = [
+    'NexusGrid.tenant.router.TenantDatabaseRouter',
+]
 
 # Password validation for user creation
 AUTH_PASSWORD_VALIDATORS = [
@@ -211,6 +246,11 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
     ],
+    'DEFAULT_THROTTLE_RATES': {
+        'auth_otp_anon': '10/hour',
+        'auth_otp_user': '30/hour',
+        'rbac_mutation_user': '120/hour',
+    },
 }
 
 # ------------------------------------------------------------------------------
@@ -231,12 +271,19 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGIN_REGEXES = env.list(
     "CORS_ALLOWED_ORIGIN_REGEXES",
-    default=[r"^https://.*\.vercel\.app$"],
+    default=[
+        r"^https://.*\.vercel\.app$",
+        r"^https?://.*\.localtest\.me(?::\d+)?$",
+    ],
 )
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:8000",
+    "http://control.localtest.me:5173",
+    "http://control.localtest.me:8000",
+    "http://acme.localtest.me:5173",
+    "http://acme.localtest.me:8000",
     *PUBLIC_FRONTEND_ORIGINS,
 ])
 # CORS_ALLOW_ALL_ORIGINS = True # Be careful with this in production!
@@ -311,6 +358,11 @@ LOGGING = {
         'django': {
             'handlers': ['console'],
             'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+        'nexusgrid.request': {
+            'handlers': ['console'],
+            'level': os.getenv('NEXUSGRID_REQUEST_LOG_LEVEL', 'INFO'),
             'propagate': False,
         },
     },

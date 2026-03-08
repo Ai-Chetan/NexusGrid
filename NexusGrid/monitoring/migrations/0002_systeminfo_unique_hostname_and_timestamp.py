@@ -9,13 +9,24 @@ def deduplicate_hostnames(apps, schema_editor):
     per hostname and delete the rest.
     """
     SystemInfo = apps.get_model('monitoring', 'SystemInfo')
+    db_alias = schema_editor.connection.alias
     seen = set()
+    duplicate_ids = []
+
     # Order newest-first so we keep the latest row
-    for info in SystemInfo.objects.order_by('-id'):
-        if info.hostname in seen:
-            info.delete()
+    rows = list(
+        SystemInfo.objects.using(db_alias)
+        .order_by('-id')
+        .values_list('id', 'hostname')
+    )
+    for info_id, hostname in rows:
+        if hostname in seen:
+            duplicate_ids.append(info_id)
         else:
-            seen.add(info.hostname)
+            seen.add(hostname)
+
+    if duplicate_ids:
+        SystemInfo.objects.using(db_alias).filter(id__in=duplicate_ids).delete()
 
 
 class Migration(migrations.Migration):

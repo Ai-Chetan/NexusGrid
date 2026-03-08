@@ -31,7 +31,7 @@ api.interceptors.request.use(config => {
 api.interceptors.response.use(
   res => res,
   err => {
-    if (err.response?.status === 401 || err.response?.status === 403) {
+    if (err.response?.status === 401) {
       window.dispatchEvent(new Event('auth:unauthorized'));
     }
     return Promise.reject(err);
@@ -41,6 +41,7 @@ api.interceptors.response.use(
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 export const authApi = {
   me: () => api.get('/auth/me/'),
+  capabilities: () => api.get('/auth/capabilities/'),
   login: (data: { username: string; password: string }) =>
     api.post('/auth/login/', data),
   logout: () => api.post('/auth/logout/'),

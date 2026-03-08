@@ -34,6 +34,7 @@ from faults.models import FaultReport
 from monitoring.models import SystemCurrent, SystemInfo
 from resources.models import ResourceRequest
 from system_layout.models import Lab, System, LayoutItem
+from rbac.services import is_administrator_user, is_lab_incharge_or_assistant
 
 # ── Cache config ──────────────────────────────────────────────────────────────
 
@@ -124,7 +125,7 @@ def get_dashboard_metrics(
     from system_layout.models import LabAssignment
     from django.db.models import Q as _Q
 
-    is_admin = (user is None or getattr(user, 'role', 'Administrator') == 'Administrator')
+    is_admin = (user is None or is_administrator_user(user))
     has_filters = any([building_id, floor_id, room_id, start_date, end_date])
     location_lab_ids = _resolve_filtered_lab_ids(building_id, floor_id, room_id)
     start_date_obj = _safe_parse_date(start_date)
@@ -140,9 +141,7 @@ def get_dashboard_metrics(
     six_months_ago = timezone.now() - timezone.timedelta(days=180)
 
     # ── Resolve base querysets depending on role ──────────────────────────
-    role = getattr(user, 'role', None)
-
-    if role in ('Lab Incharge', 'Lab Assistant'):
+    if user is not None and is_lab_incharge_or_assistant(user):
         assigned_lab_ids = list(
             LabAssignment.objects
             .filter(user=user)

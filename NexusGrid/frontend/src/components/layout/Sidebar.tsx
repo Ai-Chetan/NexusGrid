@@ -14,15 +14,22 @@ import toast from 'react-hot-toast';
 
 type Role = User['role'];
 
-const navItems: { to: string; label: string; icon: React.ElementType; allowedRoles?: Role[] }[] = [
-  { to: '/app/dashboard',  label: 'Dashboard',      icon: LayoutDashboard },
-  { to: '/app/layout',     label: 'System Layout',   icon: Map },
-  { to: '/app/faults',     label: 'Fault Reports',   icon: AlertTriangle },
-  { to: '/app/resources',  label: 'Resources',       icon: Package },
-  { to: '/app/reports',    label: 'Reports',         icon: BarChart3 },
-  { to: '/app/monitoring', label: 'Monitoring',      icon: Activity,    allowedRoles: ['Administrator', 'Lab Assistant'] },
-  { to: '/app/users',      label: 'User Privileges', icon: Users,        allowedRoles: ['Administrator'] },
-  { to: '/app/admin-controls', label: 'Admin Controls', icon: Shield,    allowedRoles: ['Administrator'] },
+const navItems: {
+  to: string;
+  label: string;
+  icon: React.ElementType;
+  featureCode?: string;
+  permissionCode?: string;
+  allowedRoles?: Role[];
+}[] = [
+  { to: '/app/dashboard',  label: 'Dashboard',      icon: LayoutDashboard, featureCode: 'dashboard' },
+  { to: '/app/layout',     label: 'System Layout',   icon: Map, featureCode: 'layout' },
+  { to: '/app/faults',     label: 'Fault Reports',   icon: AlertTriangle, featureCode: 'faults' },
+  { to: '/app/resources',  label: 'Resources',       icon: Package, featureCode: 'resources' },
+  { to: '/app/reports',    label: 'Reports',         icon: BarChart3, featureCode: 'reports' },
+  { to: '/app/monitoring', label: 'Monitoring',      icon: Activity, featureCode: 'monitoring' },
+  { to: '/app/users',      label: 'User Privileges', icon: Users, featureCode: 'users', permissionCode: 'users.manage' },
+  { to: '/app/admin-controls', label: 'Admin Controls', icon: Shield, featureCode: 'rbac', permissionCode: 'rbac.manage' },
 ];
 
 interface SidebarProps {
@@ -30,7 +37,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ onClose }: SidebarProps) {
-  const { user, logout } = useAuthStore();
+  const { user, logout, isFeatureEnabled, hasPermission } = useAuthStore();
   const navigate = useNavigate();
   const [scannerOpen, setScannerOpen] = useState(false);
   const isNoRole = user?.role === 'No Roles';
@@ -42,9 +49,18 @@ export default function Sidebar({ onClose }: SidebarProps) {
     enabled: !isNoRole,
   });
 
-  const visibleNavItems = navItems.filter(({ allowedRoles }) =>
-    !allowedRoles || (user?.role && allowedRoles.includes(user.role))
-  );
+  const visibleNavItems = navItems.filter(({ featureCode, permissionCode, allowedRoles }) => {
+    if (allowedRoles && (!user?.role || !allowedRoles.includes(user.role))) {
+      return false;
+    }
+    if (featureCode && !isFeatureEnabled(featureCode)) {
+      return false;
+    }
+    if (permissionCode && !hasPermission(permissionCode)) {
+      return false;
+    }
+    return true;
+  });
 
   const handleLogout = async () => {
     await logout();

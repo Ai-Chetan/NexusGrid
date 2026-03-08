@@ -9,11 +9,14 @@ def copy_resolved_to_fault(apps, schema_editor):
     """Copy data from the Resolved table into the new FaultReport columns."""
     Resolved = apps.get_model('faults', 'Resolved')
     FaultReport = apps.get_model('faults', 'FaultReport')
-    for resolved in Resolved.objects.select_related('fault_report').iterator():
-        FaultReport.objects.filter(pk=resolved.fault_report_id).update(
-            resolution_summary=resolved.resolution_summary,
-            resolved_by_id=resolved.resolved_by_id,
-            resolved_at=resolved.resolved_at,
+    db_alias = schema_editor.connection.alias
+    for resolved in Resolved.objects.using(db_alias).all().values(
+        'fault_report_id', 'resolution_summary', 'resolved_by_id', 'resolved_at'
+    ):
+        FaultReport.objects.using(db_alias).filter(pk=resolved['fault_report_id']).update(
+            resolution_summary=resolved['resolution_summary'],
+            resolved_by_id=resolved['resolved_by_id'],
+            resolved_at=resolved['resolved_at'],
         )
 
 

@@ -19,8 +19,6 @@ import LoadingScreen from '@/components/common/LoadingScreen';
 
 import type { User } from '@/types';
 
-type Role = User['role'];
-
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isInitialized } = useAuthStore();
   if (!isInitialized) return <LoadingScreen />;
@@ -28,11 +26,19 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function RoleRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: Role[] }) {
-  const { user, isInitialized } = useAuthStore();
+function FeatureRoute({ children, featureCode }: { children: React.ReactNode; featureCode: string }) {
+  const { user, isInitialized, isFeatureEnabled } = useAuthStore();
   if (!isInitialized) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
-  if (!allowedRoles.includes(user.role)) return <Navigate to="/app/dashboard" replace />;
+  if (!isFeatureEnabled(featureCode)) return <Navigate to="/app/dashboard" replace />;
+  return <>{children}</>;
+}
+
+function PermissionRoute({ children, permissionCode }: { children: React.ReactNode; permissionCode: string }) {
+  const { user, isInitialized, hasPermission } = useAuthStore();
+  if (!isInitialized) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!hasPermission(permissionCode)) return <Navigate to="/app/dashboard" replace />;
   return <>{children}</>;
 }
 
@@ -63,16 +69,16 @@ export default function App() {
           }
         >
           <Route index element={<Navigate to="/app/dashboard" replace />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="layout" element={<LayoutPage />} />
-          <Route path="layout/:id" element={<LayoutPage />} />
-          <Route path="faults" element={<FaultsPage />} />
-          <Route path="resources" element={<ResourcesPage />} />
-          <Route path="reports" element={<ReportsPage />} />
-          <Route path="monitoring" element={<RoleRoute allowedRoles={['Administrator', 'Lab Assistant']}><MonitoringPage /></RoleRoute>} />
+          <Route path="dashboard" element={<FeatureRoute featureCode="dashboard"><DashboardPage /></FeatureRoute>} />
+          <Route path="layout" element={<FeatureRoute featureCode="layout"><LayoutPage /></FeatureRoute>} />
+          <Route path="layout/:id" element={<FeatureRoute featureCode="layout"><LayoutPage /></FeatureRoute>} />
+          <Route path="faults" element={<FeatureRoute featureCode="faults"><FaultsPage /></FeatureRoute>} />
+          <Route path="resources" element={<FeatureRoute featureCode="resources"><ResourcesPage /></FeatureRoute>} />
+          <Route path="reports" element={<FeatureRoute featureCode="reports"><ReportsPage /></FeatureRoute>} />
+          <Route path="monitoring" element={<FeatureRoute featureCode="monitoring"><MonitoringPage /></FeatureRoute>} />
           <Route path="system/:itemId" element={<SystemDetailPage />} />
-          <Route path="users" element={<RoleRoute allowedRoles={['Administrator']}><UsersPage /></RoleRoute>} />
-          <Route path="admin-controls" element={<RoleRoute allowedRoles={['Administrator']}><AdminControlsPage /></RoleRoute>} />
+          <Route path="users" element={<FeatureRoute featureCode="users"><PermissionRoute permissionCode="users.manage"><UsersPage /></PermissionRoute></FeatureRoute>} />
+          <Route path="admin-controls" element={<FeatureRoute featureCode="rbac"><PermissionRoute permissionCode="rbac.manage"><AdminControlsPage /></PermissionRoute></FeatureRoute>} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 

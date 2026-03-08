@@ -4,6 +4,7 @@ from django.utils import timezone
 
 def backfill_system_current(apps, schema_editor):
     SystemCurrent = apps.get_model('monitoring', 'SystemCurrent')
+    db_alias = schema_editor.connection.alias
 
     latest_by_key = {}
     with schema_editor.connection.cursor() as cursor:
@@ -24,7 +25,7 @@ def backfill_system_current(apps, schema_editor):
             latest_by_key[key] = (raw_hostname, info_id, ts)
 
     for key, (hostname, info_id, ts) in latest_by_key.items():
-        SystemCurrent.objects.update_or_create(
+        SystemCurrent.objects.using(db_alias).update_or_create(
             hostname_key=key,
             defaults={
                 'hostname': hostname,
