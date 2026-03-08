@@ -14,9 +14,12 @@ from system_layout.models import LayoutItem, Lab, System, LabAssignment, Privile
 from faults.models import FaultReport
 from resources.models import ResourceRequest
 from monitoring.models import SystemInfo, SystemCurrent
+from api_v1.models import Notification
+from .services.notifications import create_notifications, admin_user_ids, create_system_alert_if_needed
 
 from .serializers import (
     UserSerializer, UserUpdateSerializer,
+    NotificationSerializer, AdminNotificationCreateSerializer,
     LayoutItemSerializer, LayoutItemCreateSerializer, LayoutItemUpdateSerializer,
     SystemSerializer, LabSerializer, LabUpdateSerializer,
     FaultReportSerializer, FaultReportCreateSerializer, FaultStatusUpdateSerializer,
@@ -666,6 +669,22 @@ class FaultListView(APIView):
         if not ser.is_valid():
             return Response(ser.errors, status=400)
         fault = ser.save()
+
+        recipients = admin_user_ids()
+        if request.user.id not in recipients:
+            recipients.append(request.user.id)
+        create_notifications(
+            recipient_ids=recipients,
+            message=(
+                f"New fault report on {fault.system_name.host_name}: "
+                f"{fault.fault_type} (risk {fault.risk_factor})."
+            ),
+            related_to='fault_report',
+            related_id=fault.fault_id,
+            target_url='/app/faults',
+            created_by_id=request.user.id,
+        )
+
         return Response(FaultReportSerializer(fault).data, status=201)
 
 
@@ -681,6 +700,7 @@ class FaultDetailView(APIView):
 
     def patch(self, request, pk):
         fault = get_object_or_404(FaultReport, pk=pk)
+        old_status = fault.status
         ser = FaultStatusUpdateSerializer(data=request.data)
         if not ser.is_valid():
             return Response(ser.errors, status=400)
@@ -695,6 +715,24 @@ class FaultDetailView(APIView):
             update_fields += ['resolution_summary', 'resolved_by', 'resolved_at']
         fault.save(update_fields=update_fields)
         fault.refresh_from_db()
+
+        if old_status != new_status:
+            recipients = [fault.reported_by_id]
+            for admin_id in admin_user_ids():
+                if admin_id not in recipients:
+                    recipients.append(admin_id)
+            create_notifications(
+                recipient_ids=recipients,
+                message=(
+                    f"Fault status updated on {fault.system_name.host_name}: "
+                    f"{old_status} -> {new_status}."
+                ),
+                related_to='fault_status_update',
+                related_id=fault.fault_id,
+                target_url='/app/faults',
+                created_by_id=request.user.id,
+            )
+
         return Response(FaultReportSerializer(fault).data)
 
 
@@ -747,6 +785,19 @@ class ResourceListView(APIView):
         if not ser.is_valid():
             return Response(ser.errors, status=400)
         res = ser.save()
+
+        recipients = admin_user_ids()
+        if request.user.id not in recipients:
+            recipients.append(request.user.id)
+        create_notifications(
+            recipient_ids=recipients,
+            message=f"New resource request for {res.resource_name} on {res.system_name.host_name}.",
+            related_to='resource_request',
+            related_id=res.resource_id,
+            target_url='/app/resources',
+            created_by_id=request.user.id,
+        )
+
         return Response(ResourceRequestSerializer(res).data, status=201)
 
 
@@ -755,6 +806,7 @@ class ResourceDetailView(APIView):
 
     def patch(self, request, pk):
         resource = get_object_or_404(ResourceRequest, pk=pk)
+        old_status = resource.status
         ser = ResourceStatusUpdateSerializer(data=request.data)
         if not ser.is_valid():
             return Response(ser.errors, status=400)
@@ -769,6 +821,24 @@ class ResourceDetailView(APIView):
             update_fields += ['provision_summary', 'provided_by', 'provided_at']
         resource.save(update_fields=update_fields)
         resource.refresh_from_db()
+
+        if old_status != new_status:
+            recipients = [resource.requested_by_id]
+            for admin_id in admin_user_ids():
+                if admin_id not in recipients:
+                    recipients.append(admin_id)
+            create_notifications(
+                recipient_ids=recipients,
+                message=(
+                    f"Resource request status updated for {resource.resource_name}: "
+                    f"{old_status} -> {new_status}."
+                ),
+                related_to='resource_status_update',
+                related_id=resource.resource_id,
+                target_url='/app/resources',
+                created_by_id=request.user.id,
+            )
+
         return Response(ResourceRequestSerializer(resource).data)
 
 
@@ -865,6 +935,10 @@ class MonitoringView(APIView):
                 )
             if not info:
                 return Response({'detail': 'No monitoring data for this host.'}, status=404)
+            create_system_alert_if_needed(
+                hostname=info.hostname,
+                memory_usage_percent=info.memory_usage_percent,
+            )
             return Response(SystemInfoSerializer(info).data)
 
         from django.core.cache import cache
@@ -877,9 +951,83 @@ class MonitoringView(APIView):
             for row in SystemCurrent.objects.select_related('latest_info').order_by('hostname')
             if row.latest_info_id
         ]
+        for info in systems:
+            create_system_alert_if_needed(
+                hostname=info.hostname,
+                memory_usage_percent=info.memory_usage_percent,
+            )
         data = {'systems': SystemInfoSerializer(systems, many=True).data}
         cache.set(MONITORING_CACHE_KEY, data, MONITORING_CACHE_TTL)
         return Response(data)
+
+
+# ─── Notifications ───────────────────────────────────────────────────────────
+
+class NotificationListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = Notification.objects.select_related('created_by').filter(recipient=request.user)
+        unread_only = request.GET.get('unread', '').strip().lower() in {'1', 'true', 'yes'}
+        if unread_only:
+            qs = qs.filter(is_read=False)
+
+        paginator = StandardPagination()
+        paginator.page_size = 20
+        page = paginator.paginate_queryset(qs, request)
+        return paginator.get_paginated_response(NotificationSerializer(page, many=True).data)
+
+    def post(self, request):
+        if request.user.role != 'Administrator':
+            return Response({'detail': 'Admin only.'}, status=403)
+
+        ser = AdminNotificationCreateSerializer(data=request.data)
+        if not ser.is_valid():
+            return Response(ser.errors, status=400)
+
+        payload = ser.validated_data
+        if payload.get('send_to_all'):
+            recipient_ids = list(User.objects.values_list('id', flat=True))
+        else:
+            recipient_ids = payload.get('recipient_ids', [])
+
+        create_notifications(
+            recipient_ids=recipient_ids,
+            message=payload['message'],
+            related_to='admin_message',
+            related_id=None,
+            target_url=payload.get('target_url', '/app/dashboard') or '/app/dashboard',
+            created_by_id=request.user.id,
+        )
+        return Response({'detail': 'Notification(s) created.'}, status=201)
+
+    def delete(self, request):
+        scope = (request.GET.get('scope') or 'all').strip().lower()
+        qs = Notification.objects.filter(recipient=request.user)
+        if scope == 'unread':
+            qs = qs.filter(is_read=False)
+        elif scope == 'read':
+            qs = qs.filter(is_read=True)
+        deleted, _ = qs.delete()
+        return Response({'detail': 'Notifications cleared.', 'deleted': deleted, 'scope': scope})
+
+
+class NotificationDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        notif = get_object_or_404(Notification, pk=pk, recipient=request.user)
+        notif.is_read = bool(request.data.get('is_read', True))
+        notif.save(update_fields=['is_read'])
+        return Response(NotificationSerializer(notif).data)
+
+
+class NotificationMarkAllReadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        updated = Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
+        return Response({'detail': 'Unread notifications cleared.', 'updated': updated})
 
 
 class MonitoringHistoryView(APIView):

@@ -16,11 +16,19 @@ class FaultReport(models.Model):
         ('Software', 'Software'),
         ('Network', 'Network'),
     ]
+    RISK_FACTOR_CHOICES = [
+        (1, 'Least severe'),
+        (2, 'Low severity'),
+        (3, 'Moderate severity'),
+        (4, 'High severity'),
+        (5, 'Critical severity'),
+    ]
 
     fault_id = models.AutoField(primary_key=True)
     system_name = models.ForeignKey(System, on_delete=models.CASCADE)
     reported_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='fault_reports')
     fault_type = models.CharField(max_length=20, choices=FAULT_CHOICES)
+    risk_factor = models.PositiveSmallIntegerField(choices=RISK_FACTOR_CHOICES, default=1)
     description = models.TextField()
     status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='unaddressed')
     reported_at = models.DateTimeField(auto_now_add=True)

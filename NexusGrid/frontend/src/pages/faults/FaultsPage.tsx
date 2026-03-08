@@ -21,6 +21,7 @@ import toast from 'react-hot-toast';
 const createSchema = z.object({
   system_id: z.coerce.number().min(1, 'Select a system'),
   fault_type: z.enum(['Hardware', 'Software', 'Network']),
+  risk_factor: z.coerce.number().int().min(1).max(5),
   description: z.string().min(10, 'Please provide more detail (min 10 chars)'),
 });
 type CreateForm = z.infer<typeof createSchema>;
@@ -37,7 +38,7 @@ function CreateFaultModal({ open, onClose }: { open: boolean; onClose: () => voi
 
   const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
-    defaultValues: { fault_type: 'Hardware' },
+    defaultValues: { fault_type: 'Hardware', risk_factor: 1 },
   });
 
   // Unique room names sorted
@@ -109,13 +110,23 @@ function CreateFaultModal({ open, onClose }: { open: boolean; onClose: () => voi
           {errors.system_id && <p className="mt-1 text-xs text-red-500">{errors.system_id.message}</p>}
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">Fault Type</label>
             <select {...register('fault_type')} className="input">
               <option value="Hardware">Hardware</option>
               <option value="Software">Software</option>
               <option value="Network">Network</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Risk Factor</label>
+            <select {...register('risk_factor')} className="input">
+              <option value={1}>1 - Least severe</option>
+              <option value={2}>2 - Low</option>
+              <option value={3}>3 - Moderate</option>
+              <option value={4}>4 - High</option>
+              <option value={5}>5 - Critical</option>
             </select>
           </div>
         </div>
@@ -210,6 +221,12 @@ function UpdateStatusModal({ fault, onClose }: { fault: FaultReport | null; onCl
 
 // ─── Fault Row ────────────────────────────────────────────────────────────────
 function FaultRow({ fault, onUpdate }: { fault: FaultReport; onUpdate: (f: FaultReport) => void }) {
+  const riskTone =
+    fault.risk_factor >= 5 ? 'bg-red-100 text-red-700 border-red-200' :
+    fault.risk_factor >= 4 ? 'bg-orange-100 text-orange-700 border-orange-200' :
+    fault.risk_factor >= 3 ? 'bg-amber-100 text-amber-700 border-amber-200' :
+    'bg-slate-100 text-slate-700 border-slate-200';
+
   return (
     <tr className="hover:bg-slate-50 transition-colors">
       <td className="px-4 py-3">
@@ -227,6 +244,9 @@ function FaultRow({ fault, onUpdate }: { fault: FaultReport; onUpdate: (f: Fault
       </td>
       <td className="px-4 py-3 max-w-xs">
         <p className="text-sm text-slate-600 truncate">{fault.description}</p>
+      </td>
+      <td className="px-4 py-3">
+        <span className={cn('badge', riskTone)}>{fault.risk_factor}</span>
       </td>
       <td className="px-4 py-3">
         <StatusBadge status={fault.status} />
@@ -338,7 +358,7 @@ export default function FaultsPage() {
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    {['System', 'Type', 'Description', 'Status', 'Reported By', ''].map(h => (
+                    {['System', 'Type', 'Description', 'Risk', 'Status', 'Reported By', ''].map(h => (
                       <th key={h} className="px-4 py-3 table-header">{h}</th>
                     ))}
                   </tr>

@@ -14,6 +14,9 @@ urlpatterns = [
 
     # Dashboard
     path('dashboard/metrics/', views.DashboardMetricsView.as_view(), name='api-dashboard-metrics'),
+    path('notifications/', views.NotificationListView.as_view(), name='api-notifications-list'),
+    path('notifications/<int:pk>/', views.NotificationDetailView.as_view(), name='api-notification-detail'),
+    path('notifications/mark-read-all/', views.NotificationMarkAllReadView.as_view(), name='api-notification-mark-all-read'),
 
     # Layout Items
     path('layout/items/', views.LayoutItemsView.as_view(), name='api-layout-items'),

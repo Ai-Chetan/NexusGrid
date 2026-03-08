@@ -79,6 +79,9 @@ function DonutChart({ data, colors, title }: {
     backgroundColor: dark ? '#1e293b' : '#ffffff',
     color: dark ? '#f1f5f9' : '#0f172a',
   };
+  const ttTextStyle = {
+    color: dark ? '#f8fafc' : '#0f172a',
+  };
   return (
     <div className="card p-5">
       <p className="text-sm font-semibold text-slate-700 mb-4">{title}</p>
@@ -97,7 +100,7 @@ function DonutChart({ data, colors, title }: {
               <Cell key={i} fill={colors[i % colors.length]} />
             ))}
           </Pie>
-          <Tooltip contentStyle={ttStyle} />
+          <Tooltip contentStyle={ttStyle} labelStyle={ttTextStyle} itemStyle={ttTextStyle} />
           <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
         </PieChart>
       </ResponsiveContainer>
@@ -153,6 +156,7 @@ export default function DashboardPage() {
   const [roomId, setRoomId] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [showFilters, setShowFilters] = useState(false);
 
   const gridStroke   = dark ? '#334155' : '#cbd5e1';
   const tickFill     = dark ? '#64748b' : '#94a3b8';
@@ -161,6 +165,9 @@ export default function DashboardPage() {
     boxShadow: '0 4px 20px rgba(0,0,0,.15)',
     backgroundColor: dark ? '#1e293b' : '#ffffff',
     color: dark ? '#f1f5f9' : '#0f172a',
+  };
+  const tooltipTextStyle = {
+    color: dark ? '#f8fafc' : '#0f172a',
   };
   const { data: rootItems = [] } = useQuery<LayoutItem[]>({
     queryKey: ['layout-items-root-dashboard'],
@@ -238,110 +245,123 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="card p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Filter className="w-4 h-4 text-slate-500" />
-          <p className="text-sm font-semibold text-slate-700">Dashboard Filters</p>
-        </div>
+      <div className="flex justify-end">
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => setShowFilters((prev) => !prev)}
+        >
+          <Filter className="w-4 h-4" />
+          {showFilters ? 'Hide Filters' : 'Show Filters'}
+        </button>
+      </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          <div>
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Building</label>
-            <select
-              className="input mt-1"
-              value={buildingId}
-              onChange={(e) => {
-                setBuildingId(e.target.value);
+      {showFilters && (
+        <div className="card p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Filter className="w-4 h-4 text-slate-500" />
+            <p className="text-sm font-semibold text-slate-700">Dashboard Filters</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Building</label>
+              <select
+                className="input mt-1"
+                value={buildingId}
+                onChange={(e) => {
+                  setBuildingId(e.target.value);
+                  setFloorId('');
+                  setRoomId('');
+                }}
+              >
+                <option value="">All Buildings</option>
+                {buildingOptions.map((item) => (
+                  <option key={item.id} value={item.id}>{item.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Floor</label>
+              <select
+                className="input mt-1"
+                value={floorId}
+                onChange={(e) => {
+                  setFloorId(e.target.value);
+                  setRoomId('');
+                }}
+                disabled={!buildingId}
+              >
+                <option value="">All Floors</option>
+                {floorOptions.map((item) => (
+                  <option key={item.id} value={item.id}>{item.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Room</label>
+              <select
+                className="input mt-1"
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
+                disabled={!floorId}
+              >
+                <option value="">All Rooms</option>
+                {roomOptions.map((item) => (
+                  <option key={item.id} value={item.id}>{item.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">From</label>
+              <input
+                type="date"
+                className="input mt-1"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                max={endDate || undefined}
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">To</label>
+              <input
+                type="date"
+                className="input mt-1"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                min={startDate || undefined}
+              />
+            </div>
+          </div>
+
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                setBuildingId('');
                 setFloorId('');
                 setRoomId('');
+                setStartDate('');
+                setEndDate('');
               }}
             >
-              <option value="">All Buildings</option>
-              {buildingOptions.map((item) => (
-                <option key={item.id} value={item.id}>{item.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Floor</label>
-            <select
-              className="input mt-1"
-              value={floorId}
-              onChange={(e) => {
-                setFloorId(e.target.value);
-                setRoomId('');
-              }}
-              disabled={!buildingId}
-            >
-              <option value="">All Floors</option>
-              {floorOptions.map((item) => (
-                <option key={item.id} value={item.id}>{item.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Room</label>
-            <select
-              className="input mt-1"
-              value={roomId}
-              onChange={(e) => setRoomId(e.target.value)}
-              disabled={!floorId}
-            >
-              <option value="">All Rooms</option>
-              {roomOptions.map((item) => (
-                <option key={item.id} value={item.id}>{item.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">From</label>
-            <input
-              type="date"
-              className="input mt-1"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              max={endDate || undefined}
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">To</label>
-            <input
-              type="date"
-              className="input mt-1"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              min={startDate || undefined}
-            />
+              Reset Filters
+            </button>
           </div>
         </div>
-
-        <div className="mt-3 flex justify-end">
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => {
-              setBuildingId('');
-              setFloorId('');
-              setRoomId('');
-              setStartDate('');
-              setEndDate('');
-            }}
-          >
-            Reset Filters
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           label="Functional Systems"
-          value={systems.total}
-          sub={`${systems.functional} functional`}
+          value={systems.functional}
+          sub={`of ${systems.total} total systems`}
           icon={Monitor}
           color="bg-brand-600"
           pct={systems.functional_pct}
@@ -381,7 +401,7 @@ export default function DashboardPage() {
         <MetricCard
           label="Critical Systems"
           value={systems.critical}
-          sub="non-functional"
+          sub="Non-Functional Systems"
           icon={XCircle}
           color="bg-rose-500"
           pct={systems.critical_pct}
@@ -428,7 +448,7 @@ export default function DashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: tickFill }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: tickFill }} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={tooltipStyle} />
+                <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipTextStyle} itemStyle={tooltipTextStyle} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
                 <Area type="monotone" dataKey="faults" name="Faults" stroke="#ef4444" strokeWidth={2} fill="url(#faultGrad)" />
                 <Area type="monotone" dataKey="resources" name="Resources" stroke="#3b82f6" strokeWidth={2} fill="url(#resourceGrad)" />

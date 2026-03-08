@@ -75,6 +75,22 @@ export const dashboardApi = {
   }) => api.get('/dashboard/metrics/', { params }),
 };
 
+export const notificationsApi = {
+  list: (params?: { unread?: boolean; page?: number; page_size?: number }) =>
+    api.get('/notifications/', { params }),
+  update: (id: number, data: { is_read: boolean }) =>
+    api.patch(`/notifications/${id}/`, data),
+  markAllRead: () => api.post('/notifications/mark-read-all/'),
+  clear: (scope: 'all' | 'unread' | 'read' = 'all') =>
+    api.delete('/notifications/', { params: { scope } }),
+  createAdminMessage: (data: {
+    message: string;
+    recipient_ids?: number[];
+    send_to_all?: boolean;
+    target_url?: string;
+  }) => api.post('/notifications/', data),
+};
+
 // ─── Layout ───────────────────────────────────────────────────────────────────
 export const layoutApi = {
   getItems: (params?: { parent_id?: number | null }) =>

@@ -105,6 +105,15 @@
     @apply block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1;
   }
 
+  /* Keep native date controls readable in dark mode. */
+  .dark input[type='date'] {
+    color-scheme: dark;
+  }
+  .dark input[type='date']::-webkit-calendar-picker-indicator {
+    filter: invert(1) brightness(1.4);
+    opacity: 1;
+  }
+
   /* ── Badge ─────────────────────────────────────── */
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs

@@ -14,6 +14,7 @@ import MonitoringPage from '@/pages/monitoring/MonitoringPage';
 import SystemDetailPage from '@/pages/system/SystemDetailPage';
 import UsersPage from '@/pages/users/UsersPage';
 import ProfilePage from '@/pages/profile/ProfilePage';
+import AdminControlsPage from '@/pages/admin/AdminControlsPage';
 import LoadingScreen from '@/components/common/LoadingScreen';
 
 import type { User } from '@/types';
@@ -71,6 +72,7 @@ export default function App() {
           <Route path="monitoring" element={<RoleRoute allowedRoles={['Administrator', 'Lab Assistant']}><MonitoringPage /></RoleRoute>} />
           <Route path="system/:itemId" element={<SystemDetailPage />} />
           <Route path="users" element={<RoleRoute allowedRoles={['Administrator']}><UsersPage /></RoleRoute>} />
+          <Route path="admin-controls" element={<RoleRoute allowedRoles={['Administrator']}><AdminControlsPage /></RoleRoute>} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 
@@ -82,6 +84,7 @@ export default function App() {
         <Route path="/reports" element={<Navigate to="/app/reports" replace />} />
         <Route path="/monitoring" element={<Navigate to="/app/monitoring" replace />} />
         <Route path="/users" element={<Navigate to="/app/users" replace />} />
+        <Route path="/admin-controls" element={<Navigate to="/app/admin-controls" replace />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

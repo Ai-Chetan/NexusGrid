@@ -191,12 +191,17 @@ def get_dashboard_metrics(
         resource_qs = resource_qs.filter(requested_at__date__lte=end_date_obj)
 
     # 1 ── System counts
-    counts = system_qs.aggregate(
-        total=Count('id'),
-        critical=Count(Case(When(status='non-functional', then=1), output_field=IntegerField())),
+    counts = system_qs.aggregate(total=Count('id'))
+    total = counts['total']
+
+    # Critical systems are systems with open/scheduled faults at risk factor 4 or 5.
+    critical = (
+        fault_qs
+        .filter(status__in=['unaddressed', 'in-progress', 'scheduled'], risk_factor__gte=4)
+        .values('system_name_id')
+        .distinct()
+        .count()
     )
-    total      = counts['total']
-    critical   = counts['critical']
     # Functional systems are defined as all non-critical systems.
     functional = max(total - critical, 0)
 

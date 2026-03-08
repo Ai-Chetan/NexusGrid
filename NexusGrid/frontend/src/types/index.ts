@@ -102,6 +102,7 @@ export interface FaultReport {
   reported_by: number;
   reported_by_username: string;
   fault_type: FaultType;
+  risk_factor: 1 | 2 | 3 | 4 | 5;
   description: string;
   status: FaultStatus;
   reported_at: string;
@@ -219,6 +220,27 @@ export interface ActivityItem {
   status: string;
   time: string;
   user: string;
+}
+
+export type NotificationRelatedTo =
+  | 'fault_report'
+  | 'fault_status_update'
+  | 'resource_request'
+  | 'resource_status_update'
+  | 'admin_message'
+  | 'system_alert';
+
+export interface NotificationItem {
+  id: number;
+  created_by: number | null;
+  created_by_username: string | null;
+  recipient: number;
+  message: string;
+  related_to: NotificationRelatedTo;
+  related_id: number | null;
+  target_url: string;
+  is_read: boolean;
+  created_at: string;
 }
 
 // ─── Pagination ───────────────────────────────────────────────────────────────

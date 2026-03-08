@@ -6,6 +6,7 @@ from system_layout.models import LayoutItem, Lab, System, LabAssignment, Privile
 from faults.models import FaultReport
 from resources.models import ResourceRequest
 from monitoring.models import SystemInfo
+from api_v1.models import Notification
 
 
 # ─── Auth ───────────────────────────────────────────────────────────────────
@@ -21,6 +22,32 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['role', 'email']
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    created_by_username = serializers.CharField(source='created_by.username', read_only=True, allow_null=True)
+
+    class Meta:
+        model = Notification
+        fields = [
+            'id', 'created_by', 'created_by_username', 'recipient',
+            'message', 'related_to', 'related_id', 'target_url', 'is_read', 'created_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'created_by', 'recipient']
+
+
+class AdminNotificationCreateSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=1000)
+    recipient_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1), required=False, allow_empty=False,
+    )
+    send_to_all = serializers.BooleanField(required=False, default=False)
+    target_url = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+    def validate(self, attrs):
+        if not attrs.get('send_to_all') and not attrs.get('recipient_ids'):
+            raise serializers.ValidationError('Provide recipient_ids or set send_to_all=true.')
+        return attrs
 
 
 # ─── Layout ─────────────────────────────────────────────────────────────────
@@ -253,7 +280,7 @@ class FaultReportSerializer(serializers.ModelSerializer):
         fields = [
             'fault_id', 'system_name', 'system_host_name', 'lab_name',
             'reported_by', 'reported_by_username', 'fault_type',
-            'description', 'status', 'reported_at', 'resolved',
+            'risk_factor', 'description', 'status', 'reported_at', 'resolved',
         ]
         read_only_fields = ['fault_id', 'reported_at', 'reported_by']
 
@@ -272,7 +299,7 @@ class FaultReportCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FaultReport
-        fields = ['system_id', 'fault_type', 'description']
+        fields = ['system_id', 'fault_type', 'risk_factor', 'description']
 
     def create(self, validated_data):
         system = System.objects.get(id=validated_data.pop('system_id'))

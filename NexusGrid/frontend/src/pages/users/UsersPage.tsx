@@ -1,26 +1,61 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  Users, Search, Loader2, RefreshCw, ShieldCheck, Building2, UserCheck,
-  Settings, PlusCircle, Trash2, Calendar, ChevronDown, ChevronUp, Edit3,
-  CheckCircle2, XCircle, AlertTriangle, Layers,
+  AlertTriangle,
+  Building2,
+  Calendar,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Edit3,
+  Loader2,
+  PlusCircle,
+  RefreshCw,
+  Search,
+  Settings,
+  ShieldCheck,
+  Trash2,
+  UserCheck,
+  Users,
+  XCircle,
 } from 'lucide-react';
-import { usersApi, privilegesApi, labsApi } from '@/lib/api';
+import { labsApi, privilegesApi, usersApi } from '@/lib/api';
 import { cn, formatDate } from '@/lib/utils';
-import type { User, Lab, LabAssignment, PrivilegesConfig } from '@/types';
-import PageHeader from '@/components/common/PageHeader';
-import ErrorState from '@/components/common/ErrorState';
+import type { Lab, LabAssignment, PrivilegesConfig, User } from '@/types';
 import EmptyState from '@/components/common/EmptyState';
+import ErrorState from '@/components/common/ErrorState';
 import Modal from '@/components/common/Modal';
+import PageHeader from '@/components/common/PageHeader';
 import toast from 'react-hot-toast';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const ROLES = ['Administrator', 'Lab Incharge', 'Lab Assistant', 'Students', 'No Roles'];
+const ROLES = ['Administrator', 'Lab Incharge', 'Lab Assistant', 'Students', 'No Roles'] as const;
+const ASSIGNABLE_ROLES = ['Lab Incharge', 'Lab Assistant'];
 
-const roleColor: Record<string, string> = {
+type RoleType = 'incharge' | 'assistant';
+type LabFilter = 'all' | 'fully_assigned' | 'incomplete' | 'needs_incharge' | 'needs_assistant';
+
+type AssignForm = {
+  user: number;
+  start_date?: string;
+  end_date?: string;
+};
+
+const assignSchema = z
+  .object({
+    user: z.coerce.number().min(1, 'Select a user'),
+    start_date: z.string().optional(),
+    end_date: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.start_date && data.end_date && data.end_date < data.start_date) {
+      ctx.addIssue({ code: 'custom', path: ['end_date'], message: 'End date must be after start date.' });
+    }
+  });
+
+const roleTone: Record<string, string> = {
   Administrator: 'bg-red-100 text-red-700 border-red-200',
   'Lab Incharge': 'bg-violet-100 text-violet-700 border-violet-200',
   'Lab Assistant': 'bg-blue-100 text-blue-700 border-blue-200',
@@ -28,57 +63,61 @@ const roleColor: Record<string, string> = {
   'No Roles': 'bg-slate-100 text-slate-600 border-slate-200',
 };
 
-// ─── Stat Card ────────────────────────────────────────────────────────────────
-function StatCard({ icon: Icon, label, value, color, sub }: {
-  icon: React.ElementType; label: string; value: number | string; color: string; sub?: string;
+function invalidatePrivileges(qc: ReturnType<typeof useQueryClient>, labId?: number) {
+  qc.invalidateQueries({ queryKey: ['labs'] });
+  qc.invalidateQueries({ queryKey: ['privileges-stats'] });
+  qc.invalidateQueries({ queryKey: ['users'] });
+  qc.invalidateQueries({ queryKey: ['assignments'] });
+  if (labId) qc.invalidateQueries({ queryKey: ['assignments', labId] });
+}
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  color,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: number | string;
+  color: string;
 }) {
   return (
-    <div className="card p-4 flex items-center gap-3.5">
-      <div className={`w-10 h-10 ${color} rounded-xl flex items-center justify-center shrink-0`}>
+    <div className="card p-4 flex items-center gap-3">
+      <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', color)}>
         <Icon className="w-5 h-5 text-white" />
       </div>
-      <div className="min-w-0">
-        <p className="text-xl font-bold text-slate-900 dark:text-slate-100 leading-tight">{value}</p>
-        <p className="text-xs text-slate-500 truncate">{label}</p>
-        {sub && <p className="text-xs text-slate-400">{sub}</p>}
+      <div>
+        <p className="text-lg font-bold text-slate-900 dark:text-slate-100 leading-tight">{value}</p>
+        <p className="text-xs text-slate-500">{label}</p>
       </div>
     </div>
   );
 }
 
-// ─── Assign Modal ─────────────────────────────────────────────────────────────
-const assignSchema = z.object({
-  user: z.coerce.number().min(1, 'Select a user'),
-  start_date: z.string().optional(),
-  end_date: z.string().optional(),
-}).superRefine((data, ctx) => {
-  if (data.start_date && data.end_date && data.end_date < data.start_date) {
-    ctx.addIssue({ code: 'custom', path: ['end_date'], message: 'End date must be after start date.' });
-  }
-});
-type AssignForm = z.infer<typeof assignSchema>;
-
-interface AssignModalProps {
+function AssignModal({
+  open,
+  onClose,
+  lab,
+  roleType,
+}: {
   open: boolean;
   onClose: () => void;
   lab: Lab;
-  roleType: 'incharge' | 'assistant';
-}
-
-function AssignModal({ open, onClose, lab, roleType }: AssignModalProps) {
+  roleType: RoleType;
+}) {
   const qc = useQueryClient();
-  const roleLabel = roleType === 'incharge' ? 'Lab Incharge' : 'Lab Assistant';
-  const userRole = roleType === 'incharge' ? 'Lab Incharge' : 'Lab Assistant';
+  const label = roleType === 'incharge' ? 'Lab Incharge' : 'Lab Assistant';
 
-  const { data: eligibleUsers = [], isLoading: usersLoading } = useQuery<User[]>({
-    queryKey: ['users', 'role', userRole],
-    queryFn: () => usersApi.list({ role: userRole }).then(r => r.data),
+  const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
+    queryKey: ['users', 'role', label],
+    queryFn: () => usersApi.list({ role: label }).then((r) => r.data),
     enabled: open,
   });
 
   const { data: config } = useQuery<PrivilegesConfig>({
     queryKey: ['privileges-config'],
-    queryFn: () => privilegesApi.getConfig().then(r => r.data),
+    queryFn: () => privilegesApi.getConfig().then((r) => r.data),
     enabled: open,
   });
 
@@ -91,19 +130,16 @@ function AssignModal({ open, onClose, lab, roleType }: AssignModalProps) {
   });
 
   const mutation = useMutation({
-    mutationFn: (data: AssignForm) =>
-      privilegesApi.createAssignment({
-        lab: lab.id,
-        user: data.user,
-        role_type: roleType,
-        start_date: data.start_date || null,
-        end_date: data.end_date || null,
-      }),
+    mutationFn: (data: AssignForm) => privilegesApi.createAssignment({
+      lab: lab.id,
+      user: data.user,
+      role_type: roleType,
+      start_date: data.start_date || null,
+      end_date: data.end_date || null,
+    }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['labs'] });
-      qc.invalidateQueries({ queryKey: ['assignments', lab.id] });
-      qc.invalidateQueries({ queryKey: ['privileges-stats'] });
-      toast.success(`${roleLabel} assigned to ${lab.lab_name}`);
+      invalidatePrivileges(qc, lab.id);
+      toast.success(`${label} assigned to ${lab.lab_name}`);
       reset();
       onClose();
     },
@@ -114,30 +150,26 @@ function AssignModal({ open, onClose, lab, roleType }: AssignModalProps) {
   });
 
   return (
-    <Modal open={open} onClose={onClose} title={`Assign ${roleLabel} — ${lab.lab_name}`} size="md">
-      <form onSubmit={handleSubmit(d => mutation.mutate(d))} className="space-y-4">
-        <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-xs text-amber-700 dark:text-amber-400">
+    <Modal open={open} onClose={onClose} title={`Assign ${label} - ${lab.lab_name}`} size="md">
+      <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
+        <div className="flex items-center gap-2 rounded-lg p-3 text-xs bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400">
           <AlertTriangle className="w-4 h-4 shrink-0" />
-          Each user can handle up to <strong>{limit} labs</strong> concurrently as {roleLabel}.
+          Each user can handle up to <strong>{limit}</strong> labs as {label}.
         </div>
 
         <div>
-          <label className="label">Select {roleLabel}</label>
+          <label className="label">Select {label}</label>
           {usersLoading ? (
-            <div className="flex items-center gap-2 text-sm text-slate-500 py-2">
-              <Loader2 className="w-4 h-4 animate-spin" /> Loading users…
+            <div className="text-sm text-slate-500 py-2 flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading users...
             </div>
-          ) : eligibleUsers.length === 0 ? (
-            <p className="text-sm text-slate-500 py-2">
-              No users with the "{userRole}" role found. Assign that role first in the Users tab.
-            </p>
+          ) : users.length === 0 ? (
+            <p className="text-sm text-slate-500 py-2">No users with this role found.</p>
           ) : (
             <select {...register('user')} className="input">
-              <option value="">Select user…</option>
-              {eligibleUsers.map(u => (
-                <option key={u.id} value={u.id}>
-                  {u.username} ({u.email})
-                </option>
+              <option value="">Select user...</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>{u.username} ({u.email})</option>
               ))}
             </select>
           )}
@@ -146,15 +178,13 @@ function AssignModal({ open, onClose, lab, roleType }: AssignModalProps) {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">Start Date <span className="text-slate-400 font-normal">(optional)</span></label>
+            <label className="label">Start Date</label>
             <input type="date" {...register('start_date')} className="input" />
-            <p className="text-xs text-slate-400 mt-0.5">Leave blank to start immediately</p>
           </div>
           <div>
-            <label className="label">End Date <span className="text-slate-400 font-normal">(optional)</span></label>
+            <label className="label">End Date</label>
             <input type="date" {...register('end_date')} className="input" />
-            <p className="text-xs text-slate-400 mt-0.5">Leave blank for indefinite</p>
-            {errors.end_date && <p className="text-xs text-red-500">{errors.end_date.message}</p>}
+            {errors.end_date && <p className="text-xs text-red-500 mt-1">{errors.end_date.message}</p>}
           </div>
         </div>
 
@@ -162,7 +192,7 @@ function AssignModal({ open, onClose, lab, roleType }: AssignModalProps) {
           <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
           <button
             type="submit"
-            disabled={isSubmitting || mutation.isPending || eligibleUsers.length === 0}
+            disabled={isSubmitting || mutation.isPending || users.length === 0}
             className="btn-primary flex-1 flex items-center justify-center gap-1.5"
           >
             {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
@@ -174,74 +204,61 @@ function AssignModal({ open, onClose, lab, roleType }: AssignModalProps) {
   );
 }
 
-// ─── Assignment History Modal ─────────────────────────────────────────────────
 function HistoryModal({ open, onClose, lab }: { open: boolean; onClose: () => void; lab: Lab }) {
   const qc = useQueryClient();
   const { data: assignments = [], isLoading } = useQuery<LabAssignment[]>({
     queryKey: ['assignments', lab.id],
-    queryFn: () => privilegesApi.getAssignments(lab.id).then(r => r.data),
+    queryFn: () => privilegesApi.getAssignments(lab.id).then((r) => r.data),
     enabled: open,
   });
 
   const revokeMutation = useMutation({
     mutationFn: (id: number) => privilegesApi.deleteAssignment(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['assignments', lab.id] });
-      qc.invalidateQueries({ queryKey: ['labs'] });
-      qc.invalidateQueries({ queryKey: ['privileges-stats'] });
+      invalidatePrivileges(qc, lab.id);
       toast.success('Assignment revoked');
     },
     onError: () => toast.error('Failed to revoke assignment'),
   });
 
   return (
-    <Modal open={open} onClose={onClose} title={`Assignments — ${lab.lab_name}`} size="lg">
+    <Modal open={open} onClose={onClose} title={`Assignments - ${lab.lab_name}`} size="lg">
       {isLoading ? (
-        <div className="flex items-center justify-center py-8 text-slate-500">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading…
+        <div className="py-8 text-sm text-slate-500 flex items-center justify-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading...
         </div>
       ) : assignments.length === 0 ? (
         <EmptyState
           icon={<UserCheck className="w-6 h-6" />}
           title="No assignments yet"
-          description="Use the Assign buttons to add an incharge or assistant."
+          description="Use assign action from lab cards."
         />
       ) : (
         <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-          {assignments.map(a => (
+          {assignments.map((a) => (
             <div
               key={a.id}
               className={cn(
-                'flex items-center gap-3 p-3 rounded-lg border text-sm',
+                'p-3 rounded-lg border flex items-center gap-3 text-sm',
                 a.is_active
                   ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700'
-                  : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-60',
+                  : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-70',
               )}
             >
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium text-slate-800 dark:text-slate-200">{a.username}</span>
-                  <span className={cn('badge text-xs', a.role_type === 'incharge'
-                    ? 'bg-violet-100 text-violet-700 border-violet-200'
-                    : 'bg-blue-100 text-blue-700 border-blue-200')}>
-                    {a.role_type === 'incharge' ? 'Incharge' : 'Assistant'}
-                  </span>
-                  {a.is_active
-                    ? <span className="badge text-xs bg-emerald-100 text-emerald-700 border-emerald-200">Active</span>
-                    : <span className="badge text-xs bg-slate-100 text-slate-500 border-slate-200">Expired</span>
-                  }
-                </div>
+                <p className="font-medium text-slate-800 dark:text-slate-200">
+                  {a.username} - {a.role_type === 'incharge' ? 'Incharge' : 'Assistant'}
+                </p>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {a.start_date ? `From ${a.start_date}` : 'Immediate'}
                   {a.end_date ? ` · Until ${a.end_date}` : ' · Indefinite'}
-                  {a.assigned_by_username && ` · Assigned by ${a.assigned_by_username}`}
                 </p>
               </div>
               <button
                 onClick={() => revokeMutation.mutate(a.id)}
                 disabled={revokeMutation.isPending}
-                className="text-red-500 hover:text-red-700 transition-colors shrink-0 p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                title="Revoke assignment"
+                className="text-red-500 hover:text-red-700 p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20"
+                title="Revoke"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -253,17 +270,16 @@ function HistoryModal({ open, onClose, lab }: { open: boolean; onClose: () => vo
   );
 }
 
-// ─── Config Panel ─────────────────────────────────────────────────────────────
-function ConfigPanel({ config }: { config: PrivilegesConfig }) {
+function LimitsCard({ config }: { config: PrivilegesConfig }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
-  const [inchargeLimit, setInchargeLimit] = useState(config.max_labs_per_incharge);
-  const [assistantLimit, setAssistantLimit] = useState(config.max_labs_per_assistant);
+  const [incharge, setIncharge] = useState(config.max_labs_per_incharge);
+  const [assistant, setAssistant] = useState(config.max_labs_per_assistant);
 
   const mutation = useMutation({
     mutationFn: () => privilegesApi.updateConfig({
-      max_labs_per_incharge: inchargeLimit,
-      max_labs_per_assistant: assistantLimit,
+      max_labs_per_incharge: incharge,
+      max_labs_per_assistant: assistant,
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['privileges-config'] });
@@ -277,63 +293,43 @@ function ConfigPanel({ config }: { config: PrivilegesConfig }) {
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Settings className="w-4 h-4 text-slate-500" />
-          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Assignment Limits</span>
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+          <Settings className="w-4 h-4 text-slate-500" /> Assignment Limits
         </div>
         {!editing ? (
-          <button
-            onClick={() => setEditing(true)}
-            className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium"
-          >
-            <Edit3 className="w-3.5 h-3.5" /> Edit
-          </button>
+          <button onClick={() => setEditing(true)} className="text-xs text-brand-600 hover:underline">Edit</button>
         ) : (
-          <div className="flex gap-3">
-            <button
-              onClick={() => mutation.mutate()}
-              disabled={mutation.isPending}
-              className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-medium"
-            >
-              {mutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-              Save
-            </button>
+          <div className="flex items-center gap-3">
+            <button onClick={() => mutation.mutate()} className="text-xs text-emerald-600 hover:underline">Save</button>
             <button
               onClick={() => {
-                setInchargeLimit(config.max_labs_per_incharge);
-                setAssistantLimit(config.max_labs_per_assistant);
+                setIncharge(config.max_labs_per_incharge);
+                setAssistant(config.max_labs_per_assistant);
                 setEditing(false);
               }}
-              className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
+              className="text-xs text-slate-500 hover:underline"
             >
-              <XCircle className="w-3.5 h-3.5" /> Cancel
+              Cancel
             </button>
           </div>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-4">
+
+      <div className="grid grid-cols-2 gap-4 text-sm">
         <div>
-          <label className="text-xs text-slate-500 block mb-1">Max labs per Lab Incharge</label>
+          <p className="text-xs text-slate-500 mb-1">Lab Incharge</p>
           {editing ? (
-            <input
-              type="number" min={1} max={50} value={inchargeLimit}
-              onChange={e => setInchargeLimit(Number(e.target.value))}
-              className="input py-1.5 text-sm w-24"
-            />
+            <input type="number" min={1} max={50} className="input w-24" value={incharge} onChange={(e) => setIncharge(Number(e.target.value))} />
           ) : (
-            <span className="text-2xl font-bold text-violet-600">{config.max_labs_per_incharge}</span>
+            <p className="text-xl font-bold text-violet-600">{config.max_labs_per_incharge}</p>
           )}
         </div>
         <div>
-          <label className="text-xs text-slate-500 block mb-1">Max labs per Lab Assistant</label>
+          <p className="text-xs text-slate-500 mb-1">Lab Assistant</p>
           {editing ? (
-            <input
-              type="number" min={1} max={50} value={assistantLimit}
-              onChange={e => setAssistantLimit(Number(e.target.value))}
-              className="input py-1.5 text-sm w-24"
-            />
+            <input type="number" min={1} max={50} className="input w-24" value={assistant} onChange={(e) => setAssistant(Number(e.target.value))} />
           ) : (
-            <span className="text-2xl font-bold text-blue-600">{config.max_labs_per_assistant}</span>
+            <p className="text-xl font-bold text-blue-600">{config.max_labs_per_assistant}</p>
           )}
         </div>
       </div>
@@ -341,70 +337,41 @@ function ConfigPanel({ config }: { config: PrivilegesConfig }) {
   );
 }
 
-// ─── Assignment Slot ──────────────────────────────────────────────────────────
 function AssignmentSlot({
-  type, assignment, lab, onAssign, onRevoke,
+  title,
+  assignment,
+  onAssign,
+  onRevoke,
 }: {
-  type: 'incharge' | 'assistant';
+  title: string;
   assignment: Lab['current_incharge'];
-  lab: Lab;
-  onAssign: (lab: Lab, roleType: 'incharge' | 'assistant') => void;
-  onRevoke: (assignmentId: number) => void;
+  onAssign: () => void;
+  onRevoke: (id: number) => void;
 }) {
-  const label = type === 'incharge' ? 'Incharge' : 'Assistant';
-  const filledClass = type === 'incharge'
-    ? 'bg-violet-50 border-violet-200 dark:bg-violet-900/20 dark:border-violet-700'
-    : 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700';
-  const avatarClass = type === 'incharge'
-    ? 'bg-violet-200 dark:bg-violet-800 text-violet-700 dark:text-violet-300'
-    : 'bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-300';
-  const textClass = type === 'incharge'
-    ? 'text-violet-700 dark:text-violet-300'
-    : 'text-blue-700 dark:text-blue-300';
-  const assignBtnClass = type === 'incharge'
-    ? 'text-violet-600 border-violet-300 dark:border-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20'
-    : 'text-blue-600 border-blue-300 dark:border-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20';
-
   return (
     <div className={cn(
-      'flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-xs',
+      'rounded-lg border p-2.5 text-xs flex items-center justify-between gap-2',
       assignment
-        ? filledClass
+        ? 'bg-emerald-50/50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-700'
         : 'bg-slate-50 border-slate-200 dark:bg-slate-800/40 dark:border-slate-700',
     )}>
-      <div className="flex items-center gap-2 min-w-0">
-        <span className={cn('font-semibold shrink-0 w-16', assignment ? textClass : 'text-slate-400')}>
-          {label}
-        </span>
+      <div className="min-w-0">
+        <p className="font-semibold text-slate-500 uppercase tracking-wide">{title}</p>
         {assignment ? (
-          <div className="flex items-center gap-1.5 min-w-0">
-            <div className={cn('w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0', avatarClass)}>
-              {assignment.username.charAt(0).toUpperCase()}
-            </div>
-            <span className={cn('font-medium truncate', textClass)}>{assignment.username}</span>
-            {assignment.end_date && (
-              <span className="text-slate-400 shrink-0 flex items-center gap-0.5">
-                <Calendar className="w-2.5 h-2.5" /> {assignment.end_date}
-              </span>
-            )}
-          </div>
+          <p className="text-slate-800 dark:text-slate-200 truncate">
+            {assignment.username}{assignment.end_date ? ` · until ${assignment.end_date}` : ''}
+          </p>
         ) : (
-          <span className="text-slate-400 italic">Not assigned</span>
+          <p className="text-slate-400">Not assigned</p>
         )}
       </div>
+
       {assignment ? (
-        <button
-          onClick={() => onRevoke(assignment.assignment_id)}
-          title="Revoke assignment"
-          className="text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 p-0.5 rounded transition-colors shrink-0"
-        >
-          <XCircle className="w-3.5 h-3.5" />
+        <button onClick={() => onRevoke(assignment.assignment_id)} className="text-red-500 hover:text-red-700 p-1 rounded" title="Revoke">
+          <XCircle className="w-4 h-4" />
         </button>
       ) : (
-        <button
-          onClick={() => onAssign(lab, type)}
-          className={cn('flex items-center gap-1 font-medium px-2 py-0.5 rounded border shrink-0 transition-colors', assignBtnClass)}
-        >
+        <button onClick={onAssign} className="btn-secondary text-xs px-2 py-1">
           <PlusCircle className="w-3 h-3" /> Assign
         </button>
       )}
@@ -412,74 +379,56 @@ function AssignmentSlot({
   );
 }
 
-// ─── Lab Card ─────────────────────────────────────────────────────────────────
-function LabCard({ lab, onAssign, onHistory }: {
+function LabCard({
+  lab,
+  onAssign,
+  onHistory,
+}: {
   lab: Lab;
-  onAssign: (lab: Lab, roleType: 'incharge' | 'assistant') => void;
+  onAssign: (lab: Lab, roleType: RoleType) => void;
   onHistory: (lab: Lab) => void;
 }) {
   const qc = useQueryClient();
   const revokeMutation = useMutation({
     mutationFn: (assignmentId: number) => privilegesApi.deleteAssignment(assignmentId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['labs'] });
-      qc.invalidateQueries({ queryKey: ['privileges-stats'] });
+      invalidatePrivileges(qc);
       toast.success('Assignment revoked');
     },
-    onError: () => toast.error('Failed to revoke'),
+    onError: () => toast.error('Failed to revoke assignment'),
   });
 
-  const hasIncharge = !!lab.current_incharge;
-  const hasAssistant = !!lab.current_assistant;
-  const statusDot = hasIncharge && hasAssistant
-    ? 'bg-emerald-500'
-    : !hasIncharge && !hasAssistant
-    ? 'bg-red-400'
-    : 'bg-amber-400';
+  const complete = !!lab.current_incharge && !!lab.current_assistant;
 
   return (
     <div className="card p-4 space-y-3 hover:shadow-md transition-shadow">
-      <div className="flex items-start gap-3">
-        <div className="relative shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
-            <Building2 className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-          </div>
-          <span className={cn('absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-900', statusDot)} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{lab.lab_name}</p>
-            {lab.lab_code && (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 font-mono leading-none">
-                {lab.lab_code}
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {lab.systems_count} system{lab.systems_count !== 1 ? 's' : ''}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{lab.lab_name}</p>
+          <p className="text-xs text-slate-500">
+            {lab.lab_code ? `${lab.lab_code} · ` : ''}
+            {lab.systems_count} systems
           </p>
         </div>
-        <button
-          onClick={() => onHistory(lab)}
-          className="text-slate-400 hover:text-brand-600 transition-colors shrink-0 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700"
-          title="View assignment history"
-        >
-          <Calendar className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={cn('w-2.5 h-2.5 rounded-full', complete ? 'bg-emerald-500' : 'bg-amber-400')} />
+          <button onClick={() => onHistory(lab)} className="text-slate-400 hover:text-brand-600" title="History">
+            <Calendar className="w-4 h-4" />
+          </button>
+        </div>
       </div>
-      <div className="space-y-1.5">
+
+      <div className="space-y-2">
         <AssignmentSlot
-          type="incharge"
+          title="Incharge"
           assignment={lab.current_incharge}
-          lab={lab}
-          onAssign={onAssign}
+          onAssign={() => onAssign(lab, 'incharge')}
           onRevoke={(id) => revokeMutation.mutate(id)}
         />
         <AssignmentSlot
-          type="assistant"
+          title="Assistant"
           assignment={lab.current_assistant}
-          lab={lab}
-          onAssign={onAssign}
+          onAssign={() => onAssign(lab, 'assistant')}
           onRevoke={(id) => revokeMutation.mutate(id)}
         />
       </div>
@@ -487,280 +436,223 @@ function LabCard({ lab, onAssign, onHistory }: {
   );
 }
 
-// ─── Lab Assignments Tab ───────────────────────────────────────────────────────
-type LabFilter = 'all' | 'fully_assigned' | 'incomplete' | 'needs_incharge' | 'needs_assistant';
-
 function LabAssignmentsTab() {
-  const [labSearch, setLabSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<LabFilter>('all');
-  const [assignTarget, setAssignTarget] = useState<{ lab: Lab; roleType: 'incharge' | 'assistant' } | null>(null);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<LabFilter>('all');
+  const [assignTarget, setAssignTarget] = useState<{ lab: Lab; roleType: RoleType } | null>(null);
   const [historyLab, setHistoryLab] = useState<Lab | null>(null);
-  const [configOpen, setConfigOpen] = useState(false);
+  const [showLimits, setShowLimits] = useState(false);
 
-  const { data: labs = [], isLoading: labsLoading, isError: labsError, refetch: refetchLabs } =
-    useQuery<Lab[]>({
-      queryKey: ['labs'],
-      queryFn: () => labsApi.list().then(r => r.data),
-    });
+  const { data: labs = [], isLoading, isError, refetch } = useQuery<Lab[]>({
+    queryKey: ['labs'],
+    queryFn: () => labsApi.list().then((r) => r.data),
+  });
 
   const { data: config } = useQuery<PrivilegesConfig>({
     queryKey: ['privileges-config'],
-    queryFn: () => privilegesApi.getConfig().then(r => r.data),
+    queryFn: () => privilegesApi.getConfig().then((r) => r.data),
   });
 
-  const fullyAssigned = labs.filter(l => l.current_incharge && l.current_assistant).length;
-  const noIncharge = labs.filter(l => !l.current_incharge).length;
-  const noAssistant = labs.filter(l => !l.current_assistant).length;
-  const incomplete = labs.filter(l => !l.current_incharge || !l.current_assistant).length;
+  const counts = useMemo(() => {
+    const fullyAssigned = labs.filter((l) => l.current_incharge && l.current_assistant).length;
+    const needsIncharge = labs.filter((l) => !l.current_incharge).length;
+    const needsAssistant = labs.filter((l) => !l.current_assistant).length;
+    const incomplete = labs.filter((l) => !l.current_incharge || !l.current_assistant).length;
+    return { fullyAssigned, needsIncharge, needsAssistant, incomplete };
+  }, [labs]);
 
-  const searchFiltered = labs.filter(l =>
-    l.lab_name.toLowerCase().includes(labSearch.toLowerCase()) ||
-    (l.lab_code ?? '').toLowerCase().includes(labSearch.toLowerCase()) ||
-    (l.parent_name ?? '').toLowerCase().includes(labSearch.toLowerCase()),
-  );
+  const filtered = useMemo(() => {
+    const query = search.toLowerCase();
+    return labs
+      .filter((l) =>
+        l.lab_name.toLowerCase().includes(query) ||
+        (l.lab_code ?? '').toLowerCase().includes(query) ||
+        (l.parent_name ?? '').toLowerCase().includes(query),
+      )
+      .filter((l) => {
+        if (filter === 'fully_assigned') return !!l.current_incharge && !!l.current_assistant;
+        if (filter === 'needs_incharge') return !l.current_incharge;
+        if (filter === 'needs_assistant') return !l.current_assistant;
+        if (filter === 'incomplete') return !l.current_incharge || !l.current_assistant;
+        return true;
+      });
+  }, [labs, search, filter]);
 
-  const filtered = searchFiltered.filter(l => {
-    if (statusFilter === 'fully_assigned') return l.current_incharge && l.current_assistant;
-    if (statusFilter === 'needs_incharge') return !l.current_incharge;
-    if (statusFilter === 'needs_assistant') return !l.current_assistant;
-    if (statusFilter === 'incomplete') return !l.current_incharge || !l.current_assistant;
-    return true;
-  });
+  const grouped = useMemo(() => {
+    return filtered.reduce<Record<string, Lab[]>>((acc, lab) => {
+      const key = lab.parent_name ?? 'Others';
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(lab);
+      return acc;
+    }, {});
+  }, [filtered]);
 
-  const grouped = filtered.reduce<Record<string, { labs: Lab[]; building: string | null }>>((acc, lab) => {
-    const key = lab.parent_name ?? 'Others';
-    if (!acc[key]) acc[key] = { labs: [], building: lab.building_name ?? null };
-    acc[key].labs.push(lab);
-    return acc;
-  }, {});
-
-  const filterPills: { key: LabFilter; label: string; count: number; active: string }[] = [
-    { key: 'all',            label: 'All',            count: labs.length,   active: 'bg-slate-700 text-white border-slate-700' },
-    { key: 'fully_assigned', label: 'Fully Assigned', count: fullyAssigned, active: 'bg-emerald-600 text-white border-emerald-600' },
-    { key: 'incomplete',     label: 'Incomplete',     count: incomplete,    active: 'bg-amber-500 text-white border-amber-500' },
-    { key: 'needs_incharge', label: 'No Incharge',    count: noIncharge,    active: 'bg-violet-600 text-white border-violet-600' },
-    { key: 'needs_assistant',label: 'No Assistant',   count: noAssistant,   active: 'bg-blue-600 text-white border-blue-600' },
+  const pills: Array<{ key: LabFilter; label: string; value: number }> = [
+    { key: 'all', label: 'All', value: labs.length },
+    { key: 'fully_assigned', label: 'Fully Assigned', value: counts.fullyAssigned },
+    { key: 'incomplete', label: 'Incomplete', value: counts.incomplete },
+    { key: 'needs_incharge', label: 'No Incharge', value: counts.needsIncharge },
+    { key: 'needs_assistant', label: 'No Assistant', value: counts.needsAssistant },
   ];
 
   return (
     <div className="space-y-4">
-      {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard icon={Building2}   label="Total Labs"        value={labs.length}   color="bg-slate-500" />
-        <StatCard icon={CheckCircle2} label="Fully Assigned"   value={fullyAssigned} color="bg-emerald-500" />
-        <StatCard icon={UserCheck}   label="Without Incharge"  value={noIncharge}    color="bg-violet-500" />
-        <StatCard icon={UserCheck}   label="Without Assistant" value={noAssistant}   color="bg-blue-500" />
+        <StatCard icon={Building2} label="Total Labs" value={labs.length} color="bg-slate-500" />
+        <StatCard icon={CheckCircle2} label="Fully Assigned" value={counts.fullyAssigned} color="bg-emerald-500" />
+        <StatCard icon={UserCheck} label="No Incharge" value={counts.needsIncharge} color="bg-violet-500" />
+        <StatCard icon={UserCheck} label="No Assistant" value={counts.needsAssistant} color="bg-blue-500" />
       </div>
 
-      {/* Assignment Limits (collapsed by default) */}
       {config && (
         <div>
-          <button
-            onClick={() => setConfigOpen(o => !o)}
-            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 mb-2 transition-colors"
-          >
-            <Settings className="w-3.5 h-3.5" />
-            Assignment Limits
-            {configOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          <button onClick={() => setShowLimits((v) => !v)} className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1 mb-2">
+            <Settings className="w-3.5 h-3.5" /> Assignment Limits
+            {showLimits ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
-          {configOpen && <ConfigPanel config={config} />}
+          {showLimits && <LimitsCard config={config} />}
         </div>
       )}
 
-      {/* Search + Filter pills */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-48 max-w-72">
+      <div className="card p-3 sm:p-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-52 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
-              value={labSearch}
-              onChange={e => setLabSearch(e.target.value)}
-              placeholder="Search labs, codes, locations…"
-              className="input pl-9 text-sm"
+              className="input pl-9"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search labs, codes, locations..."
             />
           </div>
-          <button onClick={() => refetchLabs()} className="btn-secondary text-xs px-2.5 py-1.5">
-            <RefreshCw className="w-3.5 h-3.5" />
-          </button>
-          <span className="text-xs text-slate-500 ml-auto">
-            {filtered.length} lab{filtered.length !== 1 ? 's' : ''}
-          </span>
+          <button onClick={() => refetch()} className="btn-secondary px-3"><RefreshCw className="w-4 h-4" /></button>
+          <span className="text-xs text-slate-500 ml-auto">{filtered.length} labs</span>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {filterPills.map(fp => (
+          {pills.map((pill) => (
             <button
-              key={fp.key}
-              onClick={() => setStatusFilter(fp.key)}
+              key={pill.key}
+              onClick={() => setFilter(pill.key)}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border transition-colors',
-                statusFilter === fp.key
-                  ? fp.active
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500',
+                'px-3 py-1.5 rounded-full text-xs border transition-colors',
+                filter === pill.key
+                  ? 'bg-brand-600 text-white border-brand-600'
+                  : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300',
               )}
             >
-              {fp.label}
-              <span className={cn(
-                'px-1.5 py-0.5 rounded-full text-xs leading-none min-w-[1.25rem] text-center',
-                statusFilter === fp.key ? 'bg-white/25' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400',
-              )}>
-                {fp.count}
-              </span>
+              {pill.label} ({pill.value})
             </button>
           ))}
         </div>
       </div>
 
-      {/* Lab Cards grouped by parent */}
-      {labsError ? (
-        <ErrorState message="Failed to load labs." onRetry={refetchLabs} />
-      ) : labsLoading ? (
-        <div className="p-8 text-center text-sm text-slate-500 flex items-center justify-center gap-2">
-          <Loader2 className="w-4 h-4 animate-spin" /> Loading labs…
+      {isError ? (
+        <ErrorState message="Failed to load labs." onRetry={refetch} />
+      ) : isLoading ? (
+        <div className="card p-8 text-sm text-slate-500 flex items-center justify-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading labs...
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Building2 className="w-6 h-6" />}
-          title={labSearch || statusFilter !== 'all' ? 'No labs match your filters' : 'No labs found'}
-          description={labSearch || statusFilter !== 'all' ? 'Clear the search or change the filter.' : 'No labs have been configured yet.'}
+          title="No labs match your filters"
+          description="Try changing search or filter."
         />
       ) : (
-        <div className="space-y-6">
-          {Object.entries(grouped)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([parentName, { labs: groupLabs, building }]) => (
-              <div key={parentName}>
-                <div className="flex items-center gap-2 mb-3">
-                  <Layers className="w-3.5 h-3.5 text-slate-400" />
-                  <h3 className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-                    {parentName}
-                  </h3>
-                  {building && (
-                    <span className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 font-normal normal-case tracking-normal">
-                      <Building2 className="w-3 h-3 shrink-0" />
-                      {building}
-                    </span>
-                  )}
-                  <span className="text-xs text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-full">
-                    {groupLabs.length}
-                  </span>
-                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {groupLabs.map(lab => (
-                    <LabCard
-                      key={lab.id}
-                      lab={lab}
-                      onAssign={(l, r) => setAssignTarget({ lab: l, roleType: r })}
-                      onHistory={l => setHistoryLab(l)}
-                    />
-                  ))}
-                </div>
+        <div className="space-y-5">
+          {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([name, labsInGroup]) => (
+            <section key={name}>
+              <div className="flex items-center gap-2 mb-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{name}</p>
+                <span className="text-xs px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">{labsInGroup.length}</span>
+                <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1" />
               </div>
-            ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                {labsInGroup.map((lab) => (
+                  <LabCard
+                    key={lab.id}
+                    lab={lab}
+                    onAssign={(l, roleType) => setAssignTarget({ lab: l, roleType })}
+                    onHistory={(l) => setHistoryLab(l)}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
         </div>
       )}
 
       {assignTarget && (
-        <AssignModal
-          open
-          onClose={() => setAssignTarget(null)}
-          lab={assignTarget.lab}
-          roleType={assignTarget.roleType}
-        />
+        <AssignModal open onClose={() => setAssignTarget(null)} lab={assignTarget.lab} roleType={assignTarget.roleType} />
       )}
-      {historyLab && (
-        <HistoryModal open onClose={() => setHistoryLab(null)} lab={historyLab} />
-      )}
+      {historyLab && <HistoryModal open onClose={() => setHistoryLab(null)} lab={historyLab} />}
     </div>
   );
 }
 
-// ─── Role Update Cell ─────────────────────────────────────────────────────────
-const ASSIGNABLE_ROLES = ['Lab Incharge', 'Lab Assistant'];
-
 function RoleCell({ user }: { user: User }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
-  const [role, setRole] = useState<string>(user.role);
   const [confirming, setConfirming] = useState(false);
+  const [role, setRole] = useState(user.role);
 
   const mutation = useMutation({
     mutationFn: (newRole: string) => usersApi.update(user.id, { role: newRole }),
     onSuccess: (res) => {
-      qc.invalidateQueries({ queryKey: ['users'] });
-      qc.invalidateQueries({ queryKey: ['privileges-stats'] });
-      qc.invalidateQueries({ queryKey: ['assignments'] });
+      invalidatePrivileges(qc);
       setEditing(false);
       setConfirming(false);
       const revoked = res.data.revoked_assignments;
-      if (revoked > 0) {
-        toast.success(`Role updated. ${revoked} lab assignment${revoked > 1 ? 's' : ''} revoked.`);
-      } else {
-        toast.success(`Role updated to ${res.data.role}`);
-      }
+      toast.success(revoked > 0
+        ? `Role updated. ${revoked} assignment${revoked > 1 ? 's' : ''} revoked.`
+        : `Role updated to ${res.data.role}`);
     },
-    onError: () => { setConfirming(false); toast.error('Failed to update role'); },
+    onError: () => {
+      setConfirming(false);
+      toast.error('Failed to update role');
+    },
   });
 
-  const handleSaveClick = () => {
-    if (role === user.role) { setEditing(false); return; }
+  const save = () => {
+    if (role === user.role) {
+      setEditing(false);
+      return;
+    }
     if (ASSIGNABLE_ROLES.includes(user.role)) {
       setConfirming(true);
-    } else {
-      mutation.mutate(role);
+      return;
     }
+    mutation.mutate(role);
   };
 
-  if (editing) {
-    if (confirming) {
-      return (
-        <div className="space-y-2">
-          <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/50 rounded-lg px-3 py-2 max-w-xs">
-            <strong>{user.username}</strong> is currently a <strong>{user.role}</strong>.
-            Changing their role will <strong>revoke all lab assignments</strong> for this user.
-            Are you sure?
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => mutation.mutate(role)}
-              disabled={mutation.isPending}
-              className="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg font-medium flex items-center gap-1.5 transition-colors"
-            >
-              {mutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-              Yes, change role
-            </button>
-            <button
-              onClick={() => setConfirming(false)}
-              className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
+  if (editing && confirming) {
+    return (
+      <div className="space-y-2 max-w-xs">
+        <p className="text-xs rounded-lg p-2 border bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-400">
+          Changing role from <strong>{user.role}</strong> will revoke all assignments for {user.username}.
+        </p>
+        <div className="flex items-center gap-2">
+          <button onClick={() => mutation.mutate(role)} className="btn-danger text-xs px-2 py-1">Confirm</button>
+          <button onClick={() => setConfirming(false)} className="text-xs text-slate-500 hover:underline">Cancel</button>
         </div>
-      );
-    }
+      </div>
+    );
+  }
 
+  if (editing) {
     return (
       <div className="flex items-center gap-2">
-        <select
-          value={role}
-          onChange={e => setRole(e.target.value)}
-          className="input text-xs py-1.5 px-2 w-40"
-          autoFocus
-        >
-          {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+        <select value={role} onChange={(e) => setRole(e.target.value as User['role'])} className="input text-xs py-1.5 w-40">
+          {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
+        <button onClick={save} className="text-xs text-brand-600 hover:underline">Save</button>
         <button
-          onClick={handleSaveClick}
-          disabled={mutation.isPending}
-          className="text-xs text-brand-600 font-medium hover:underline"
-        >
-          {mutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save'}
-        </button>
-        <button
-          onClick={() => { setRole(user.role); setEditing(false); }}
-          className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+          onClick={() => {
+            setRole(user.role);
+            setEditing(false);
+          }}
+          className="text-xs text-slate-500 hover:underline"
         >
           Cancel
         </button>
@@ -770,36 +662,31 @@ function RoleCell({ user }: { user: User }) {
 
   return (
     <div className="flex items-center gap-2">
-      <span className={cn('badge', roleColor[user.role] ?? 'bg-slate-100 text-slate-600 border-slate-200')}>
+      <span className={cn('badge', roleTone[user.role] ?? 'bg-slate-100 text-slate-600 border-slate-200')}>
         {user.role}
       </span>
-      <button
-        onClick={() => setEditing(true)}
-        className="text-xs text-slate-400 hover:text-brand-600 transition-colors"
-      >
-        Edit
-      </button>
+      <button onClick={() => setEditing(true)} className="text-xs text-slate-500 hover:text-brand-600">Edit</button>
     </div>
   );
 }
 
-// ─── Users Tab ────────────────────────────────────────────────────────────────
 function UsersTab() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
 
   const { data: users = [], isLoading, isError, refetch } = useQuery<User[]>({
     queryKey: ['users'],
-    queryFn: () => usersApi.list().then(r => r.data),
+    queryFn: () => usersApi.list().then((r) => r.data),
   });
 
-  const filtered = users.filter(u => {
-    const matchSearch =
-      u.username.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase());
-    const matchRole = roleFilter === 'all' || u.role === roleFilter;
-    return matchSearch && matchRole;
-  });
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return users.filter((u) => {
+      const matchesSearch = u.username.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+      const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+      return matchesSearch && matchesRole;
+    });
+  }, [users, search, roleFilter]);
 
   return (
     <div className="space-y-4">
@@ -807,76 +694,64 @@ function UsersTab() {
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search by username or email…"
             className="input pl-9"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search username or email..."
           />
         </div>
-        <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="input w-44">
+
+        <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="input w-44">
           <option value="all">All Roles</option>
-          {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+          {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
-        <button onClick={() => refetch()} className="btn-secondary"><RefreshCw className="w-4 h-4" /></button>
-        <span className="text-xs text-slate-500 ml-auto">
-          {filtered.length} user{filtered.length !== 1 ? 's' : ''}
-        </span>
+
+        <button onClick={() => refetch()} className="btn-secondary px-3"><RefreshCw className="w-4 h-4" /></button>
+        <span className="text-xs text-slate-500 ml-auto">{filtered.length} users</span>
       </div>
 
       <div className="card overflow-hidden">
         {isError ? (
           <ErrorState message="Failed to load users." onRetry={refetch} />
         ) : isLoading ? (
-          <div className="p-8 text-center text-sm text-slate-500">Loading…</div>
+          <div className="p-8 text-center text-sm text-slate-500">Loading...</div>
         ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={<Users className="w-7 h-7" />}
-            title="No users found"
-            description="Try adjusting your search or filters."
-          />
+          <EmptyState icon={<Users className="w-7 h-7" />} title="No users found" description="Try different filters." />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                 <tr>
-                  {['User', 'Email', 'Role', 'Staff', 'Joined'].map(h => (
+                  {['User', 'Email', 'Role', 'Staff', 'Joined'].map((h) => (
                     <th key={h} className="px-4 py-3 table-header">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                {filtered.map(user => (
-                  <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                {filtered.map((u) => (
+                  <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center shrink-0">
-                          <span className="text-xs font-bold text-brand-700 dark:text-brand-300">
-                            {user.username.charAt(0).toUpperCase()}
-                          </span>
+                          <span className="text-xs font-bold text-brand-700 dark:text-brand-300">{u.username.charAt(0).toUpperCase()}</span>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{user.username}</p>
-                          {user.is_superuser && <p className="text-xs text-red-500">Superuser</p>}
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{u.username}</p>
+                          {u.is_superuser && <p className="text-xs text-red-500">Superuser</p>}
                         </div>
                       </div>
                     </td>
+                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{u.email}</td>
+                    <td className="px-4 py-3"><RoleCell user={u} /></td>
                     <td className="px-4 py-3">
-                      <span className="text-sm text-slate-600 dark:text-slate-400">{user.email}</span>
-                    </td>
-                    <td className="px-4 py-3"><RoleCell user={user} /></td>
-                    <td className="px-4 py-3">
-                      <span className={cn('badge text-xs',
-                        user.is_staff
-                          ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                          : 'bg-slate-100 text-slate-500 border-slate-200'
-                      )}>
-                        {user.is_staff ? 'Yes' : 'No'}
+                      <span className={cn('badge text-xs', u.is_staff
+                        ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                        : 'bg-slate-100 text-slate-500 border-slate-200')}
+                      >
+                        {u.is_staff ? 'Yes' : 'No'}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs text-slate-500">{formatDate(user.date_joined)}</span>
-                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{formatDate(u.date_joined)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -888,16 +763,15 @@ function UsersTab() {
   );
 }
 
-// ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function UsersPage() {
   const [activeTab, setActiveTab] = useState<'assignments' | 'users'>('assignments');
 
   const { data: stats } = useQuery({
     queryKey: ['privileges-stats'],
-    queryFn: () => usersApi.privilegesStats().then(r => r.data),
+    queryFn: () => usersApi.privilegesStats().then((r) => r.data),
   });
 
-  const tabs: { key: 'assignments' | 'users'; label: string; icon: React.ElementType }[] = [
+  const tabs: Array<{ key: 'assignments' | 'users'; label: string; icon: React.ElementType }> = [
     { key: 'assignments', label: 'Lab Assignments', icon: Building2 },
     { key: 'users', label: 'Users', icon: Users },
   ];
@@ -906,7 +780,7 @@ export default function UsersPage() {
     <div className="space-y-5 animate-fade-in">
       <PageHeader
         title="User Privileges"
-        description="Manage user roles and assign lab incharges and assistants."
+        description="Manage roles, lab assignments, and assignment limits."
       />
 
       {stats && (
@@ -931,7 +805,7 @@ export default function UsersPage() {
                 : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300',
             )}
           >
-            <Icon className="w-4 h-4" />{label}
+            <Icon className="w-4 h-4" /> {label}
           </button>
         ))}
       </div>
