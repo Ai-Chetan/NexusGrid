@@ -163,11 +163,14 @@ def _ensure_tenant_superuser(alias: str, username: str, email: str, password: st
             user.is_superuser = True
         if not user.is_staff:
             user.is_staff = True
+        user.role = "Administrator"
         user.set_password(password)
         user.save(using=alias)
         return user, False
 
     user = user_qs.create_superuser(username=username, email=email, password=password)
+    user.role = "Administrator"
+    user.save(using=alias, update_fields=["role"])
     return user, True
 
 

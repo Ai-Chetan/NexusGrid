@@ -149,6 +149,13 @@ export const monitoringApi = {
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const usersApi = {
   list: (params?: { role?: string }) => api.get('/users/', { params }),
+  create: (data: {
+    username: string;
+    email: string;
+    role: 'Administrator' | 'Lab Incharge' | 'Lab Assistant' | 'Students' | 'No Roles';
+    password: string;
+    confirm_password: string;
+  }) => api.post('/users/', data),
   update: (id: number, data: Record<string, unknown>) =>
     api.patch(`/users/${id}/`, data),
   privilegesStats: () => api.get('/privileges/stats/'),
@@ -178,5 +185,17 @@ export const profileApi = {
   verifyOtp: (data: { otp: string }) =>
     api.post('/profile/verify-otp/', data),  deleteAccount: () =>
     api.delete('/profile/delete/'),};
+
+// --- Control Plane (superuser) -------------------------------------------------
+export const tenantControlApi = {
+  listTenants: () => api.get('/control/tenants/'),
+  listPackages: () => api.get('/control/packages/'),
+  createTenant: (data: Record<string, unknown>) => api.post('/control/tenants/', data),
+  updateTenant: (slug: string, data: Record<string, unknown>) => api.patch(`/control/tenants/${slug}/`, data),
+  deprovisionTenant: (slug: string, data: { delete?: boolean; drop_db?: boolean }) =>
+    api.post(`/control/tenants/${slug}/deprovision/`, data),
+  deleteTenantDomain: (slug: string, domainId: number) =>
+    api.delete(`/control/tenants/${slug}/domains/${domainId}/`),
+};
 
 export default api;

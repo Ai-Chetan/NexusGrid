@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   LayoutDashboard, Map, AlertTriangle, Package,
-  BarChart3, Activity, Users, LogOut, ChevronRight, ScanLine, Shield,
+  BarChart3, Activity, Users, LogOut, ChevronRight, ScanLine, Shield, Database,
 } from 'lucide-react';
 import { layoutApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -20,6 +20,7 @@ const navItems: {
   icon: React.ElementType;
   featureCode?: string;
   permissionCode?: string;
+  requireSuperuser?: boolean;
   allowedRoles?: Role[];
 }[] = [
   { to: '/app/dashboard',  label: 'Dashboard',      icon: LayoutDashboard, featureCode: 'dashboard' },
@@ -30,6 +31,7 @@ const navItems: {
   { to: '/app/monitoring', label: 'Monitoring',      icon: Activity, featureCode: 'monitoring' },
   { to: '/app/users',      label: 'User Privileges', icon: Users, featureCode: 'users', permissionCode: 'users.manage' },
   { to: '/app/admin-controls', label: 'Admin Controls', icon: Shield, featureCode: 'rbac', permissionCode: 'rbac.manage' },
+  // { to: '/app/tenants', label: 'Tenant Management', icon: Database, requireSuperuser: true },
 ];
 
 interface SidebarProps {
@@ -49,7 +51,10 @@ export default function Sidebar({ onClose }: SidebarProps) {
     enabled: !isNoRole,
   });
 
-  const visibleNavItems = navItems.filter(({ featureCode, permissionCode, allowedRoles }) => {
+  const visibleNavItems = navItems.filter(({ featureCode, permissionCode, requireSuperuser, allowedRoles }) => {
+    if (requireSuperuser && !user?.is_superuser) {
+      return false;
+    }
     if (allowedRoles && (!user?.role || !allowedRoles.includes(user.role))) {
       return false;
     }

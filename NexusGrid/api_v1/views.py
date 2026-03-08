@@ -29,7 +29,7 @@ from api_v1.throttles import AuthOtpAnonThrottle, AuthOtpUserThrottle
 from .services.notifications import create_notifications, admin_user_ids, create_system_alert_if_needed
 
 from .serializers import (
-    UserSerializer, UserUpdateSerializer,
+    UserSerializer, UserUpdateSerializer, UserCreateSerializer,
     NotificationSerializer, AdminNotificationCreateSerializer,
     LayoutItemSerializer, LayoutItemCreateSerializer, LayoutItemUpdateSerializer,
     SystemSerializer, LabSerializer, LabUpdateSerializer,
@@ -1174,6 +1174,21 @@ class UserListView(APIView):
         data = UserSerializer(users, many=True).data
         cache.set(USER_LIST_CACHE_KEY, data, USER_LIST_CACHE_TTL)
         return Response(data)
+
+    def post(self, request):
+        if not is_administrator_user(request.user):
+            return Response({'detail': 'Admin only.'}, status=403)
+
+        ser = UserCreateSerializer(data=request.data)
+        if not ser.is_valid():
+            return Response(ser.errors, status=400)
+
+        user = ser.save()
+        sync_user_primary_role_membership(user, assigned_by_id=request.user.id)
+
+        from django.core.cache import cache
+        cache.delete(USER_LIST_CACHE_KEY)
+        return Response(UserSerializer(user).data, status=201)
 
 
 class UserDetailView(APIView):

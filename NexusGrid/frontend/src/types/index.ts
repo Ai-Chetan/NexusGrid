@@ -263,6 +263,55 @@ export interface PaginatedResponse<T> {
   results: T[];
 }
 
+// Control Plane Tenant Management
+export type TenantStatus = 'provisioning' | 'active' | 'suspended' | 'deleted' | 'failed';
+
+export interface TenantDomainRecord {
+  id: number;
+  domain: string;
+  is_primary: boolean;
+  verified_at: string | null;
+}
+
+export interface TenantRecord {
+  id: number;
+  slug: string;
+  name: string;
+  status: TenantStatus;
+  db_name: string;
+  db_user: string;
+  db_host: string;
+  db_port: number;
+  domains: TenantDomainRecord[];
+  active_package: string | null;
+  updated_at: string;
+  created_at: string;
+}
+
+export interface TenantPackageRecord {
+  code: string;
+  name: string;
+  description: string;
+  is_active: boolean;
+}
+
+export interface CreateTenantPayload {
+  slug: string;
+  name?: string;
+  domain?: string;
+  admin_username: string;
+  admin_email: string;
+  admin_password?: string;
+  package_code?: string;
+  db_name?: string;
+  db_user?: string;
+  db_password?: string;
+  db_host?: string;
+  db_port?: number;
+  skip_db_create?: boolean;
+  skip_migrate?: boolean;
+}
+
 // ─── Reports ─────────────────────────────────────────────────────────────────
 export interface ReportsData {
   fault_by_status: Record<string, number>;

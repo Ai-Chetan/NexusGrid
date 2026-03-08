@@ -15,6 +15,7 @@ import SystemDetailPage from '@/pages/system/SystemDetailPage';
 import UsersPage from '@/pages/users/UsersPage';
 import ProfilePage from '@/pages/profile/ProfilePage';
 import AdminControlsPage from '@/pages/admin/AdminControlsPage';
+import TenantManagementPage from '@/pages/admin/TenantManagementPage';
 import LoadingScreen from '@/components/common/LoadingScreen';
 
 import type { User } from '@/types';
@@ -39,6 +40,14 @@ function PermissionRoute({ children, permissionCode }: { children: React.ReactNo
   if (!isInitialized) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   if (!hasPermission(permissionCode)) return <Navigate to="/app/dashboard" replace />;
+  return <>{children}</>;
+}
+
+function SuperuserRoute({ children }: { children: React.ReactNode }) {
+  const { user, isInitialized } = useAuthStore();
+  if (!isInitialized) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!user.is_superuser) return <Navigate to="/app/dashboard" replace />;
   return <>{children}</>;
 }
 
@@ -79,6 +88,7 @@ export default function App() {
           <Route path="system/:itemId" element={<SystemDetailPage />} />
           <Route path="users" element={<FeatureRoute featureCode="users"><PermissionRoute permissionCode="users.manage"><UsersPage /></PermissionRoute></FeatureRoute>} />
           <Route path="admin-controls" element={<FeatureRoute featureCode="rbac"><PermissionRoute permissionCode="rbac.manage"><AdminControlsPage /></PermissionRoute></FeatureRoute>} />
+          <Route path="tenants" element={<SuperuserRoute><TenantManagementPage /></SuperuserRoute>} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 
@@ -91,6 +101,7 @@ export default function App() {
         <Route path="/monitoring" element={<Navigate to="/app/monitoring" replace />} />
         <Route path="/users" element={<Navigate to="/app/users" replace />} />
         <Route path="/admin-controls" element={<Navigate to="/app/admin-controls" replace />} />
+        <Route path="/tenants" element={<Navigate to="/app/tenants" replace />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

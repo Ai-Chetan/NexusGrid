@@ -43,6 +43,14 @@ type AssignForm = {
   end_date?: string;
 };
 
+type CreateUserForm = {
+  username: string;
+  email: string;
+  role: User['role'];
+  password: string;
+  confirm_password: string;
+};
+
 const assignSchema = z
   .object({
     user: z.coerce.number().min(1, 'Select a user'),
@@ -54,6 +62,96 @@ const assignSchema = z
       ctx.addIssue({ code: 'custom', path: ['end_date'], message: 'End date must be after start date.' });
     }
   });
+
+const createUserSchema = z
+  .object({
+    username: z.string().min(3, 'Username must be at least 3 characters.'),
+    email: z.string().email('Enter a valid email address.'),
+    role: z.enum(ROLES),
+    password: z.string().min(8, 'Password must be at least 8 characters.'),
+    confirm_password: z.string().min(8, 'Confirm password is required.'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.password !== data.confirm_password) {
+      ctx.addIssue({ code: 'custom', path: ['confirm_password'], message: 'Passwords do not match.' });
+    }
+  });
+
+function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const qc = useQueryClient();
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<CreateUserForm>({
+    resolver: zodResolver(createUserSchema),
+    defaultValues: {
+      username: '',
+      email: '',
+      role: 'Students',
+      password: '',
+      confirm_password: '',
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (payload: CreateUserForm) => usersApi.create(payload),
+    onSuccess: (res) => {
+      invalidatePrivileges(qc);
+      toast.success(`User ${res.data.username} created.`);
+      reset();
+      onClose();
+    },
+    onError: (err: unknown) => {
+      const data = (err as { response?: { data?: Record<string, string[] | string> } })?.response?.data;
+      const first = data ? Object.values(data)[0] : null;
+      const message = Array.isArray(first) ? first[0] : first;
+      toast.error(String(message ?? 'Failed to create user'));
+    },
+  });
+
+  return (
+    <Modal open={open} onClose={onClose} title="Create User" size="md">
+      <form onSubmit={handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
+        <div>
+          <label className="label">Username</label>
+          <input className="input" {...register('username')} />
+          {errors.username && <p className="text-xs text-red-500 mt-1">{errors.username.message}</p>}
+        </div>
+        <div>
+          <label className="label">Email</label>
+          <input className="input" type="email" {...register('email')} />
+          {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}
+        </div>
+        <div>
+          <label className="label">Role</label>
+          <select className="input" {...register('role')}>
+            {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Password</label>
+            <input className="input" type="password" {...register('password')} />
+            {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password.message}</p>}
+          </div>
+          <div>
+            <label className="label">Confirm Password</label>
+            <input className="input" type="password" {...register('confirm_password')} />
+            {errors.confirm_password && <p className="text-xs text-red-500 mt-1">{errors.confirm_password.message}</p>}
+          </div>
+        </div>
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          <button type="submit" disabled={isSubmitting || createMutation.isPending} className="btn-primary flex-1">
+            {createMutation.isPending ? 'Creating...' : 'Create User'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
 
 const roleTone: Record<string, string> = {
   Administrator: 'bg-red-100 text-red-700 border-red-200',
@@ -673,6 +771,7 @@ function RoleCell({ user }: { user: User }) {
 function UsersTab() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [showCreate, setShowCreate] = useState(false);
 
   const { data: users = [], isLoading, isError, refetch } = useQuery<User[]>({
     queryKey: ['users'],
@@ -705,6 +804,10 @@ function UsersTab() {
           <option value="all">All Roles</option>
           {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
+
+        <button onClick={() => setShowCreate(true)} className="btn-primary px-3">
+          <PlusCircle className="w-4 h-4" /> Create User
+        </button>
 
         <button onClick={() => refetch()} className="btn-secondary px-3"><RefreshCw className="w-4 h-4" /></button>
         <span className="text-xs text-slate-500 ml-auto">{filtered.length} users</span>
@@ -759,6 +862,8 @@ function UsersTab() {
           </div>
         )}
       </div>
+
+      {showCreate && <CreateUserModal open onClose={() => setShowCreate(false)} />}
     </div>
   );
 }
