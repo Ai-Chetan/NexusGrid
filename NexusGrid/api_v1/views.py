@@ -844,61 +844,188 @@ class ResourceDetailView(APIView):
 
 # ─── Reports ─────────────────────────────────────────────────────────────────
 
+def _resolve_report_lab_scope(user, query_params):
+    """Resolve report lab scope for current user and optional filter params."""
+    today = timezone.now().date()
+
+    if user.role in ('Lab Incharge', 'Lab Assistant'):
+        assigned_lab_ids = list(
+            LabAssignment.objects
+            .filter(user=user)
+            .filter(Q(start_date__isnull=True) | Q(start_date__lte=today))
+            .filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
+            .values_list('lab_id', flat=True)
+            .distinct()
+        )
+
+        lab_id_param = query_params.get('lab_id', '').strip()
+        if lab_id_param.isdigit():
+            requested = int(lab_id_param)
+            if requested in assigned_lab_ids:
+                return [requested]
+
+        return assigned_lab_ids or [-1]
+
+    lab_id = query_params.get('lab_id', '').strip()
+    room_id = query_params.get('room_id', '').strip()
+    floor_id = query_params.get('floor_id', '').strip()
+    building_id = query_params.get('building_id', '').strip()
+
+    if lab_id.isdigit():
+        return [int(lab_id)]
+
+    if room_id.isdigit():
+        return list(
+            Lab.objects
+            .filter(layout_item_id=int(room_id))
+            .values_list('id', flat=True)
+        )
+
+    if floor_id.isdigit():
+        return list(
+            Lab.objects
+            .filter(layout_item__parent_id=int(floor_id))
+            .values_list('id', flat=True)
+        )
+
+    if building_id.isdigit():
+        return list(
+            Lab.objects
+            .filter(layout_item__parent__parent_id=int(building_id))
+            .values_list('id', flat=True)
+        )
+
+    return None
+
+
 class ReportsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         from .services.metrics import get_report_metrics
-        user = request.user
-        today = timezone.now().date()
-
-        # Non-admin roles: restrict to the user's own active lab assignments
-        if user.role in ('Lab Incharge', 'Lab Assistant'):
-            assigned_lab_ids = list(
-                LabAssignment.objects
-                .filter(user=user)
-                .filter(Q(start_date__isnull=True) | Q(start_date__lte=today))
-                .filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
-                .values_list('lab_id', flat=True)
-                .distinct()
-            )
-
-            # Allow filtering to a single lab — but only within their assignment set
-            lab_id_param = request.GET.get('lab_id', '').strip()
-            if lab_id_param.isdigit():
-                requested = int(lab_id_param)
-                if requested in assigned_lab_ids:
-                    return Response(get_report_metrics(lab_ids=[requested]))
-                # Requested lab not in their assignments — silently fall through
-                # to return all their labs (do not leak info about other labs)
-
-            # Pass [-1] as sentinel so queries still run but return empty results
-            # when the user has no active assignments.
-            return Response(get_report_metrics(lab_ids=assigned_lab_ids or [-1]))
-
-        # Administrator: support optional drill-down filter params
-        lab_id      = request.GET.get('lab_id', '').strip()
-        floor_id    = request.GET.get('floor_id', '').strip()
-        building_id = request.GET.get('building_id', '').strip()
-
-        if lab_id.isdigit():
-            lab_ids = [int(lab_id)]
-        elif floor_id.isdigit():
-            lab_ids = list(
-                Lab.objects
-                .filter(layout_item__parent_id=int(floor_id))
-                .values_list('id', flat=True)
-            )
-        elif building_id.isdigit():
-            lab_ids = list(
-                Lab.objects
-                .filter(layout_item__parent__parent_id=int(building_id))
-                .values_list('id', flat=True)
-            )
-        else:
-            lab_ids = None  # no filter → global cache
-
+        lab_ids = _resolve_report_lab_scope(request.user, request.GET)
         return Response(get_report_metrics(lab_ids=lab_ids))
+
+
+class ReportsDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        lab_ids = _resolve_report_lab_scope(request.user, request.GET)
+
+        if lab_ids is None:
+            lab_filter = Q()
+        else:
+            lab_filter = Q(lab_id__in=lab_ids)
+
+        systems_qs = (
+            System.objects
+            .filter(lab_filter)
+            .select_related('lab', 'lab__layout_item', 'lab__layout_item__parent', 'lab__layout_item__parent__parent')
+            .order_by('lab__lab_name', 'host_name', 'id')
+        )
+        faults_qs = (
+            FaultReport.objects
+            .filter(Q(system_name__lab_id__in=lab_ids) if lab_ids is not None else Q())
+            .select_related(
+                'system_name',
+                'system_name__lab',
+                'system_name__lab__layout_item',
+                'system_name__lab__layout_item__parent',
+                'system_name__lab__layout_item__parent__parent',
+                'reported_by',
+                'resolved_by',
+            )
+            .order_by('-reported_at')
+        )
+        resources_qs = (
+            ResourceRequest.objects
+            .filter(Q(system_name__lab_id__in=lab_ids) if lab_ids is not None else Q())
+            .select_related(
+                'system_name',
+                'system_name__lab',
+                'system_name__lab__layout_item',
+                'system_name__lab__layout_item__parent',
+                'system_name__lab__layout_item__parent__parent',
+                'requested_by',
+                'provided_by',
+            )
+            .order_by('-requested_at')
+        )
+
+        def _location(lab):
+            room = getattr(lab, 'layout_item', None)
+            floor = getattr(room, 'parent', None) if room else None
+            building = getattr(floor, 'parent', None) if floor else None
+            return (
+                room.name if room else '',
+                floor.name if floor else '',
+                building.name if building else '',
+            )
+
+        systems = []
+        for s in systems_qs:
+            room_name, floor_name, building_name = _location(s.lab)
+            systems.append({
+                'id': s.id,
+                'host_name': s.host_name or (s.layout_item.name if s.layout_item else f'System-{s.id}'),
+                'status': s.status,
+                'lab_name': s.lab.lab_name if s.lab else '',
+                'room_name': room_name,
+                'floor_name': floor_name,
+                'building_name': building_name,
+                'updated_at': s.updated_at.isoformat() if s.updated_at else '',
+            })
+
+        faults = []
+        for f in faults_qs:
+            lab = f.system_name.lab
+            room_name, floor_name, building_name = _location(lab)
+            faults.append({
+                'fault_id': f.fault_id,
+                'reported_at': f.reported_at.isoformat(),
+                'status': f.status,
+                'fault_type': f.fault_type,
+                'risk_factor': f.risk_factor,
+                'system_name': f.system_name.host_name or '',
+                'lab_name': lab.lab_name if lab else '',
+                'room_name': room_name,
+                'floor_name': floor_name,
+                'building_name': building_name,
+                'reported_by': f.reported_by.username,
+                'description': f.description,
+                'resolution_summary': f.resolution_summary or '',
+                'resolved_at': f.resolved_at.isoformat() if f.resolved_at else '',
+                'resolved_by': f.resolved_by.username if f.resolved_by else '',
+            })
+
+        resources = []
+        for r in resources_qs:
+            lab = r.system_name.lab
+            room_name, floor_name, building_name = _location(lab)
+            resources.append({
+                'resource_id': r.resource_id,
+                'requested_at': r.requested_at.isoformat(),
+                'status': r.status,
+                'resource_name': r.resource_name,
+                'system_name': r.system_name.host_name or '',
+                'lab_name': lab.lab_name if lab else '',
+                'room_name': room_name,
+                'floor_name': floor_name,
+                'building_name': building_name,
+                'requested_by': r.requested_by.username,
+                'description': r.description,
+                'provision_summary': r.provision_summary or '',
+                'provided_at': r.provided_at.isoformat() if r.provided_at else '',
+                'provided_by': r.provided_by.username if r.provided_by else '',
+            })
+
+        return Response({
+            'generated_at': timezone.now().isoformat(),
+            'systems': systems,
+            'faults': faults,
+            'resources': resources,
+        })
 
 
 # ─── Monitoring ──────────────────────────────────────────────────────────────

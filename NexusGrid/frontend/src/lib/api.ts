@@ -133,6 +133,8 @@ export const resourcesApi = {
 export const reportsApi = {
   get: (params?: { building_id?: number; floor_id?: number; lab_id?: number }) =>
     api.get('/reports/', { params }),
+  details: (params?: { building_id?: number; floor_id?: number; lab_id?: number; room_id?: number }) =>
+    api.get('/reports/details/', { params }),
 };
 
 // ─── Labs ─────────────────────────────────────────────────────────────────────

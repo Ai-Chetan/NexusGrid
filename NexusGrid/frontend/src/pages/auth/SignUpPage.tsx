@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import {
   Eye, EyeOff, Loader2, User as UserIcon, Mail, Lock,
-  ArrowRight, CheckCircle, Shield, Cpu, Network, Activity, KeyRound,
+  ArrowRight, ArrowLeft, CheckCircle, Shield, Cpu, Network, Activity, KeyRound,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { authApi } from '@/lib/api';
@@ -211,6 +211,16 @@ export default function SignUpPage() {
       {/* Right — Form */}
       <div className="flex flex-col items-center justify-center min-h-screen lg:min-h-0 lg:h-screen
                       bg-white px-4 sm:px-6 py-8 lg:py-6 relative overflow-y-auto">
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="self-start inline-flex items-center gap-2 px-3 py-2 mb-4 text-sm font-medium
+                     text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Home
+        </button>
+
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center gap-2.5 mb-8 self-start">
           <img src="/favicon.svg" alt="NexusGrid logo" className="w-9 h-9 rounded-xl shadow-lg shadow-brand-600/40" />

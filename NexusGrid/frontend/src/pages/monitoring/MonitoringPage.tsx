@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Activity, RefreshCw, Wifi, WifiOff, Clock } from 'lucide-react';
-import { monitoringApi } from '@/lib/api';
+import { monitoringApi, layoutApi } from '@/lib/api';
 import { timeAgo, cn } from '@/lib/utils';
-import type { SystemInfo } from '@/types';
+import type { SystemInfo, SimpleSystem } from '@/types';
 import PageHeader from '@/components/common/PageHeader';
 import ErrorState from '@/components/common/ErrorState';
 import EmptyState from '@/components/common/EmptyState';
@@ -28,20 +29,40 @@ function GaugeBar({ value, color }: { value: number | null | undefined; color: s
 }
 
 // ─── System Card ──────────────────────────────────────────────────────────────
-function SystemCard({ info }: { info: SystemInfo }) {
+function SystemCard({
+  info,
+  onOpen,
+  clickable,
+}: {
+  info: SystemInfo;
+  onOpen?: () => void;
+  clickable?: boolean;
+}) {
   const isOnline = !!info.hostname;
+  const ramUsage = info.memory_usage_percent ?? info.ram_usage ?? null;
+  const diskUsage = info.disk_usage_percent ?? info.disk_usage ?? null;
   const cpuColor =
     (info.cpu_usage ?? 0) > 85 ? 'bg-red-500' :
     (info.cpu_usage ?? 0) > 60 ? 'bg-amber-500' : 'bg-emerald-500';
   const ramColor =
-    (info.ram_usage ?? 0) > 85 ? 'bg-red-500' :
-    (info.ram_usage ?? 0) > 60 ? 'bg-amber-500' : 'bg-brand-500';
+    (ramUsage ?? 0) > 85 ? 'bg-red-500' :
+    (ramUsage ?? 0) > 60 ? 'bg-amber-500' : 'bg-brand-500';
   const diskColor =
-    (info.disk_usage ?? 0) > 85 ? 'bg-red-500' :
-    (info.disk_usage ?? 0) > 60 ? 'bg-amber-500' : 'bg-violet-500';
+    (diskUsage ?? 0) > 85 ? 'bg-red-500' :
+    (diskUsage ?? 0) > 60 ? 'bg-amber-500' : 'bg-violet-500';
 
   return (
-    <div className="card p-4 space-y-4">
+    <button
+      type="button"
+      onClick={onOpen}
+      disabled={!clickable || !onOpen}
+      className={cn(
+        'card p-4 space-y-4 text-left w-full transition border',
+        clickable
+          ? 'hover:border-brand-400 hover:shadow-md cursor-pointer'
+          : 'cursor-default'
+      )}
+    >
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div>
@@ -80,19 +101,19 @@ function SystemCard({ info }: { info: SystemInfo }) {
           <div className="flex justify-between mb-1">
             <span className="text-xs font-medium text-slate-600">RAM</span>
             <span className="text-xs font-semibold text-slate-800">
-              {info.ram_usage != null ? `${info.ram_usage.toFixed(1)}%` : '—'}
+              {ramUsage != null ? `${ramUsage.toFixed(1)}%` : '—'}
             </span>
           </div>
-          <GaugeBar value={info.ram_usage} color={ramColor} />
+          <GaugeBar value={ramUsage} color={ramColor} />
         </div>
         <div>
           <div className="flex justify-between mb-1">
             <span className="text-xs font-medium text-slate-600">Disk</span>
             <span className="text-xs font-semibold text-slate-800">
-              {info.disk_usage != null ? `${info.disk_usage.toFixed(1)}%` : '—'}
+              {diskUsage != null ? `${diskUsage.toFixed(1)}%` : '—'}
             </span>
           </div>
-          <GaugeBar value={info.disk_usage} color={diskColor} />
+          <GaugeBar value={diskUsage} color={diskColor} />
         </div>
       </div>
 
@@ -101,16 +122,24 @@ function SystemCard({ info }: { info: SystemInfo }) {
         <Clock className="w-3 h-3" />
         {timeAgo(info.timestamp)}
       </div>
-    </div>
+    </button>
   );
 }
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function MonitoringPage() {
+  const navigate = useNavigate();
+
   const { data, isLoading, isError, refetch } = useQuery<{ systems: SystemInfo[] }>({
     queryKey: ['monitoring'],
     queryFn: () => monitoringApi.latest().then(r => r.data),
     refetchInterval: 30_000, // auto-refresh every 30s
+  });
+
+  const { data: knownSystems = [] } = useQuery<SimpleSystem[]>({
+    queryKey: ['systems-list'],
+    queryFn: () => layoutApi.getSystems().then(r => r.data as SimpleSystem[]),
+    staleTime: 60_000,
   });
 
   const rawSystems = data?.systems ?? [];
@@ -126,8 +155,22 @@ export default function MonitoringPage() {
 
   // Summary stats
   const highCpu = systems.filter(s => (s.cpu_usage ?? 0) > 85).length;
-  const highRam = systems.filter(s => (s.ram_usage ?? 0) > 85).length;
-  const highDisk = systems.filter(s => (s.disk_usage ?? 0) > 85).length;
+  const highRam = systems.filter(s => ((s.memory_usage_percent ?? s.ram_usage ?? 0) > 85)).length;
+  const highDisk = systems.filter(s => ((s.disk_usage_percent ?? s.disk_usage ?? 0) > 85)).length;
+
+  const systemByHostname = knownSystems.reduce<Record<string, SimpleSystem>>((acc, system) => {
+    const key = (system.host_name ?? '').trim().toLowerCase();
+    if (!key) return acc;
+    acc[key] = system;
+    return acc;
+  }, {});
+
+  const openSystemDetail = (info: SystemInfo) => {
+    const key = (info.hostname ?? '').trim().toLowerCase();
+    const mapped = systemByHostname[key];
+    if (!mapped?.layout_item_id) return;
+    navigate(`/app/system/${mapped.layout_item_id}`);
+  };
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -174,7 +217,12 @@ export default function MonitoringPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {systems.map(info => (
-            <SystemCard key={`${info.hostname ?? info.ip_address}-${info.timestamp}`} info={info} />
+            <SystemCard
+              key={`${info.hostname ?? info.ip_address}-${info.timestamp}`}
+              info={info}
+              clickable={!!systemByHostname[(info.hostname ?? '').trim().toLowerCase()]?.layout_item_id}
+              onOpen={() => openSystemDetail(info)}
+            />
           ))}
         </div>
       )}

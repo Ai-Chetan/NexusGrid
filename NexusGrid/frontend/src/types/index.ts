@@ -262,6 +262,59 @@ export interface ReportsData {
   resource_monthly: { month: string; count: number }[];
 }
 
+export interface ReportDetailSystem {
+  id: number;
+  host_name: string;
+  status: string;
+  lab_name: string;
+  room_name: string;
+  floor_name: string;
+  building_name: string;
+  updated_at: string;
+}
+
+export interface ReportDetailFault {
+  fault_id: number;
+  reported_at: string;
+  status: string;
+  fault_type: string;
+  risk_factor: number;
+  system_name: string;
+  lab_name: string;
+  room_name: string;
+  floor_name: string;
+  building_name: string;
+  reported_by: string;
+  description: string;
+  resolution_summary: string;
+  resolved_at: string;
+  resolved_by: string;
+}
+
+export interface ReportDetailResource {
+  resource_id: number;
+  requested_at: string;
+  status: string;
+  resource_name: string;
+  system_name: string;
+  lab_name: string;
+  room_name: string;
+  floor_name: string;
+  building_name: string;
+  requested_by: string;
+  description: string;
+  provision_summary: string;
+  provided_at: string;
+  provided_by: string;
+}
+
+export interface ReportsDetailData {
+  generated_at: string;
+  systems: ReportDetailSystem[];
+  faults: ReportDetailFault[];
+  resources: ReportDetailResource[];
+}
+
 // ─── Privileges ──────────────────────────────────────────────────────────────
 export interface PrivilegesStats {
   total_users: number;

@@ -4,15 +4,46 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, Legend, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line,
 } from 'recharts';
-import { RefreshCw, Building2, Layers, LayoutDashboard, BookOpen } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import { RefreshCw, Building2, Layers, LayoutDashboard, BookOpen, Download, FileText } from 'lucide-react';
 import { reportsApi, layoutApi, labsApi, privilegesApi } from '@/lib/api';
 import PageHeader from '@/components/common/PageHeader';
 import ErrorState from '@/components/common/ErrorState';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuthStore } from '@/store/authStore';
-import type { LayoutItem, Lab, ReportsData } from '@/types';
+import toast from 'react-hot-toast';
+import type { LayoutItem, Lab, ReportsData, ReportsDetailData } from '@/types';
 
 const COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#06b6d4', '#ec4899'];
+type ReportFilterParams = { building_id?: number; floor_id?: number; lab_id?: number };
+
+function csvEscape(value: unknown): string {
+  const raw = String(value ?? '').replace(/\r?\n/g, ' ').trim();
+  if (raw.includes(',') || raw.includes('"')) {
+    return `"${raw.replace(/"/g, '""')}"`;
+  }
+  return raw;
+}
+
+function buildCsvSection(title: string, headers: string[], rows: unknown[][]): string {
+  const lines = [title, headers.join(',')];
+  rows.forEach((row) => {
+    lines.push(row.map(csvEscape).join(','));
+  });
+  lines.push('');
+  return lines.join('\n');
+}
+
+function triggerDownload(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 function Card({ title, children, dark }: { title: string; children: React.ReactNode; dark?: boolean }) {
   return (
@@ -98,6 +129,8 @@ export default function ReportsPage() {
 
   // ── Incharge/Assistant filter state ────────────────────────────────────
   const [selectedRestrictedLab, setSelectedRestrictedLab] = useState<number | ''>('');
+  const [exportingCsv, setExportingCsv] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   // ── Fetch this user's own active assignments (incharge / assistant) ─────
   const { data: myAssignments = [] } = useQuery({
@@ -150,7 +183,7 @@ export default function ReportsPage() {
   }, [allLabs, selectedFloor]);
 
   // ── Derive report query params from admin filter selection ───────────────
-  const reportParams = useMemo(() => {
+  const reportParams = useMemo<ReportFilterParams | undefined>(() => {
     if (isRestricted) {
       return selectedRestrictedLab ? { lab_id: selectedRestrictedLab as number } : undefined;
     }
@@ -264,6 +297,138 @@ export default function ReportsPage() {
     count: x.count,
   }));
 
+  const fileScope = scopeLabel
+    ? scopeLabel.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/\s+/g, '_')
+    : isRestricted
+    ? 'assigned_labs'
+    : 'all';
+
+  const fetchExportData = async (): Promise<ReportsDetailData> => {
+    const res = await reportsApi.details(reportParams);
+    return res.data as ReportsDetailData;
+  };
+
+  const downloadDetailedCsv = async () => {
+    setExportingCsv(true);
+    try {
+      const detail = await fetchExportData();
+      const now = new Date();
+      const generatedAt = detail.generated_at ? new Date(detail.generated_at).toLocaleString() : now.toLocaleString();
+      const chunks: string[] = [
+        `NexusGrid Detailed Report`,
+        `Scope,${csvEscape(scopeLabel ?? (isRestricted ? 'Assigned Labs' : 'All'))}`,
+        `Generated At,${csvEscape(generatedAt)}`,
+        '',
+      ];
+
+      chunks.push(buildCsvSection(
+        'Systems',
+        ['ID', 'Host Name', 'Status', 'Building', 'Floor', 'Room', 'Lab', 'Updated At'],
+        detail.systems.map(s => [s.id, s.host_name, s.status, s.building_name, s.floor_name, s.room_name, s.lab_name, s.updated_at]),
+      ));
+
+      chunks.push(buildCsvSection(
+        'Faults',
+        ['Fault ID', 'Reported At', 'Status', 'Type', 'Risk', 'System', 'Building', 'Floor', 'Room', 'Lab', 'Reported By', 'Description', 'Resolution Summary', 'Resolved At', 'Resolved By'],
+        detail.faults.map(f => [
+          f.fault_id, f.reported_at, f.status, f.fault_type, f.risk_factor, f.system_name,
+          f.building_name, f.floor_name, f.room_name, f.lab_name, f.reported_by,
+          f.description, f.resolution_summary, f.resolved_at, f.resolved_by,
+        ]),
+      ));
+
+      chunks.push(buildCsvSection(
+        'Resource Requests',
+        ['Resource ID', 'Requested At', 'Status', 'Resource Name', 'System', 'Building', 'Floor', 'Room', 'Lab', 'Requested By', 'Description', 'Provision Summary', 'Provided At', 'Provided By'],
+        detail.resources.map(r => [
+          r.resource_id, r.requested_at, r.status, r.resource_name, r.system_name,
+          r.building_name, r.floor_name, r.room_name, r.lab_name, r.requested_by,
+          r.description, r.provision_summary, r.provided_at, r.provided_by,
+        ]),
+      ));
+
+      const csv = chunks.join('\n');
+      triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `nexusgrid_detailed_report_${fileScope}.csv`);
+      toast.success('Detailed CSV downloaded.');
+    } catch {
+      toast.error('Failed to download CSV report.');
+    } finally {
+      setExportingCsv(false);
+    }
+  };
+
+  const downloadDetailedPdf = async () => {
+    setExportingPdf(true);
+    try {
+      const detail = await fetchExportData();
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 40;
+      const contentWidth = pageWidth - margin * 2;
+      let y = margin;
+
+      const ensureSpace = (needed = 18) => {
+        if (y + needed > pageHeight - margin) {
+          doc.addPage();
+          y = margin;
+        }
+      };
+
+      const addTitle = (text: string) => {
+        ensureSpace(24);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.text(text, margin, y);
+        y += 18;
+      };
+
+      const addLine = (text: string) => {
+        const lines = doc.splitTextToSize(text, contentWidth);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        lines.forEach((line: string) => {
+          ensureSpace(14);
+          doc.text(line, margin, y);
+          y += 13;
+        });
+      };
+
+      addTitle('NexusGrid Detailed Report');
+      addLine(`Scope: ${scopeLabel ?? (isRestricted ? 'Assigned Labs' : 'All')}`);
+      addLine(`Generated At: ${detail.generated_at ? new Date(detail.generated_at).toLocaleString() : new Date().toLocaleString()}`);
+      y += 6;
+
+      addTitle(`Systems (${detail.systems.length})`);
+      detail.systems.forEach((s) => {
+        addLine(`- #${s.id} ${s.host_name} | ${s.status} | ${s.building_name} > ${s.floor_name} > ${s.room_name} > ${s.lab_name}`);
+      });
+
+      y += 6;
+      addTitle(`Faults (${detail.faults.length})`);
+      detail.faults.forEach((f) => {
+        addLine(`- Fault #${f.fault_id} | ${f.reported_at} | ${f.status} | ${f.fault_type} (Risk ${f.risk_factor}) | ${f.system_name} | ${f.building_name} > ${f.floor_name} > ${f.room_name} > ${f.lab_name}`);
+        if (f.description) addLine(`  Description: ${f.description}`);
+        if (f.resolution_summary) addLine(`  Resolution: ${f.resolution_summary}`);
+      });
+
+      y += 6;
+      addTitle(`Resource Requests (${detail.resources.length})`);
+      detail.resources.forEach((r) => {
+        addLine(`- Resource #${r.resource_id} | ${r.requested_at} | ${r.status} | ${r.resource_name} | ${r.system_name} | ${r.building_name} > ${r.floor_name} > ${r.room_name} > ${r.lab_name}`);
+        if (r.description) addLine(`  Description: ${r.description}`);
+        if (r.provision_summary) addLine(`  Provision: ${r.provision_summary}`);
+      });
+
+      doc.save(`nexusgrid_detailed_report_${fileScope}.pdf`);
+      toast.success('Detailed PDF downloaded.');
+    } catch {
+      toast.error('Failed to download PDF report.');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   return (
     <div className="space-y-5 animate-fade-in">
       <PageHeader
@@ -276,9 +441,17 @@ export default function ReportsPage() {
             : 'Visual overview of faults, resources, and system status.'
         }
         actions={
-          <button onClick={() => refetch()} className="btn-secondary">
-            <RefreshCw className="w-4 h-4" /> Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={downloadDetailedCsv} className="btn-secondary" disabled={exportingCsv || exportingPdf}>
+              <Download className="w-4 h-4" /> {exportingCsv ? 'Downloading CSV...' : 'Download CSV'}
+            </button>
+            <button onClick={downloadDetailedPdf} className="btn-secondary" disabled={exportingCsv || exportingPdf}>
+              <FileText className="w-4 h-4" /> {exportingPdf ? 'Generating PDF...' : 'Download PDF'}
+            </button>
+            <button onClick={() => refetch()} className="btn-secondary">
+              <RefreshCw className="w-4 h-4" /> Refresh
+            </button>
+          </div>
         }
       />
 

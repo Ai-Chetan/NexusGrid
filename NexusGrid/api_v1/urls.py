@@ -41,6 +41,7 @@ urlpatterns = [
 
     # Reports
     path('reports/', views.ReportsView.as_view(), name='api-reports'),
+    path('reports/details/', views.ReportsDetailView.as_view(), name='api-reports-details'),
 
     # Monitoring
     path('monitoring/', views.MonitoringView.as_view(), name='api-monitoring'),
