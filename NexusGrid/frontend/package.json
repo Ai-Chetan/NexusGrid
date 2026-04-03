@@ -30,6 +30,8 @@
     "react-router-dom": "^6.22.3",
     "recharts": "^2.12.2",
     "tailwind-merge": "^2.2.1",
+    "vite-plugin-pwa": "^1.2.0",
+    "workbox-webpack-plugin": "^7.4.0",
     "zod": "^3.22.4",
     "zustand": "^4.5.2"
   },
