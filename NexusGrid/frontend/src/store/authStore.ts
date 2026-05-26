@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { User } from '@/types';
 import { apiBaseURL, authApi } from '@/lib/api';
-import { getCookie } from '@/utils/cookies';
+import { getCSRFToken, setCSRFToken } from '@/utils/csrf';
 
 interface AuthState {
   user: User | null;
@@ -33,17 +33,19 @@ export const useAuthStore = create<AuthState>()(
     login: async (username, password) => {
       set({ isLoading: true });
       try {
-        const csrftoken = getCookie('csrftoken');
-
-        console.log('CSRF TOKEN:', csrftoken);
-        console.log('TOKEN LENGTH:', csrftoken?.length);
+        const csrfResponse = await fetch(`${apiBaseURL}/csrf/`, {
+          method: 'GET',
+          credentials: 'include',
+        });
+        const csrfData = await csrfResponse.json();
+        setCSRFToken(csrfData.csrfToken ?? null);
 
         const response = await fetch(`${apiBaseURL}/auth/login/`, {
           method: 'POST',
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': csrftoken ?? '',
+            'X-CSRFToken': getCSRFToken() ?? '',
           },
           body: JSON.stringify({ username, password }),
         });
@@ -53,6 +55,13 @@ export const useAuthStore = create<AuthState>()(
         if (!response.ok) {
           throw { response: { data } };
         }
+
+        const refreshResponse = await fetch(`${apiBaseURL}/csrf/`, {
+          method: 'GET',
+          credentials: 'include',
+        });
+        const refreshData = await refreshResponse.json();
+        setCSRFToken(refreshData.csrfToken ?? null);
 
         set({ user: data.user, isLoading: false });
       } catch (err) {

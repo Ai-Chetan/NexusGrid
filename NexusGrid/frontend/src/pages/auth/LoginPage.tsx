@@ -10,7 +10,6 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { authApi } from '@/lib/api';
-import { getCookie } from '@/utils/cookies';
 import toast from 'react-hot-toast';
 
 // ─── Schema ─────────────────────────────────────────────────────────────────────────────
@@ -325,13 +324,6 @@ export default function LoginPage() {
 
   const onSubmit = async (data: FormData) => {
     try {
-      console.log('DOCUMENT COOKIE:', document.cookie);
-
-      const csrftoken = getCookie('csrftoken');
-
-      console.log('CSRF TOKEN:', csrftoken);
-      console.log('TOKEN LENGTH:', csrftoken?.length);
-
       await login(data.username, data.password);
       toast.success('Welcome back!');
       navigate('/app/dashboard', { replace: true });

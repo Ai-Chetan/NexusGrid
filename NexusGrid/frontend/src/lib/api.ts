@@ -1,18 +1,10 @@
 import axios from 'axios';
+import { getCSRFToken } from '@/utils/csrf';
 
 const configuredApiBase = import.meta.env.VITE_API_BASE_URL?.trim();
 export const apiBaseURL = configuredApiBase
   ? configuredApiBase.replace(/\/+$/, '')
   : '/api/v1';
-
-function getCsrfToken(): string {
-  return (
-    document.cookie
-      .split('; ')
-      .find(row => row.startsWith('csrftoken='))
-      ?.split('=')[1] ?? ''
-  );
-}
 
 const api = axios.create({
   baseURL: apiBaseURL,
@@ -23,7 +15,10 @@ const api = axios.create({
 api.interceptors.request.use(config => {
   const method = config.method?.toUpperCase() ?? '';
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
-    config.headers['X-CSRFToken'] = getCsrfToken();
+    const csrfToken = getCSRFToken();
+    if (csrfToken) {
+      config.headers['X-CSRFToken'] = csrfToken;
+    }
   }
   return config;
 });
