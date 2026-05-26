@@ -1,47 +1,179 @@
 import axios from 'axios';
+import { getCSRFToken } from '@/utils/csrf';
 
 const configuredApiBase = import.meta.env.VITE_API_BASE_URL?.trim();
-const apiBaseURL = configuredApiBase
+export const apiBaseURL = configuredApiBase
   ? configuredApiBase.replace(/\/+$/, '')
   : '/api/v1';
 
-// Axios instance — points at the Vite dev-server proxy which forwards to Django
-const api = axios.create({
+const apiClient = axios.create({
   baseURL: apiBaseURL,
-  withCredentials: true, // include session cookie
+  withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Read the csrftoken cookie set by Django's CsrfViewMiddleware
-function getCsrfToken(): string {
-  return (
-    document.cookie
-      .split('; ')
-      .find((row) => row.startsWith('csrftoken='))
-      ?.split('=')[1] ?? ''
-  );
-}
-
-// Attach CSRF token to every mutating request (synchronous — no extra round-trip)
-api.interceptors.request.use((config) => {
-  const safe = ['get', 'head', 'options'];
-  if (config.method && !safe.includes(config.method.toLowerCase())) {
-    config.headers['X-CSRFToken'] = getCsrfToken();
+apiClient.interceptors.request.use((config) => {
+  const method = config.method?.toUpperCase() ?? '';
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    const csrfToken = getCSRFToken();
+    if (csrfToken) {
+      config.headers['X-CSRFToken'] = csrfToken;
+    }
   }
   return config;
 });
 
-// On 401 clear auth state (handled in the auth store via an event).
-// 403 is NOT treated as a session expiry — it means the user is authenticated
-// but lacks permission for that resource, so we leave the session alone.
-api.interceptors.response.use(
+apiClient.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
-      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+    if (err.response?.status === 401 || err.response?.status === 403) {
+      window.dispatchEvent(new Event('auth:unauthorized'));
     }
     return Promise.reject(err);
-  }
+  },
 );
 
-export default api;
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+export const authApi = {
+  me: () => apiClient.get('/auth/me/'),
+  login: (data: { username: string; password: string }) =>
+    apiClient.post('/auth/login/', data),
+  logout: () => apiClient.post('/auth/logout/'),
+  register: (data: {
+    username: string;
+    email: string;
+    password: string;
+    confirm_password: string;
+  }) => apiClient.post('/auth/register/', data),
+  signupRequestOtp: (data: {
+    username: string;
+    email: string;
+    password: string;
+    confirm_password: string;
+  }) => apiClient.post('/auth/signup-otp/', data),
+  signupVerifyOtp: (data: { otp: string }) =>
+    apiClient.post('/auth/signup-verify/', data),
+  forgotPasswordRequest: (data: { email: string }) =>
+    apiClient.post('/auth/forgot-password/', data),
+  forgotPasswordVerify: (data: { otp: string; new_password: string; confirm_password: string }) =>
+    apiClient.post('/auth/forgot-password-verify/', data),
+};
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+export const dashboardApi = {
+  metrics: (params?: {
+    building_id?: number;
+    floor_id?: number;
+    room_id?: number;
+    start_date?: string;
+    end_date?: string;
+  }) => apiClient.get('/dashboard/metrics/', { params }),
+};
+
+export const notificationsApi = {
+  list: (params?: { unread?: boolean; page?: number; page_size?: number }) =>
+    apiClient.get('/notifications/', { params }),
+  update: (id: number, data: { is_read: boolean }) =>
+    apiClient.patch(`/notifications/${id}/`, data),
+  markAllRead: () => apiClient.post('/notifications/mark-read-all/'),
+  clear: (scope: 'all' | 'unread' | 'read' = 'all') =>
+    apiClient.delete('/notifications/', { params: { scope } }),
+  createAdminMessage: (data: {
+    message: string;
+    recipient_ids?: number[];
+    send_to_all?: boolean;
+    target_url?: string;
+  }) => apiClient.post('/notifications/', data),
+};
+
+// ─── Layout ───────────────────────────────────────────────────────────────────
+export const layoutApi = {
+  getItems: (params?: { parent_id?: number | null }) =>
+    apiClient.get('/layout/items/', { params }),
+  getItem: (id: number) => apiClient.get(`/layout/items/${id}/`),
+  createItem: (data: Record<string, unknown>) =>
+    apiClient.post('/layout/items/', data),
+  updateItem: (id: number, data: Record<string, unknown>) =>
+    apiClient.patch(`/layout/items/${id}/`, data),
+  deleteItem: (id: number) => apiClient.delete(`/layout/items/${id}/`),
+  getBreadcrumb: (id: number) => apiClient.get(`/layout/breadcrumb/${id}/`),
+  getSystems: () => apiClient.get('/layout/systems/'),
+  updateSystemStatus: (systemId: number, status: string) =>
+    apiClient.patch(`/layout/systems/${systemId}/`, { status }),
+  getItemMonitoring: (itemId: number) =>
+    apiClient.get('/monitoring/', { params: { item_id: itemId } }),
+  getItemMonitoringHistory: (itemId: number, limit = 72) =>
+    apiClient.get('/monitoring/history/', { params: { item_id: itemId, limit } }),
+};
+
+// ─── Faults ───────────────────────────────────────────────────────────────────
+export const faultsApi = {
+  list: (params?: Record<string, unknown>, signal?: AbortSignal) =>
+    apiClient.get('/faults/', { params, signal }),
+  create: (data: Record<string, unknown>) => apiClient.post('/faults/', data),
+  updateStatus: (id: number, data: Record<string, unknown>) =>
+    apiClient.patch(`/faults/${id}/`, data),
+};
+
+// ─── Resources ────────────────────────────────────────────────────────────────
+export const resourcesApi = {
+  list: (params?: Record<string, unknown>, signal?: AbortSignal) =>
+    apiClient.get('/resources/', { params, signal }),
+  create: (data: Record<string, unknown>) => apiClient.post('/resources/', data),
+  updateStatus: (id: number, data: Record<string, unknown>) =>
+    apiClient.patch(`/resources/${id}/`, data),
+};
+
+// ─── Reports ──────────────────────────────────────────────────────────────────
+export const reportsApi = {
+  get: (params?: { building_id?: number; floor_id?: number; lab_id?: number }) =>
+    apiClient.get('/reports/', { params }),
+  details: (params?: { building_id?: number; floor_id?: number; lab_id?: number; room_id?: number }) =>
+    apiClient.get('/reports/details/', { params }),
+};
+
+// ─── Labs ─────────────────────────────────────────────────────────────────────
+export const labsApi = {
+  list: () => apiClient.get('/layout/labs/'),
+};
+
+// ─── Monitoring ───────────────────────────────────────────────────────────────
+export const monitoringApi = {
+  latest: () => apiClient.get('/monitoring/'),
+};
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+export const usersApi = {
+  list: (params?: { role?: string }) => apiClient.get('/users/', { params }),
+  update: (id: number, data: Record<string, unknown>) =>
+    apiClient.patch(`/users/${id}/`, data),
+  privilegesStats: () => apiClient.get('/privileges/stats/'),
+};
+
+// ─── Privileges ───────────────────────────────────────────────────────────────
+export const privilegesApi = {
+  getAssignments: (labId?: number) =>
+    apiClient.get('/privileges/assignments/', labId ? { params: { lab_id: labId } } : undefined),
+  createAssignment: (data: {
+    lab: number;
+    user: number;
+    role_type: 'incharge' | 'assistant';
+    start_date?: string | null;
+    end_date?: string | null;
+  }) => apiClient.post('/privileges/assignments/', data),
+  deleteAssignment: (id: number) => apiClient.delete(`/privileges/assignments/${id}/`),
+  getConfig: () => apiClient.get('/privileges/config/'),
+  updateConfig: (data: { max_labs_per_incharge?: number; max_labs_per_assistant?: number }) =>
+    apiClient.patch('/privileges/config/', data),
+};
+
+// ─── Profile ──────────────────────────────────────────────────────────────────
+export const profileApi = {
+  requestOtp: (data: { action: 'change_username' | 'change_email' | 'change_password'; new_value: string }) =>
+    apiClient.post('/profile/request-otp/', data),
+  verifyOtp: (data: { otp: string }) =>
+    apiClient.post('/profile/verify-otp/', data),
+  deleteAccount: () => apiClient.delete('/profile/delete/'),
+};
+
+export default apiClient;

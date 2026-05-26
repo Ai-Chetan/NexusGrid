@@ -5,22 +5,11 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'react-hot-toast';
 import App from './App';
 import queryClient from './lib/queryClient';
-import { apiBaseURL } from './lib/api';
-import { setCSRFToken } from '@/utils/csrf';
+import { fetchCSRFToken } from '@/utils/csrf';
 import './index.css';
 
 async function bootstrap() {
-  const response = await fetch(`${apiBaseURL}/csrf/`, {
-    method: 'GET',
-    credentials: 'include',
-  }).catch(() => undefined)
-
-  if (response) {
-    const data = await response.json().catch(() => null)
-    if (data?.csrfToken) {
-      setCSRFToken(data.csrfToken)
-    }
-  }
+  await fetchCSRFToken().catch(() => undefined)
 
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
