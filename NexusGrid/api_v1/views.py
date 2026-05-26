@@ -48,6 +48,13 @@ class StandardPagination(PageNumberPagination):
         })
 
 
+# ─── CSRF Token ──────────────────────────────────────────────────────────────
+
+@ensure_csrf_cookie
+def get_csrf_token(request):
+    return JsonResponse({"success": True})
+
+
 # ─── Auth ────────────────────────────────────────────────────────────────────
 
 class LoginView(APIView):
