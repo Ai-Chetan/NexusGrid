@@ -70,9 +70,9 @@ INSTALLED_APPS = [
 # ------------------------------------------------------------------------------
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',      # CORS Middleware (place after SessionMiddleware)
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',      # CORS Middleware (place after SessionMiddleware)
     'django.middleware.common.CommonMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware', # For serving static files in production
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -176,8 +176,8 @@ MEDIA_ROOT = BASE_DIR / "media"
 #     CSRF_COOKIE_SECURE = False
 
 SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=not DEBUG)
-SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=not DEBUG)
-CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=not DEBUG)
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = env.int('SECURE_HSTS_SECONDS', default=31536000 if not DEBUG else 0)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=not DEBUG)
 SECURE_HSTS_PRELOAD = env.bool('SECURE_HSTS_PRELOAD', default=not DEBUG)
@@ -242,8 +242,8 @@ CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[
 # CORS_ALLOW_ALL_ORIGINS = True # Be careful with this in production!
 
 # Cross-site session auth (frontend on Vercel, API on Render) requires SameSite=None + Secure.
-SESSION_COOKIE_SAMESITE = env('SESSION_COOKIE_SAMESITE', default='None' if not DEBUG else 'Lax')
-CSRF_COOKIE_SAMESITE = env('CSRF_COOKIE_SAMESITE', default='None' if not DEBUG else 'Lax')
+SESSION_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SAMESITE = 'None'
 
 # ------------------------------------------------------------------------------
 # 12b. CACHE CONFIGURATION (django-redis)

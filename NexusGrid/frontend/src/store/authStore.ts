@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { User } from '@/types';
-import { authApi } from '@/lib/api';
+import { apiBaseURL, authApi } from '@/lib/api';
+import { getCookie } from '@/utils/cookies';
 
 interface AuthState {
   user: User | null;
@@ -32,7 +33,27 @@ export const useAuthStore = create<AuthState>()(
     login: async (username, password) => {
       set({ isLoading: true });
       try {
-        const { data } = await authApi.login({ username, password });
+        const csrftoken = getCookie('csrftoken');
+
+        console.log('CSRF TOKEN:', csrftoken);
+        console.log('TOKEN LENGTH:', csrftoken?.length);
+
+        const response = await fetch(`${apiBaseURL}/auth/login/`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken ?? '',
+          },
+          body: JSON.stringify({ username, password }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw { response: { data } };
+        }
+
         set({ user: data.user, isLoading: false });
       } catch (err) {
         set({ isLoading: false });

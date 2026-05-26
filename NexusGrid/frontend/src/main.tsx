@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'react-hot-toast';
 import App from './App';
 import queryClient from './lib/queryClient';
+import { apiBaseURL } from './lib/api';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register'
 
@@ -17,25 +18,34 @@ registerSW({
   }
 })
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 3500,
-          style: {
-            borderRadius: '10px',
-            background: '#1e293b',
-            color: '#f8fafc',
-            fontSize: '14px',
-          },
-          success: { iconTheme: { primary: '#10b981', secondary: '#f8fafc' } },
-          error: { iconTheme: { primary: '#ef4444', secondary: '#f8fafc' } },
-        }}
-      />
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
-  </React.StrictMode>
-);
+async function bootstrap() {
+  await fetch(`${apiBaseURL}/csrf/`, {
+    method: 'GET',
+    credentials: 'include',
+  }).catch(() => undefined)
+
+  ReactDOM.createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <App />
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 3500,
+            style: {
+              borderRadius: '10px',
+              background: '#1e293b',
+              color: '#f8fafc',
+              fontSize: '14px',
+            },
+            success: { iconTheme: { primary: '#10b981', secondary: '#f8fafc' } },
+            error: { iconTheme: { primary: '#ef4444', secondary: '#f8fafc' } },
+          }}
+        />
+        <ReactQueryDevtools initialIsOpen={false} />
+      </QueryClientProvider>
+    </React.StrictMode>,
+  );
+}
+
+void bootstrap()

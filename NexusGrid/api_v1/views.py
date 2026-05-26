@@ -1,7 +1,9 @@
 from django.contrib.auth import authenticate, login, logout
+from django.http import JsonResponse
 from django.db.models import Count, Case, When, IntegerField, Q
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import ensure_csrf_cookie
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -111,6 +113,9 @@ class RegisterView(APIView):
             password=password,
             role='Students',
         )
+        @ensure_csrf_cookie
+        def get_csrf_token(request):
+            return JsonResponse({'message': 'CSRF cookie set'})
         login(request, user)
         return Response({'user': UserSerializer(user).data}, status=status.HTTP_201_CREATED)
 
