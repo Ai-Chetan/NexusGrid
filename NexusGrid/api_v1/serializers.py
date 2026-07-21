@@ -12,10 +12,21 @@ from api_v1.models import Notification
 # ─── Auth ───────────────────────────────────────────────────────────────────
 
 class UserSerializer(serializers.ModelSerializer):
+    assigned_labs = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'is_staff', 'is_superuser', 'date_joined', 'last_login']
+        fields = ['id', 'username', 'email', 'role', 'is_staff', 'is_superuser', 'date_joined', 'last_login', 'assigned_labs']
         read_only_fields = ['id', 'date_joined', 'last_login', 'is_staff', 'is_superuser']
+
+    def get_assigned_labs(self, obj):
+        if obj.role not in ('Lab Incharge', 'Lab Assistant'):
+            return []
+        # ponytail: per-user query; fine at campus scale + list endpoint is cached 5 min.
+        return list(
+            LabAssignment.get_active_labs_for_user(obj)
+            .values_list('lab__lab_name', flat=True)
+        )
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):

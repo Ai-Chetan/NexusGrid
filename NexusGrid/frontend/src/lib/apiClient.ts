@@ -113,6 +113,7 @@ export const faultsApi = {
   create: (data: Record<string, unknown>) => apiClient.post('/faults/', data),
   updateStatus: (id: number, data: Record<string, unknown>) =>
     apiClient.patch(`/faults/${id}/`, data),
+  delete: (id: number) => apiClient.delete(`/faults/${id}/`),
 };
 
 // ─── Resources ────────────────────────────────────────────────────────────────
@@ -122,6 +123,7 @@ export const resourcesApi = {
   create: (data: Record<string, unknown>) => apiClient.post('/resources/', data),
   updateStatus: (id: number, data: Record<string, unknown>) =>
     apiClient.patch(`/resources/${id}/`, data),
+  delete: (id: number) => apiClient.delete(`/resources/${id}/`),
 };
 
 // ─── Reports ──────────────────────────────────────────────────────────────────
@@ -160,6 +162,7 @@ export const usersApi = {
     apiClient.post('/users/create/', data),
   update: (id: number, data: Record<string, unknown>) =>
     apiClient.patch(`/users/${id}/`, data),
+  delete: (id: number) => apiClient.delete(`/users/${id}/`),
   privilegesStats: () => apiClient.get('/privileges/stats/'),
 };
 
@@ -182,10 +185,8 @@ export const privilegesApi = {
 
 // ─── Profile ──────────────────────────────────────────────────────────────────
 export const profileApi = {
-  requestOtp: (data: { action: 'change_username' | 'change_email' | 'change_password'; new_value: string }) =>
-    apiClient.post('/profile/request-otp/', data),
-  verifyOtp: (data: { otp: string }) =>
-    apiClient.post('/profile/verify-otp/', data),
+  update: (data: { action: 'change_username' | 'change_email' | 'change_password'; new_value: string; current_password: string }) =>
+    apiClient.post('/profile/update/', data),
   deleteAccount: () => apiClient.delete('/profile/delete/'),
 };
 

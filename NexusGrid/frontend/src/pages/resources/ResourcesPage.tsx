@@ -5,10 +5,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
   Package, Plus, Search, ChevronLeft, ChevronRight,
-  Clock, User, Loader2, RefreshCw,
+  Clock, User, Loader2, RefreshCw, Trash2, Edit2, Wrench,
 } from 'lucide-react';
 import { resourcesApi, layoutApi } from '@/lib/api';
 import { timeAgo, cn } from '@/lib/utils';
+import { useAuthStore } from '@/store/authStore';
 import type { PaginatedResponse, ResourceRequest, System } from '@/types';
 import PageHeader from '@/components/common/PageHeader';
 import StatusBadge from '@/components/common/StatusBadge';
@@ -75,7 +76,6 @@ function CreateResourceModal({ open, onClose }: { open: boolean; onClose: () => 
   return (
     <Modal open={open} onClose={handleClose} title="New Resource Request" size="lg">
       <form onSubmit={handleSubmit(d => mutation.mutate(d))} className="space-y-4">
-        {/* Step 1 — Room */}
         <div>
           <label className="label">Room / Lab</label>
           <select
@@ -93,7 +93,6 @@ function CreateResourceModal({ open, onClose }: { open: boolean; onClose: () => 
           </select>
         </div>
 
-        {/* Step 2 — System */}
         <div className={selectedRoom ? '' : 'opacity-50 pointer-events-none'}>
           <label className="label">
             System
@@ -153,7 +152,66 @@ function CreateResourceModal({ open, onClose }: { open: boolean; onClose: () => 
   );
 }
 
-// ─── Update Status Modal ───────────────────────────────────────────────────────
+// ─── Edit Resource Modal (Incharge edits own request) ────────────────────────
+function EditResourceModal({ resource, onClose }: { resource: ResourceRequest | null; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [resourceName, setResourceName] = useState(resource?.resource_name ?? '');
+  const [description, setDescription] = useState(resource?.description ?? '');
+  const [quantity, setQuantity] = useState(String(resource?.quantity ?? 1));
+
+  const mutation = useMutation({
+    mutationFn: () => resourcesApi.updateStatus(resource!.resource_id, {
+      resource_name: resourceName,
+      description,
+      quantity: Number(quantity),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['resources'] });
+      toast.success('Resource request updated');
+      onClose();
+    },
+    onError: () => toast.error('Failed to update resource request'),
+  });
+
+  if (!resource) return null;
+
+  return (
+    <Modal open={!!resource} onClose={onClose} title="Edit Resource Request" size="sm">
+      <div className="space-y-4">
+        <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+          <p className="text-xs text-slate-500">Request for</p>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{resource.system_host_name}</p>
+          {resource.lab_name && <p className="text-xs text-slate-500">{resource.lab_name}</p>}
+        </div>
+        <div>
+          <label className="label">Resource Name</label>
+          <input value={resourceName} onChange={e => setResourceName(e.target.value)} className="input" />
+        </div>
+        <div>
+          <label className="label">Quantity</label>
+          <input type="number" min={1} value={quantity} onChange={e => setQuantity(e.target.value)} className="input" />
+        </div>
+        <div>
+          <label className="label">Description</label>
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            rows={3}
+            className="input resize-none"
+          />
+        </div>
+        <div className="flex gap-2 pt-1">
+          <button onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          <button onClick={() => mutation.mutate()} className="btn-primary flex-1" disabled={mutation.isPending}>
+            {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Update Status Modal (Assistant/Admin) ────────────────────────────────────
 function UpdateStatusModal({
   resource, onClose,
 }: {
@@ -186,9 +244,9 @@ function UpdateStatusModal({
   return (
     <Modal open={!!resource} onClose={onClose} title="Update Resource Status" size="sm">
       <div className="space-y-4">
-        <div className="p-3 bg-slate-50 rounded-xl">
+        <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
           <p className="text-xs text-slate-500">Request for</p>
-          <p className="text-sm font-semibold text-slate-800">{resource.resource_name}</p>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{resource.resource_name}</p>
           <p className="text-xs text-slate-500 mt-0.5">{resource.system_host_name}{resource.lab_name ? ` · ${resource.lab_name}` : ''}</p>
         </div>
 
@@ -242,23 +300,37 @@ function UpdateStatusModal({
 }
 
 // ─── Resource Row ──────────────────────────────────────────────────────────────
-function ResourceRow({ resource, onUpdate }: { resource: ResourceRequest; onUpdate: (r: ResourceRequest) => void }) {
+function ResourceRow({
+  resource,
+  onUpdate,
+  onEdit,
+  onDelete,
+  canUpdateStatus,
+  canEditDelete,
+}: {
+  resource: ResourceRequest;
+  onUpdate: (r: ResourceRequest) => void;
+  onEdit: (r: ResourceRequest) => void;
+  onDelete: (r: ResourceRequest) => void;
+  canUpdateStatus: boolean;
+  canEditDelete: boolean;
+}) {
   return (
-    <tr className="hover:bg-slate-50 transition-colors">
+    <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
       <td className="px-4 py-3">
         <div>
-          <p className="text-sm font-medium text-slate-800">{resource.system_host_name}</p>
+          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{resource.system_host_name}</p>
           {resource.lab_name && <p className="text-xs text-slate-500">{resource.lab_name}</p>}
         </div>
       </td>
       <td className="px-4 py-3">
-          <p className="text-sm font-semibold text-slate-800">{resource.resource_name}</p>
+        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{resource.resource_name}</p>
       </td>
       <td className="px-4 py-3 max-w-xs">
-        <p className="text-sm text-slate-600 truncate">{resource.description}</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400 truncate">{resource.description}</p>
       </td>
       <td className="px-4 py-3">
-        <p className="text-sm text-slate-700">×{resource.quantity}</p>
+        <p className="text-sm text-slate-700 dark:text-slate-300">×{resource.quantity}</p>
         {resource.line_total != null && (
           <p className="text-xs text-slate-400">{resource.line_total.toFixed(2)}</p>
         )}
@@ -267,7 +339,7 @@ function ResourceRow({ resource, onUpdate }: { resource: ResourceRequest; onUpda
         <StatusBadge status={resource.status} />
       </td>
       <td className="px-4 py-3">
-          <div className="flex items-center gap-1 text-xs text-slate-500">
+        <div className="flex items-center gap-1 text-xs text-slate-500">
           <User className="w-3 h-3" />
           {resource.requested_by_username}
         </div>
@@ -275,11 +347,39 @@ function ResourceRow({ resource, onUpdate }: { resource: ResourceRequest; onUpda
           <Clock className="w-3 h-3" />
           {timeAgo(resource.requested_at)}
         </div>
+        {resource.provided?.provided_by_username && (
+          <div className="flex items-center gap-1 text-xs text-emerald-600 mt-0.5">
+            <Wrench className="w-3 h-3" />
+            {resource.provided.provided_by_username}
+          </div>
+        )}
       </td>
       <td className="px-4 py-3">
-        <button onClick={() => onUpdate(resource)} className="btn-secondary text-xs py-1 px-2">
-          Update
-        </button>
+        <div className="flex items-center gap-1.5">
+          {canUpdateStatus && (
+            <button onClick={() => onUpdate(resource)} className="btn-secondary text-xs py-1 px-2">
+              Update
+            </button>
+          )}
+          {canEditDelete && (
+            <>
+              <button
+                onClick={() => onEdit(resource)}
+                className="text-slate-400 hover:text-brand-600 p-1 rounded hover:bg-brand-50 dark:hover:bg-brand-900/20"
+                title="Edit"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => onDelete(resource)}
+                className="text-slate-400 hover:text-red-500 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20"
+                title="Delete"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
+        </div>
       </td>
     </tr>
   );
@@ -290,13 +390,22 @@ const STATUS_OPTIONS: Array<'all' | 'Pending' | 'Fulfilled' | 'Denied'> = ['all'
 const TIME_OPTIONS: Array<'all' | 'today' | 'week' | 'month'> = ['all', 'today', 'week', 'month'];
 
 export default function ResourcesPage() {
+  const user = useAuthStore(s => s.user);
+  const isAdmin = user?.role === 'Administrator';
+  const isIncharge = user?.role === 'Lab Incharge';
+  const isAssistant = user?.role === 'Lab Assistant';
+
   const [createOpen, setCreateOpen] = useState(false);
   const [updateResource, setUpdateResource] = useState<ResourceRequest | null>(null);
+  const [editResource, setEditResource] = useState<ResourceRequest | null>(null);
+  const [deleteResource, setDeleteResource] = useState<ResourceRequest | null>(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [time, setTime] = useState('all');
   const [sort, setSort] = useState('newest');
   const [page, setPage] = useState(1);
+
+  const qc = useQueryClient();
 
   const { data, isLoading, isError, refetch } = useQuery<PaginatedResponse<ResourceRequest>>({
     queryKey: ['resources', { search, status, time, sort, page }],
@@ -304,15 +413,30 @@ export default function ResourcesPage() {
     placeholderData: prev => prev,
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => resourcesApi.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['resources'] });
+      toast.success('Resource request deleted');
+      setDeleteResource(null);
+    },
+    onError: () => toast.error('Failed to delete resource request'),
+  });
+
+  const canUpdateStatus = isAdmin || isAssistant;
+  const canEditDelete = isIncharge;
+
   return (
     <div className="space-y-5 animate-fade-in">
       <PageHeader
         title="Resource Requests"
         description="Manage hardware and software resource requests for lab systems."
         actions={
-          <button onClick={() => setCreateOpen(true)} className="btn-primary">
-            <Plus className="w-4 h-4" /> New Request
-          </button>
+          !isAdmin ? (
+            <button onClick={() => setCreateOpen(true)} className="btn-primary">
+              <Plus className="w-4 h-4" /> New Request
+            </button>
+          ) : undefined
         }
       />
 
@@ -367,23 +491,31 @@ export default function ResourcesPage() {
           <>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
+                <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                   <tr>
-                    {['System', 'Resource', 'Description', 'Qty / Cost', 'Status', 'Requested By', ''].map(h => (
+                    {['System', 'Resource', 'Description', 'Qty / Cost', 'Status', 'Requested / Handled By', ''].map(h => (
                       <th key={h} className="px-4 py-3 table-header">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                   {data?.results.map(r => (
-                    <ResourceRow key={r.resource_id} resource={r} onUpdate={setUpdateResource} />
+                    <ResourceRow
+                      key={r.resource_id}
+                      resource={r}
+                      onUpdate={setUpdateResource}
+                      onEdit={setEditResource}
+                      onDelete={setDeleteResource}
+                      canUpdateStatus={canUpdateStatus}
+                      canEditDelete={canEditDelete && r.requested_by_username === user?.username}
+                    />
                   ))}
                 </tbody>
               </table>
             </div>
 
             {data && data.total_pages > 1 && (
-              <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between">
+              <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
                 <p className="text-xs text-slate-500">
                   {data.count} total · page {data.page} of {data.total_pages}
                 </p>
@@ -403,6 +535,29 @@ export default function ResourcesPage() {
 
       <CreateResourceModal open={createOpen} onClose={() => setCreateOpen(false)} />
       <UpdateStatusModal resource={updateResource} onClose={() => setUpdateResource(null)} />
+      <EditResourceModal resource={editResource} onClose={() => setEditResource(null)} />
+
+      {/* Delete Confirmation */}
+      {deleteResource && (
+        <Modal open onClose={() => setDeleteResource(null)} title="Delete Resource Request" size="sm">
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              Are you sure you want to delete this resource request for <strong>{deleteResource.resource_name}</strong>?
+              This action cannot be undone.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteResource(null)} className="btn-secondary flex-1">Cancel</button>
+              <button
+                onClick={() => deleteMutation.mutate(deleteResource.resource_id)}
+                disabled={deleteMutation.isPending}
+                className="btn-danger flex-1"
+              >
+                {deleteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

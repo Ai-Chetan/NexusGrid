@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -21,6 +21,7 @@ import toast from 'react-hot-toast';
 import NetworkFlowView from './NetworkFlowView';
 import type { NetworkFlowViewRef } from './NetworkFlowView';
 import QuickCreateModal from './QuickCreateModal';
+import LabAssignmentSection from './LabAssignmentsPanel';
 
 // ─── Icon / colour maps ────────────────────────────────────────────────────────
 const typeIcons: Record<string, React.ElementType> = {
@@ -571,6 +572,7 @@ export default function LayoutPage() {
   const user = useAuthStore(s => s.user);
   const isNoRole     = user?.role === 'No Roles';
   const isRestricted = user?.role === 'Lab Incharge' || user?.role === 'Lab Assistant';
+  const isAdmin      = user?.role === 'Administrator' || !!user?.is_superuser;
 
   // ─── Persist & restore layout position across page navigations ───────────────────
   const didRestoreRef = useRef(false);
@@ -990,6 +992,12 @@ export default function LayoutPage() {
           </span>
         )}
         {!isLoading && items.length > 0 && <StatsRow items={items} />}
+        {/* Inline lab assignment controls — admin only, room level */}
+        {isAdmin && !editMode && parentType === 'room' && roomLabName && (
+          <div className="ml-auto">
+            <LabAssignmentSection labName={roomLabName} />
+          </div>
+        )}
       </div>
 
       {/* ── Content ── */}

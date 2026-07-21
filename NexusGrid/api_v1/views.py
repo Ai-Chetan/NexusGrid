@@ -501,15 +501,27 @@ class LayoutItemsView(APIView):
         parent_id = request.GET.get('parent_id')
         parent_id = int(parent_id) if parent_id and parent_id.isdigit() else None
         qs = LayoutItem.objects.select_related('system', 'lab')
-        items = qs.filter(parent_id=parent_id) if parent_id else qs.filter(parent__isnull=True)
 
-        # Restrict non-admin users to only their assigned labs and related items
         user = request.user
         if user.role in ('Lab Incharge', 'Lab Assistant'):
-            allowed_ids = _get_restricted_item_ids(user)
-            if not allowed_ids:
+            # For restricted users at root level, show their assigned lab rooms
+            # directly instead of buildings — no navigation from building needed.
+            assigned_room_ids = list(
+                LabAssignment.get_active_labs_for_user(user)
+                .values_list('lab__layout_item_id', flat=True)
+            )
+            if not assigned_room_ids:
                 return Response([])
-            items = items.filter(id__in=allowed_ids)
+
+            if parent_id is None:
+                # Root level: show assigned lab rooms directly
+                items = qs.filter(id__in=assigned_room_ids)
+            else:
+                # Inside a lab: show children (devices) of that lab
+                allowed_ids = _get_restricted_item_ids(user)
+                items = qs.filter(parent_id=parent_id, id__in=allowed_ids)
+        else:
+            items = qs.filter(parent_id=parent_id) if parent_id else qs.filter(parent__isnull=True)
 
         return Response(LayoutItemSerializer(items, many=True, context=_layout_serializer_context()).data)
 
@@ -723,6 +735,9 @@ class FaultListView(APIView):
         return paginator.get_paginated_response(FaultReportSerializer(page, many=True).data)
 
     def post(self, request):
+        # Admins cannot report faults — only incharge/assistant/students can.
+        if request.user.role == 'Administrator':
+            return Response({'detail': 'Administrators cannot report faults.'}, status=403)
         ser = FaultReportCreateSerializer(data=request.data, context={'request': request})
         if not ser.is_valid():
             return Response(ser.errors, status=400)
@@ -757,10 +772,29 @@ class FaultDetailView(APIView):
         return Response(FaultReportSerializer(fault).data)
 
     def patch(self, request, pk):
-        # Only admins and assistants (fault handlers) can update fault status.
-        if request.user.role not in ('Administrator', 'Lab Assistant'):
-            return Response({'detail': 'You do not have permission to update fault status.'}, status=403)
         fault = get_object_or_404(FaultReport, pk=pk)
+        user = request.user
+
+        # Incharge can only edit their own fault's description/type (not status).
+        if user.role == 'Lab Incharge':
+            if fault.reported_by_id != user.id:
+                return Response({'detail': 'You can only edit your own fault reports.'}, status=403)
+            update_fields = []
+            if 'description' in request.data:
+                fault.description = request.data['description']
+                update_fields.append('description')
+            if 'fault_type' in request.data:
+                fault.fault_type = request.data['fault_type']
+                update_fields.append('fault_type')
+            if update_fields:
+                fault.save(update_fields=update_fields)
+            fault.refresh_from_db()
+            return Response(FaultReportSerializer(fault).data)
+
+        # Only admins and assistants (fault handlers) can update fault status.
+        if user.role not in ('Administrator', 'Lab Assistant'):
+            return Response({'detail': 'You do not have permission to update fault status.'}, status=403)
+
         old_status = fault.status
         ser = FaultStatusUpdateSerializer(data=request.data)
         if not ser.is_valid():
@@ -769,9 +803,18 @@ class FaultDetailView(APIView):
         resolution_summary = ser.validated_data.get('resolution_summary', '')
         fault.status = new_status
         update_fields = ['status']
+        # Assistant sets risk_factor when updating status
+        if 'risk_factor' in request.data:
+            try:
+                rf = int(request.data['risk_factor'])
+                if 1 <= rf <= 5:
+                    fault.risk_factor = rf
+                    update_fields.append('risk_factor')
+            except (TypeError, ValueError):
+                pass
         if new_status == 'resolved' and resolution_summary:
             fault.resolution_summary = resolution_summary
-            fault.resolved_by = request.user
+            fault.resolved_by = user
             fault.resolved_at = timezone.now()
             update_fields += ['resolution_summary', 'resolved_by', 'resolved_at']
         fault.save(update_fields=update_fields)
@@ -791,10 +834,23 @@ class FaultDetailView(APIView):
                 related_to='fault_status_update',
                 related_id=fault.fault_id,
                 target_url='/app/faults',
-                created_by_id=request.user.id,
+                created_by_id=user.id,
             )
 
         return Response(FaultReportSerializer(fault).data)
+
+    def delete(self, request, pk):
+        """Incharge can delete their own fault reports. Admin can delete any."""
+        fault = get_object_or_404(FaultReport, pk=pk)
+        user = request.user
+        if user.role == 'Administrator':
+            pass
+        elif user.role == 'Lab Incharge' and fault.reported_by_id == user.id:
+            pass
+        else:
+            return Response({'detail': 'You can only delete your own fault reports.'}, status=403)
+        fault.delete()
+        return Response(status=204)
 
 
 # ─── Resources ───────────────────────────────────────────────────────────────
@@ -848,6 +904,9 @@ class ResourceListView(APIView):
         return paginator.get_paginated_response(ResourceRequestSerializer(page, many=True).data)
 
     def post(self, request):
+        # Admins cannot create resource requests.
+        if request.user.role == 'Administrator':
+            return Response({'detail': 'Administrators cannot create resource requests.'}, status=403)
         ser = ResourceCreateSerializer(data=request.data, context={'request': request})
         if not ser.is_valid():
             return Response(ser.errors, status=400)
@@ -872,10 +931,32 @@ class ResourceDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, pk):
-        # Admin takes final decisions; assistants may fulfil/modify (admins are notified to validate).
-        if request.user.role not in ('Administrator', 'Lab Assistant'):
-            return Response({'detail': 'You do not have permission to update resource requests.'}, status=403)
         resource = get_object_or_404(ResourceRequest, pk=pk)
+        user = request.user
+
+        # Requester (incharge) can only edit their own request's description/resource_name (not status).
+        if user.role == 'Lab Incharge':
+            if resource.requested_by_id != user.id:
+                return Response({'detail': 'You can only edit your own resource requests.'}, status=403)
+            update_fields = []
+            if 'description' in request.data:
+                resource.description = request.data['description']
+                update_fields.append('description')
+            if 'resource_name' in request.data:
+                resource.resource_name = request.data['resource_name']
+                update_fields.append('resource_name')
+            if 'quantity' in request.data:
+                resource.quantity = request.data['quantity']
+                update_fields.append('quantity')
+            if update_fields:
+                resource.save(update_fields=update_fields)
+            resource.refresh_from_db()
+            return Response(ResourceRequestSerializer(resource).data)
+
+        # Admin takes final decisions; assistants may fulfil/modify (admins are notified to validate).
+        if user.role not in ('Administrator', 'Lab Assistant'):
+            return Response({'detail': 'You do not have permission to update resource requests.'}, status=403)
+
         old_status = resource.status
         ser = ResourceStatusUpdateSerializer(data=request.data)
         if not ser.is_valid():
@@ -892,7 +973,7 @@ class ResourceDetailView(APIView):
             update_fields.append('quantity')
         if new_status == 'Fulfilled' and provision_summary:
             resource.provision_summary = provision_summary
-            resource.provided_by = request.user
+            resource.provided_by = user
             resource.provided_at = timezone.now()
             update_fields += ['provision_summary', 'provided_by', 'provided_at']
         resource.save(update_fields=update_fields)
@@ -913,10 +994,23 @@ class ResourceDetailView(APIView):
                 related_to='resource_status_update',
                 related_id=resource.resource_id,
                 target_url='/app/resources',
-                created_by_id=request.user.id,
+                created_by_id=user.id,
             )
 
         return Response(ResourceRequestSerializer(resource).data)
+
+    def delete(self, request, pk):
+        """Incharge can delete their own resource requests. Admin can delete any."""
+        resource = get_object_or_404(ResourceRequest, pk=pk)
+        user = request.user
+        if user.role == 'Administrator':
+            pass
+        elif user.role == 'Lab Incharge' and resource.requested_by_id == user.id:
+            pass
+        else:
+            return Response({'detail': 'You can only delete your own resource requests.'}, status=403)
+        resource.delete()
+        return Response(status=204)
 
 
 # ─── Reports ─────────────────────────────────────────────────────────────────
@@ -1362,22 +1456,37 @@ class MonitoringView(APIView):
             return Response({'detail': 'Monitoring is not available for your role.'}, status=403)
 
         from django.core.cache import cache
-        cached = cache.get(MONITORING_CACHE_KEY)
-        if cached is not None:
-            return Response(cached)
+        is_assistant = request.user.role == 'Lab Assistant'
+        cache_key = MONITORING_CACHE_KEY if not is_assistant else None
+        if cache_key:
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return Response(cached)
 
         systems = [
             row.latest_info
             for row in SystemCurrent.objects.select_related('latest_info').order_by('hostname')
             if row.latest_info_id
         ]
+
+        # Lab Assistants only see devices in their assigned labs.
+        if is_assistant:
+            assigned_hostnames = {
+                (h or '').strip().lower()
+                for h in System.objects
+                .filter(lab_id__in=_assigned_lab_ids(request.user))
+                .values_list('host_name', flat=True)
+            }
+            systems = [s for s in systems if (s.hostname or '').strip().lower() in assigned_hostnames]
+
         for info in systems:
             create_system_alert_if_needed(
                 hostname=info.hostname,
                 memory_usage_percent=info.memory_usage_percent,
             )
         data = {'systems': SystemInfoSerializer(systems, many=True).data}
-        cache.set(MONITORING_CACHE_KEY, data, MONITORING_CACHE_TTL)
+        if cache_key:
+            cache.set(cache_key, data, MONITORING_CACHE_TTL)
         return Response(data)
 
 
@@ -1586,6 +1695,21 @@ class UserDetailView(APIView):
         data = UserSerializer(user).data
         data['revoked_assignments'] = revoked_count
         return Response(data)
+
+    def delete(self, request, pk):
+        """Admin deletes a user account."""
+        if request.user.role != 'Administrator':
+            return Response({'detail': 'Admin only.'}, status=403)
+        user = get_object_or_404(User, pk=pk)
+        if user.pk == request.user.pk:
+            return Response({'detail': 'You cannot delete your own account.'}, status=400)
+        username = user.username
+        # Revoke all lab assignments
+        LabAssignment.objects.filter(user=user).delete()
+        user.delete()
+        from django.core.cache import cache
+        cache.delete(USER_LIST_CACHE_KEY)
+        return Response({'detail': f'User "{username}" deleted.'}, status=status.HTTP_204_NO_CONTENT)
 
 
 class SystemsListView(APIView):
@@ -1808,56 +1932,35 @@ class DeleteAccountView(APIView):
         return Response({'detail': 'Account permanently deleted.'}, status=status.HTTP_204_NO_CONTENT)
 
 
-# ─── Profile / OTP ────────────────────────────────────────────────────────────
+# ─── Profile (password-validated, no OTP) ─────────────────────────────────────
 
-_PROFILE_OTP_SESSION_KEY = 'profile_otp_data'
-
-def _generate_profile_otp():
-    import random
-    return f"{random.randint(100000, 999999):06d}"
-
-
-def _send_profile_otp_email(to_email: str, otp: str, action: str):
-    from django.core.mail import send_mail
-    action_labels = {
-        'change_username': 'change your username',
-        'change_email': 'change your email address',
-        'change_password': 'change your password',
-    }
-    label = action_labels.get(action, 'update your profile')
-    subject = 'NexusGrid — Profile Update OTP'
-    message = (
-        f"Your one-time password (OTP) to {label} is:\n\n"
-        f"    {otp}\n\n"
-        f"This code expires in 5 minutes. Do not share it with anyone.\n\n"
-        f"If you did not request this, please ignore this email."
-    )
-    send_mail(subject, message, None, [to_email], fail_silently=False)
-
-
-class ProfileRequestOTPView(APIView):
+class ProfileUpdateView(APIView):
+    """Update profile fields after verifying the user's current password."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        from datetime import datetime, timedelta
         from django.core.validators import validate_email
         from django.core.exceptions import ValidationError as DjangoValidationError
 
+        user = request.user
+        current_password = request.data.get('current_password', '')
         action = request.data.get('action', '').strip()
         new_value = request.data.get('new_value', '').strip()
 
+        # Verify current password
+        if not user.check_password(current_password):
+            return Response({'current_password': 'Current password is incorrect.'}, status=400)
+
         valid_actions = ('change_username', 'change_email', 'change_password')
         if action not in valid_actions:
-            return Response({'detail': 'Invalid action.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Invalid action.'}, status=400)
 
-        user = request.user
-
-        # Validate the new value before sending OTP
         if action == 'change_username':
             if not new_value or len(new_value) < 3:
                 return Response({'new_value': 'Username must be at least 3 characters.'}, status=400)
             if User.objects.filter(username__iexact=new_value).exclude(pk=user.pk).exists():
                 return Response({'new_value': 'This username is already taken.'}, status=400)
+            user.username = new_value
 
         elif action == 'change_email':
             if not new_value:
@@ -1868,78 +1971,14 @@ class ProfileRequestOTPView(APIView):
                 return Response({'new_value': 'Enter a valid email address.'}, status=400)
             if User.objects.filter(email__iexact=new_value).exclude(pk=user.pk).exists():
                 return Response({'new_value': 'An account with this email already exists.'}, status=400)
+            user.email = new_value.lower()
 
         elif action == 'change_password':
             if not new_value or len(new_value) < 8:
                 return Response({'new_value': 'Password must be at least 8 characters.'}, status=400)
-
-        otp = _generate_profile_otp()
-        expiry = (datetime.now() + timedelta(minutes=5)).timestamp()
-
-        request.session[_PROFILE_OTP_SESSION_KEY] = {
-            'otp': otp,
-            'action': action,
-            'new_value': new_value,
-            'expires_at': expiry,
-            'attempts': 0,
-        }
-        request.session.modified = True
-
-        try:
-            _send_profile_otp_email(user.email, otp, action)
-        except Exception:
-            del request.session[_PROFILE_OTP_SESSION_KEY]
-            return Response(
-                {'detail': 'Failed to send OTP email. Please try again.'},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-
-        return Response({'detail': 'OTP sent to your registered email address.'})
-
-
-class ProfileVerifyOTPView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        from datetime import datetime
-
-        otp_data = request.session.get(_PROFILE_OTP_SESSION_KEY)
-        if not otp_data:
-            return Response({'detail': 'No pending OTP. Please request a new one.'}, status=400)
-
-        # Check expiry
-        if datetime.now().timestamp() > otp_data['expires_at']:
-            del request.session[_PROFILE_OTP_SESSION_KEY]
-            return Response({'detail': 'OTP has expired. Please request a new one.'}, status=400)
-
-        # Limit attempts
-        attempts = otp_data.get('attempts', 0)
-        if attempts >= 5:
-            del request.session[_PROFILE_OTP_SESSION_KEY]
-            return Response({'detail': 'Too many failed attempts. Please request a new OTP.'}, status=400)
-
-        submitted_otp = request.data.get('otp', '').strip()
-        if submitted_otp != otp_data['otp']:
-            otp_data['attempts'] = attempts + 1
-            request.session[_PROFILE_OTP_SESSION_KEY] = otp_data
-            request.session.modified = True
-            remaining = 5 - otp_data['attempts']
-            return Response({'detail': f'Incorrect OTP. {remaining} attempt(s) remaining.'}, status=400)
-
-        # OTP is correct — apply the change
-        user = request.user
-        action = otp_data['action']
-        new_value = otp_data['new_value']
-
-        if action == 'change_username':
-            user.username = new_value
-        elif action == 'change_email':
-            user.email = new_value.lower()
-        elif action == 'change_password':
             user.set_password(new_value)
 
         user.save()
-        del request.session[_PROFILE_OTP_SESSION_KEY]
 
         # Re-login to refresh session after password change
         if action == 'change_password':
