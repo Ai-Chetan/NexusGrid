@@ -43,18 +43,27 @@ def system_status_api(request):
             'cpu_min_freq': info.cpu_min_freq,
             'cpu_current_freq': info.cpu_current_freq,
             'cpu_usage': info.cpu_usage,
+            'cpu_load_avg': info.cpu_load_avg,
             'memory_total': info.memory_total,
             'memory_available': info.memory_available,
             'memory_used': info.memory_used,
             'memory_usage_percent': info.memory_usage_percent,
+            'swap_total': info.swap_total,
+            'swap_used': info.swap_used,
+            'swap_usage_percent': info.swap_usage_percent,
             'disk_total': info.disk_total,
             'disk_used': info.disk_used,
             'disk_free': info.disk_free,
             'disk_usage_percent': info.disk_usage_percent,
+            'disk_read_bytes': info.disk_read_bytes,
+            'disk_write_bytes': info.disk_write_bytes,
             'bytes_sent': info.bytes_sent,
             'bytes_received': info.bytes_received,
+            'top_processes': info.top_processes,
             'users_count': info.users_count,
             'logged_in_users': info.logged_in_users,
+            'gpu_available': info.gpu_available,
+            'gpu_stats': info.gpu_stats,
             'timestamp': info.timestamp.isoformat(),
         }
         for info in infos
@@ -68,6 +77,35 @@ def ingest_system_info(request):
     """Agent endpoint: receives hardware metrics POSTed by a monitored machine."""
     try:
         data = json.loads(request.body)
+
+        def as_int(value):
+            try:
+                if value in (None, ''):
+                    return None
+                return int(value)
+            except (TypeError, ValueError):
+                return None
+
+        def as_float(value):
+            try:
+                if value in (None, ''):
+                    return None
+                return float(value)
+            except (TypeError, ValueError):
+                return None
+
+        def as_bool(value):
+            if isinstance(value, bool):
+                return value
+            if value in (None, ''):
+                return None
+            text = str(value).strip().lower()
+            if text in ('1', 'true', 'yes', 'y', 'on'):
+                return True
+            if text in ('0', 'false', 'no', 'n', 'off'):
+                return False
+            return None
+
         hostname = data.get('hostname', '').strip()
         if not hostname:
             return JsonResponse({'error': 'hostname is required'}, status=400)
@@ -81,24 +119,33 @@ def ingest_system_info(request):
             machine=data.get('machine'),
             processor=data.get('processor'),
             architecture=data.get('architecture'),
-            cpu_physical_cores=data.get('cpu_physical_cores'),
-            cpu_total_cores=data.get('cpu_total_cores'),
-            cpu_max_freq=data.get('cpu_max_freq'),
-            cpu_min_freq=data.get('cpu_min_freq'),
-            cpu_current_freq=data.get('cpu_current_freq'),
-            cpu_usage=data.get('cpu_usage'),
-            memory_total=data.get('memory_total'),
-            memory_available=data.get('memory_available'),
-            memory_used=data.get('memory_used'),
-            memory_usage_percent=data.get('memory_usage_percent'),
-            disk_total=data.get('disk_total'),
-            disk_used=data.get('disk_used'),
-            disk_free=data.get('disk_free'),
-            disk_usage_percent=data.get('disk_usage_percent'),
-            bytes_sent=data.get('bytes_sent'),
-            bytes_received=data.get('bytes_received'),
-            users_count=data.get('users_count'),
+            cpu_physical_cores=as_int(data.get('cpu_physical_cores')),
+            cpu_total_cores=as_int(data.get('cpu_total_cores')),
+            cpu_max_freq=as_float(data.get('cpu_max_freq')),
+            cpu_min_freq=as_float(data.get('cpu_min_freq')),
+            cpu_current_freq=as_float(data.get('cpu_current_freq')),
+            cpu_usage=as_float(data.get('cpu_usage')),
+            cpu_load_avg=data.get('cpu_load_avg'),
+            memory_total=as_float(data.get('memory_total')),
+            memory_available=as_float(data.get('memory_available')),
+            memory_used=as_float(data.get('memory_used')),
+            memory_usage_percent=as_float(data.get('memory_usage_percent')),
+            swap_total=as_float(data.get('swap_total')),
+            swap_used=as_float(data.get('swap_used')),
+            swap_usage_percent=as_float(data.get('swap_usage_percent')),
+            disk_total=as_float(data.get('disk_total')),
+            disk_used=as_float(data.get('disk_used')),
+            disk_free=as_float(data.get('disk_free')),
+            disk_usage_percent=as_float(data.get('disk_usage_percent')),
+            disk_read_bytes=as_int(data.get('disk_read_bytes')),
+            disk_write_bytes=as_int(data.get('disk_write_bytes')),
+            bytes_sent=as_int(data.get('bytes_sent')),
+            bytes_received=as_int(data.get('bytes_received')),
+            top_processes=data.get('top_processes'),
+            users_count=as_int(data.get('users_count')),
             logged_in_users=data.get('logged_in_users'),
+            gpu_available=as_bool(data.get('gpu_available')),
+            gpu_stats=data.get('gpu_stats'),
         )
 
         SystemCurrent.objects.update_or_create(

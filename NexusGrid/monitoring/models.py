@@ -19,26 +19,35 @@ class SystemInfo(models.Model):
     cpu_min_freq = models.FloatField(null=True, blank=True, help_text="MHz")
     cpu_current_freq = models.FloatField(null=True, blank=True, help_text="MHz")
     cpu_usage = models.FloatField(null=True, blank=True, help_text="Percentage 0-100")
+    cpu_load_avg = models.JSONField(null=True, blank=True, help_text="System load average values")
     
     # Memory Information
     memory_total = models.FloatField(null=True, blank=True, help_text="GB")
     memory_available = models.FloatField(null=True, blank=True, help_text="GB")
     memory_used = models.FloatField(null=True, blank=True, help_text="GB")
     memory_usage_percent = models.FloatField(null=True, blank=True, help_text="Percentage 0-100")
+    swap_total = models.FloatField(null=True, blank=True, help_text="GB")
+    swap_used = models.FloatField(null=True, blank=True, help_text="GB")
+    swap_usage_percent = models.FloatField(null=True, blank=True, help_text="Percentage 0-100")
     
     # Disk Information
     disk_total = models.FloatField(null=True, blank=True, help_text="GB")
     disk_used = models.FloatField(null=True, blank=True, help_text="GB")
     disk_free = models.FloatField(null=True, blank=True, help_text="GB")
     disk_usage_percent = models.FloatField(null=True, blank=True, help_text="Percentage 0-100")
+    disk_read_bytes = models.BigIntegerField(null=True, blank=True)
+    disk_write_bytes = models.BigIntegerField(null=True, blank=True)
     
     # Network Information
     bytes_sent = models.BigIntegerField(null=True, blank=True)
     bytes_received = models.BigIntegerField(null=True, blank=True)
+    top_processes = models.JSONField(null=True, blank=True)
     
     # User Information
     users_count = models.IntegerField(null=True, blank=True)
     logged_in_users = models.TextField(null=True, blank=True)
+    gpu_available = models.BooleanField(null=True, blank=True)
+    gpu_stats = models.JSONField(null=True, blank=True)
     
     # Timestamp
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
