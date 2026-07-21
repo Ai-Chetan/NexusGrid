@@ -380,8 +380,11 @@ class SystemInfoSerializer(serializers.ModelSerializer):
             'id',
             'hostname', 'ip_address', 'system', 'version', 'release', 'machine',
             'processor', 'architecture', 'cpu_physical_cores', 'cpu_total_cores',
-            'cpu_max_freq', 'cpu_min_freq', 'cpu_current_freq', 'cpu_usage',
+            'cpu_max_freq', 'cpu_min_freq', 'cpu_current_freq', 'cpu_usage', 'cpu_load_avg',
             'memory_total', 'memory_available', 'memory_used', 'memory_usage_percent',
+            'swap_total', 'swap_used', 'swap_usage_percent',
             'disk_total', 'disk_used', 'disk_free', 'disk_usage_percent',
-            'bytes_sent', 'bytes_received', 'users_count', 'logged_in_users', 'timestamp'
+            'disk_read_bytes', 'disk_write_bytes',
+            'bytes_sent', 'bytes_received', 'top_processes',
+            'users_count', 'logged_in_users', 'gpu_available', 'gpu_stats', 'timestamp'
         ]
