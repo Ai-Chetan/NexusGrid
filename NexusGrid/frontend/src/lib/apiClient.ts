@@ -132,7 +132,18 @@ export const reportsApi = {
     apiClient.get('/reports/details/', { params }),
 };
 
+// ─── Admin oversight & budgeting ────────────────────────────────────────────────
+export const adminApi = {
+  staffActivity: (params?: { start?: string; end?: string }) =>
+    apiClient.get('/admin/staff-activity/', { params }),
+  taskSheet: (params: { user_id: number; start: string; end: string }) =>
+    apiClient.get('/admin/task-sheet/', { params }),
+  budgetSummary: (params?: { start?: string; end?: string }) =>
+    apiClient.get('/admin/budget-summary/', { params }),
+};
+
 // ─── Labs ─────────────────────────────────────────────────────────────────────
+
 export const labsApi = {
   list: () => apiClient.get('/layout/labs/'),
 };
@@ -145,6 +156,8 @@ export const monitoringApi = {
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const usersApi = {
   list: (params?: { role?: string }) => apiClient.get('/users/', { params }),
+  create: (data: { username: string; email: string; password: string; role: string }) =>
+    apiClient.post('/users/create/', data),
   update: (id: number, data: Record<string, unknown>) =>
     apiClient.patch(`/users/${id}/`, data),
   privilegesStats: () => apiClient.get('/privileges/stats/'),

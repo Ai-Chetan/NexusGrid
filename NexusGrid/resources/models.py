@@ -14,6 +14,9 @@ class ResourceRequest(models.Model):
     requested_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='resource_requests')
     resource_name = models.TextField()
     description = models.TextField()
+    quantity = models.PositiveIntegerField(default=1)
+    # Unit cost in the local currency; null until admin sets it during provisioning.
+    cost = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='Pending')
     requested_at = models.DateTimeField(auto_now_add=True)
 

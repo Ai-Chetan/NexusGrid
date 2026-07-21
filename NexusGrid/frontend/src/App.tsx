@@ -14,7 +14,6 @@ import MonitoringPage from '@/pages/monitoring/MonitoringPage';
 import SystemDetailPage from '@/pages/system/SystemDetailPage';
 import UsersPage from '@/pages/users/UsersPage';
 import ProfilePage from '@/pages/profile/ProfilePage';
-import AdminControlsPage from '@/pages/admin/AdminControlsPage';
 import LoadingScreen from '@/components/common/LoadingScreen';
 
 import type { User } from '@/types';
@@ -68,11 +67,13 @@ export default function App() {
           <Route path="layout/:id" element={<LayoutPage />} />
           <Route path="faults" element={<FaultsPage />} />
           <Route path="resources" element={<ResourcesPage />} />
-          <Route path="reports" element={<ReportsPage />} />
+          <Route path="reports" element={<RoleRoute allowedRoles={['Administrator', 'Lab Assistant']}><ReportsPage /></RoleRoute>} />
           <Route path="monitoring" element={<RoleRoute allowedRoles={['Administrator', 'Lab Assistant']}><MonitoringPage /></RoleRoute>} />
           <Route path="system/:itemId" element={<SystemDetailPage />} />
           <Route path="users" element={<RoleRoute allowedRoles={['Administrator']}><UsersPage /></RoleRoute>} />
-          <Route path="admin-controls" element={<RoleRoute allowedRoles={['Administrator']}><AdminControlsPage /></RoleRoute>} />
+          {/* Admin Controls removed (broadcast lives in notifications); oversight merged into Reports */}
+          <Route path="admin-controls" element={<Navigate to="/app/dashboard" replace />} />
+          <Route path="admin-oversight" element={<Navigate to="/app/reports" replace />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 
@@ -85,6 +86,7 @@ export default function App() {
         <Route path="/monitoring" element={<Navigate to="/app/monitoring" replace />} />
         <Route path="/users" element={<Navigate to="/app/users" replace />} />
         <Route path="/admin-controls" element={<Navigate to="/app/admin-controls" replace />} />
+        <Route path="/admin-oversight" element={<Navigate to="/app/admin-oversight" replace />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

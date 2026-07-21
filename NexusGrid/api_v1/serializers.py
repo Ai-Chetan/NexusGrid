@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.utils import timezone
 from django.db.models import Q
 from login_manager.models import User
-from system_layout.models import LayoutItem, Lab, System, LabAssignment, PrivilegesConfig
+from system_layout.models import LayoutItem, Lab, System, LabAssignment, PrivilegesConfig, SYSTEM_TYPES
 from faults.models import FaultReport
 from resources.models import ResourceRequest
 from monitoring.models import SystemInfo
@@ -68,8 +68,7 @@ class LayoutItemSerializer(serializers.ModelSerializer):
         ]
 
     def get_status(self, obj):
-        system_types = ['computer', 'server', 'network_switch', 'router', 'printer', 'ups', 'rack']
-        if obj.item_type in system_types:
+        if obj.item_type in SYSTEM_TYPES:
             system = getattr(obj, 'system', None)
             if system is None:
                 return None
@@ -89,8 +88,7 @@ class LayoutItemSerializer(serializers.ModelSerializer):
         return obj.parent.name if obj.parent else None
 
     def get_monitoring_status(self, obj):
-        system_types = ['computer', 'server', 'network_switch', 'router', 'printer', 'ups', 'rack']
-        if obj.item_type not in system_types:
+        if obj.item_type not in SYSTEM_TYPES:
             return None
         system = getattr(obj, 'system', None)
         if system is None or not system.host_name:
@@ -99,8 +97,7 @@ class LayoutItemSerializer(serializers.ModelSerializer):
         return 'online' if system.host_name.lower() in monitored else None
 
     def get_alert_status(self, obj):
-        system_types = ['computer', 'server', 'network_switch', 'router', 'printer', 'ups', 'rack']
-        if obj.item_type not in system_types:
+        if obj.item_type not in SYSTEM_TYPES:
             return None
 
         active_fault_ids = self.context.get('active_fault_layout_ids', set())
@@ -324,14 +321,22 @@ class ResourceRequestSerializer(serializers.ModelSerializer):
     # Nest provision data to keep frontend response shape identical
     provided = serializers.SerializerMethodField()
 
+    line_total = serializers.SerializerMethodField()
+
     class Meta:
         model = ResourceRequest
         fields = [
             'resource_id', 'system_name', 'system_host_name', 'lab_name',
             'requested_by', 'requested_by_username',
-            'resource_name', 'description', 'status', 'requested_at', 'provided',
+            'resource_name', 'description', 'quantity', 'cost', 'line_total',
+            'status', 'requested_at', 'provided',
         ]
         read_only_fields = ['resource_id', 'requested_at', 'requested_by']
+
+    def get_line_total(self, obj):
+        if obj.cost is None:
+            return None
+        return float(obj.cost) * obj.quantity
 
     def get_provided(self, obj):
         if obj.status == 'Fulfilled' and obj.provided_at:
@@ -348,7 +353,7 @@ class ResourceCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ResourceRequest
-        fields = ['system_id', 'resource_name', 'description']
+        fields = ['system_id', 'resource_name', 'description', 'quantity']
 
     def create(self, validated_data):
         system = System.objects.get(id=validated_data.pop('system_id'))
@@ -362,6 +367,8 @@ class ResourceCreateSerializer(serializers.ModelSerializer):
 class ResourceStatusUpdateSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=ResourceRequest.STATUS_CHOICES)
     provision_summary = serializers.CharField(required=False, allow_blank=True)
+    cost = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True, min_value=0)
+    quantity = serializers.IntegerField(required=False, min_value=1)
 
 
 # ─── Monitoring ──────────────────────────────────────────────────────────────

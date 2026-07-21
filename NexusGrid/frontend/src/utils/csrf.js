@@ -15,9 +15,8 @@ export const fetchCSRFToken = async () => {
 
     csrfToken = data.csrfToken ?? null;
 
-    console.log('NEW CSRF TOKEN:', csrfToken);
-
     return csrfToken;
+
 };
 
 export const setCSRFToken = (token) => {

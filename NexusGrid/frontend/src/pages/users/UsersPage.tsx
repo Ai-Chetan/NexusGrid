@@ -670,9 +670,103 @@ function RoleCell({ user }: { user: User }) {
   );
 }
 
+function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState<string>('No Roles');
+  const [created, setCreated] = useState<{ username: string; email: string; password: string; role: string } | null>(null);
+
+  const createMut = useMutation({
+    mutationFn: () => usersApi.create({ username, email, password, role }),
+    onSuccess: () => {
+      setCreated({ username, email, password, role });
+      qc.invalidateQueries({ queryKey: ['users'] });
+      qc.invalidateQueries({ queryKey: ['privileges-stats'] });
+      toast.success('Account created.');
+    },
+    onError: (err: unknown) => {
+      const data = (err as { response?: { data?: Record<string, string> } })?.response?.data;
+      const msg = data ? Object.values(data)[0] : 'Failed to create account.';
+      toast.error(String(msg));
+    },
+  });
+
+  const reset = () => {
+    setUsername(''); setEmail(''); setPassword(''); setRole('No Roles'); setCreated(null);
+  };
+
+  const handleClose = () => { reset(); onClose(); };
+
+  const credentialsText = created
+    ? `NexusGrid Account\nUsername: ${created.username}\nEmail: ${created.email}\nPassword: ${created.password}\nRole: ${created.role}`
+    : '';
+
+  return (
+    <Modal open={open} onClose={handleClose} title={created ? 'Account Created' : 'Create Account'}>
+      {created ? (
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Share these credentials with the user securely. The password will not be shown again.
+          </p>
+          <pre className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 whitespace-pre-wrap">
+            {credentialsText}
+          </pre>
+          <div className="flex justify-end gap-2">
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                navigator.clipboard.writeText(credentialsText);
+                toast.success('Credentials copied to clipboard.');
+              }}
+            >
+              Copy Credentials
+            </button>
+            <button className="btn-primary" onClick={handleClose}>Done</button>
+          </div>
+        </div>
+      ) : (
+        <form
+          className="space-y-3"
+          onSubmit={(e) => { e.preventDefault(); createMut.mutate(); }}
+        >
+          <div>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Username</label>
+            <input className="input mt-1" value={username} onChange={(e) => setUsername(e.target.value)} minLength={3} required />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Email</label>
+            <input type="email" className="input mt-1" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Password</label>
+            <input type="text" className="input mt-1" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required
+                   placeholder="Min 8 characters" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Role</label>
+            <select className="input mt-1" value={role} onChange={(e) => setRole(e.target.value)}>
+              {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" className="btn-secondary" onClick={handleClose}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={createMut.isPending}>
+              {createMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
+              Create
+            </button>
+          </div>
+        </form>
+      )}
+    </Modal>
+  );
+}
+
 function UsersTab() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [createOpen, setCreateOpen] = useState(false);
 
   const { data: users = [], isLoading, isError, refetch } = useQuery<User[]>({
     queryKey: ['users'],
@@ -707,8 +801,13 @@ function UsersTab() {
         </select>
 
         <button onClick={() => refetch()} className="btn-secondary px-3"><RefreshCw className="w-4 h-4" /></button>
+        <button onClick={() => setCreateOpen(true)} className="btn-primary">
+          <PlusCircle className="w-4 h-4" /> Create Account
+        </button>
         <span className="text-xs text-slate-500 ml-auto">{filtered.length} users</span>
       </div>
+
+      <CreateUserModal open={createOpen} onClose={() => setCreateOpen(false)} />
 
       <div className="card overflow-hidden">
         {isError ? (

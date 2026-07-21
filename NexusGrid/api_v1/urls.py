@@ -45,12 +45,19 @@ urlpatterns = [
     path('reports/', views.ReportsView.as_view(), name='api-reports'),
     path('reports/details/', views.ReportsDetailView.as_view(), name='api-reports-details'),
 
+    # Admin oversight & budgeting
+    path('admin/staff-activity/', views.AdminStaffActivityView.as_view(), name='api-admin-staff-activity'),
+    path('admin/task-sheet/', views.AdminTaskSheetView.as_view(), name='api-admin-task-sheet'),
+    path('admin/budget-summary/', views.AdminBudgetSummaryView.as_view(), name='api-admin-budget-summary'),
+
+
     # Monitoring
     path('monitoring/', views.MonitoringView.as_view(), name='api-monitoring'),
     path('monitoring/history/', views.MonitoringHistoryView.as_view(), name='api-monitoring-history'),
 
     # Users / Privileges
     path('users/', views.UserListView.as_view(), name='api-users-list'),
+    path('users/create/', views.AdminCreateUserView.as_view(), name='api-users-create'),
     path('users/<int:pk>/', views.UserDetailView.as_view(), name='api-user-detail'),
     path('privileges/stats/', views.UserPrivilegesStatsView.as_view(), name='api-privileges-stats'),
     path('privileges/assignments/', views.LabAssignmentListView.as_view(), name='api-lab-assignments'),

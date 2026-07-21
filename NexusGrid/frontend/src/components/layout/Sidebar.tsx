@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   LayoutDashboard, Map, AlertTriangle, Package,
-  BarChart3, Activity, Users, LogOut, ChevronRight, ScanLine, Shield,
+  BarChart3, Activity, Users, LogOut, ChevronRight, ScanLine,
 } from 'lucide-react';
 import { layoutApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -19,10 +19,9 @@ const navItems: { to: string; label: string; icon: React.ElementType; allowedRol
   { to: '/app/layout',     label: 'System Layout',   icon: Map },
   { to: '/app/faults',     label: 'Fault Reports',   icon: AlertTriangle },
   { to: '/app/resources',  label: 'Resources',       icon: Package },
-  { to: '/app/reports',    label: 'Reports',         icon: BarChart3 },
+  { to: '/app/reports',    label: 'Reports',         icon: BarChart3,   allowedRoles: ['Administrator', 'Lab Assistant'] },
   { to: '/app/monitoring', label: 'Monitoring',      icon: Activity,    allowedRoles: ['Administrator', 'Lab Assistant'] },
   { to: '/app/users',      label: 'User Privileges', icon: Users,        allowedRoles: ['Administrator'] },
-  { to: '/app/admin-controls', label: 'Admin Controls', icon: Shield,    allowedRoles: ['Administrator'] },
 ];
 
 interface SidebarProps {
@@ -42,9 +41,12 @@ export default function Sidebar({ onClose }: SidebarProps) {
     enabled: !isNoRole,
   });
 
-  const visibleNavItems = navItems.filter(({ allowedRoles }) =>
-    !allowedRoles || (user?.role && allowedRoles.includes(user.role))
-  );
+  // No-Role users only see the Dashboard (which shows a "contact admin" notice).
+  const visibleNavItems = isNoRole
+    ? navItems.filter(({ to }) => to === '/app/dashboard')
+    : navItems.filter(({ allowedRoles }) =>
+        !allowedRoles || (user?.role && allowedRoles.includes(user.role))
+      );
 
   const handleLogout = async () => {
     await logout();

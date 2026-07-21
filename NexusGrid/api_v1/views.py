@@ -12,7 +12,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.pagination import PageNumberPagination
 
 from login_manager.models import User
-from system_layout.models import LayoutItem, Lab, System, LabAssignment, PrivilegesConfig
+from system_layout.models import LayoutItem, Lab, System, LabAssignment, PrivilegesConfig, SYSTEM_TYPES
 from faults.models import FaultReport
 from resources.models import ResourceRequest
 from monitoring.models import SystemInfo, SystemCurrent
@@ -437,6 +437,33 @@ def _get_restricted_item_ids(user):
     return frozenset(allowed)
 
 
+def _assigned_lab_ids(user):
+    """Active assigned lab IDs for a Lab Incharge / Lab Assistant."""
+    today = timezone.now().date()
+    return list(
+        LabAssignment.objects
+        .filter(user=user)
+        .filter(Q(start_date__isnull=True) | Q(start_date__lte=today))
+        .filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
+        .values_list('lab_id', flat=True)
+        .distinct()
+    )
+
+
+def _notify_admins_layout_change(user, action, item):
+    """Lab Assistant layout edits are applied immediately but flagged to admins for validation."""
+    if user.role != 'Lab Assistant':
+        return
+    create_notifications(
+        recipient_ids=admin_user_ids(),
+        message=f"Layout {action} by {user.username}: {item.item_type} '{item.name}' — pending admin validation.",
+        related_to='layout_change',
+        related_id=item.id,
+        target_url='/app/layout',
+        created_by_id=user.id,
+    )
+
+
 def _latest_monitored_hostname_set():
     """Return all hostnames that have monitoring data in the current-state table."""
     return set(
@@ -487,6 +514,10 @@ class LayoutItemsView(APIView):
         return Response(LayoutItemSerializer(items, many=True, context=_layout_serializer_context()).data)
 
     def post(self, request):
+        # Admin: full edit rights. Lab Assistant: edits allowed but flagged for admin validation.
+        # Lab Incharge and others: view-only.
+        if request.user.role not in ('Administrator', 'Lab Assistant'):
+            return Response({'detail': 'You do not have permission to edit the layout.'}, status=403)
         ser = LayoutItemCreateSerializer(data=request.data)
         if not ser.is_valid():
             return Response(ser.errors, status=400)
@@ -497,7 +528,7 @@ class LayoutItemsView(APIView):
                 ancestors = item.get_ancestors()
                 location = " > ".join(a.name for a in ancestors) or "Unknown"
                 Lab.objects.create(layout_item=item, lab_name=item.name, location=location)
-            elif item.item_type in ['computer', 'server', 'network_switch', 'router', 'printer', 'ups', 'rack']:
+            elif item.item_type in SYSTEM_TYPES:
                 # Was: N+1 while loop walking item.parent one step at a time.
                 # Now: 1 CTE query to fetch ancestor IDs + 1 query to find the
                 # nearest ancestor that owns a Lab (rooms have labs; floors/
@@ -520,6 +551,7 @@ class LayoutItemsView(APIView):
                     host_name=item.name, updated_at=timezone.now(),
                     updated_by=request.user,
                 )
+        _notify_admins_layout_change(request.user, 'change (created)', item)
         return Response(LayoutItemSerializer(item).data, status=201)
 
 
@@ -532,6 +564,8 @@ class LayoutItemDetailView(APIView):
 
     def patch(self, request, pk):
         from django.db import transaction
+        if request.user.role not in ('Administrator', 'Lab Assistant'):
+            return Response({'detail': 'You do not have permission to edit the layout.'}, status=403)
         item = get_object_or_404(LayoutItem, pk=pk)
         ser = LayoutItemUpdateSerializer(item, data=request.data, partial=True)
         if not ser.is_valid():
@@ -545,17 +579,21 @@ class LayoutItemDetailView(APIView):
                 if lab:
                     lab.lab_name = item.name
                     lab.save(update_fields=['lab_name'])
-            if item.item_type in ['computer', 'server', 'network_switch', 'router', 'printer', 'ups', 'rack']:
+            if item.item_type in SYSTEM_TYPES:
                 system = getattr(item, 'system', None)
                 if system and name_changed:
                     system.host_name = item.name
                     system.updated_at = timezone.now()
                     system.updated_by = request.user
                     system.save(update_fields=['host_name', 'updated_at', 'updated_by_id'])
+        _notify_admins_layout_change(request.user, 'change (updated)', item)
         return Response(LayoutItemSerializer(item).data)
 
     def delete(self, request, pk):
+        if request.user.role not in ('Administrator', 'Lab Assistant'):
+            return Response({'detail': 'You do not have permission to edit the layout.'}, status=403)
         item = get_object_or_404(LayoutItem, pk=pk)
+        _notify_admins_layout_change(request.user, 'change (deleted)', item)
         item.delete()
         return Response(status=204)
 
@@ -582,6 +620,8 @@ class SystemDetailView(APIView):
         return Response(SystemSerializer(system).data)
 
     def patch(self, request, pk):
+        if request.user.role not in ('Administrator', 'Lab Assistant'):
+            return Response({'detail': 'You do not have permission to update system status.'}, status=403)
         system = get_object_or_404(System, pk=pk)
         new_status = request.data.get('status')
         if new_status and new_status not in dict(System.STATUS_CHOICES):
@@ -621,6 +661,8 @@ class LabDetailView(APIView):
         return Response(LabSerializer(lab).data)
 
     def patch(self, request, pk):
+        if request.user.role not in ('Administrator', 'Lab Assistant'):
+            return Response({'detail': 'You do not have permission to edit labs.'}, status=403)
         lab = get_object_or_404(Lab, pk=pk)
         ser = LabUpdateSerializer(lab, data=request.data, partial=True)
         if not ser.is_valid():
@@ -637,8 +679,14 @@ class FaultListView(APIView):
 
     def get(self, request):
         qs = FaultReport.objects.select_related('system_name', 'system_name__lab', 'reported_by', 'resolved_by')
-        # Non-admins can only see their own reports
-        if request.user.role != 'Administrator':
+        # Admin: all faults. Lab Assistant: faults in their assigned labs (they handle them).
+        # Everyone else (incl. Lab Incharge): only their own reports.
+        if request.user.role == 'Lab Assistant':
+            qs = qs.filter(
+                Q(system_name__lab_id__in=_assigned_lab_ids(request.user)) |
+                Q(reported_by=request.user)
+            )
+        elif request.user.role != 'Administrator':
             qs = qs.filter(reported_by=request.user)
         q = request.GET.get('search', '').strip()
         s = request.GET.get('status', '').strip()
@@ -709,6 +757,9 @@ class FaultDetailView(APIView):
         return Response(FaultReportSerializer(fault).data)
 
     def patch(self, request, pk):
+        # Only admins and assistants (fault handlers) can update fault status.
+        if request.user.role not in ('Administrator', 'Lab Assistant'):
+            return Response({'detail': 'You do not have permission to update fault status.'}, status=403)
         fault = get_object_or_404(FaultReport, pk=pk)
         old_status = fault.status
         ser = FaultStatusUpdateSerializer(data=request.data)
@@ -753,8 +804,14 @@ class ResourceListView(APIView):
 
     def get(self, request):
         qs = ResourceRequest.objects.select_related('system_name', 'system_name__lab', 'requested_by', 'provided_by')
-        # Non-admins can only see their own requests
-        if request.user.role != 'Administrator':
+        # Admin: all requests. Lab Assistant: requests in their assigned labs (they fulfil/forward them).
+        # Everyone else (incl. Lab Incharge): only their own requests.
+        if request.user.role == 'Lab Assistant':
+            qs = qs.filter(
+                Q(system_name__lab_id__in=_assigned_lab_ids(request.user)) |
+                Q(requested_by=request.user)
+            )
+        elif request.user.role != 'Administrator':
             qs = qs.filter(requested_by=request.user)
         q = request.GET.get('search', '').strip()
         s = request.GET.get('status', '').strip()
@@ -815,6 +872,9 @@ class ResourceDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, pk):
+        # Admin takes final decisions; assistants may fulfil/modify (admins are notified to validate).
+        if request.user.role not in ('Administrator', 'Lab Assistant'):
+            return Response({'detail': 'You do not have permission to update resource requests.'}, status=403)
         resource = get_object_or_404(ResourceRequest, pk=pk)
         old_status = resource.status
         ser = ResourceStatusUpdateSerializer(data=request.data)
@@ -824,12 +884,19 @@ class ResourceDetailView(APIView):
         provision_summary = ser.validated_data.get('provision_summary', '')
         resource.status = new_status
         update_fields = ['status']
+        if 'cost' in ser.validated_data:
+            resource.cost = ser.validated_data['cost']
+            update_fields.append('cost')
+        if 'quantity' in ser.validated_data:
+            resource.quantity = ser.validated_data['quantity']
+            update_fields.append('quantity')
         if new_status == 'Fulfilled' and provision_summary:
             resource.provision_summary = provision_summary
             resource.provided_by = request.user
             resource.provided_at = timezone.now()
             update_fields += ['provision_summary', 'provided_by', 'provided_at']
         resource.save(update_fields=update_fields)
+
         resource.refresh_from_db()
 
         if old_status != new_status:
@@ -913,6 +980,8 @@ class ReportsView(APIView):
 
     def get(self, request):
         from .services.metrics import get_report_metrics
+        if request.user.role == 'Lab Incharge':
+            return Response({'detail': 'Reports are not available for Lab Incharge.'}, status=403)
         lab_ids = _resolve_report_lab_scope(request.user, request.GET)
         return Response(get_report_metrics(lab_ids=lab_ids))
 
@@ -921,6 +990,8 @@ class ReportsDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        if request.user.role == 'Lab Incharge':
+            return Response({'detail': 'Reports are not available for Lab Incharge.'}, status=403)
         lab_ids = _resolve_report_lab_scope(request.user, request.GET)
 
         if lab_ids is None:
@@ -1038,9 +1109,216 @@ class ReportsDetailView(APIView):
         })
 
 
+# ─── Admin oversight & budgeting ─────────────────────────────────────────────
+
+def _admin_only(request):
+    """Return a 403 Response if the user is not an Administrator, else None."""
+    if request.user.role != 'Administrator':
+        return Response({'detail': 'Admin only.'}, status=403)
+    return None
+
+
+def _parse_range(query_params):
+    """Return (start_date, end_date) date objects from ?start=&end= (YYYY-MM-DD)."""
+    from datetime import datetime
+
+    def _d(v):
+        v = (v or '').strip()
+        try:
+            return datetime.strptime(v, '%Y-%m-%d').date()
+        except ValueError:
+            return None
+
+    return _d(query_params.get('start')), _d(query_params.get('end'))
+
+
+class AdminStaffActivityView(APIView):
+    """Feature B — per-user activity summary for Lab Incharge / Lab Assistant.
+
+    Counts faults reported/resolved, resources requested, and systems touched,
+    optionally scoped to a ?start=&end= date range.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        denied = _admin_only(request)
+        if denied:
+            return denied
+
+        start, end = _parse_range(request.GET)
+        staff = User.objects.filter(role__in=['Lab Incharge', 'Lab Assistant']).order_by('username')
+
+        fault_reported = FaultReport.objects.all()
+        fault_resolved = FaultReport.objects.filter(status='resolved')
+        resources = ResourceRequest.objects.all()
+        if start:
+            fault_reported = fault_reported.filter(reported_at__date__gte=start)
+            fault_resolved = fault_resolved.filter(resolved_at__date__gte=start)
+            resources = resources.filter(requested_at__date__gte=start)
+        if end:
+            fault_reported = fault_reported.filter(reported_at__date__lte=end)
+            fault_resolved = fault_resolved.filter(resolved_at__date__lte=end)
+            resources = resources.filter(requested_at__date__lte=end)
+
+        reported_by = dict(
+            fault_reported.values('reported_by').annotate(n=Count('fault_id')).values_list('reported_by', 'n')
+        )
+        resolved_by = dict(
+            fault_resolved.values('resolved_by').annotate(n=Count('fault_id')).values_list('resolved_by', 'n')
+        )
+        requested_by = dict(
+            resources.values('requested_by').annotate(n=Count('resource_id')).values_list('requested_by', 'n')
+        )
+
+        rows = [
+            {
+                'user_id': u.id,
+                'username': u.username,
+                'role': u.role,
+                'faults_reported': reported_by.get(u.id, 0),
+                'faults_resolved': resolved_by.get(u.id, 0),
+                'resources_requested': requested_by.get(u.id, 0),
+            }
+            for u in staff
+        ]
+        return Response({
+            'start': start.isoformat() if start else None,
+            'end': end.isoformat() if end else None,
+            'staff': rows,
+        })
+
+
+class AdminTaskSheetView(APIView):
+    """Feature D — task sheet for a single assistant over a custom date range.
+
+    Requires ?user_id=&start=&end=. Returns every fault and resource the user
+    touched in the window, plus totals.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user_id = request.GET.get('user_id', '').strip()
+        # Admins: any user. Lab Assistants: their own task sheet only.
+        if request.user.role != 'Administrator':
+            if request.user.role != 'Lab Assistant' or user_id != str(request.user.id):
+                return Response({'detail': 'Admin only.'}, status=403)
+        if not user_id.isdigit():
+            return Response({'detail': 'user_id is required.'}, status=400)
+        start, end = _parse_range(request.GET)
+        if not (start and end):
+            return Response({'detail': 'start and end (YYYY-MM-DD) are required.'}, status=400)
+
+        target = get_object_or_404(User, pk=int(user_id))
+
+        faults = (
+            FaultReport.objects
+            .filter(reported_by=target, reported_at__date__gte=start, reported_at__date__lte=end)
+            .select_related('system_name', 'system_name__lab')
+            .order_by('reported_at')
+        )
+        resources = (
+            ResourceRequest.objects
+            .filter(requested_by=target, requested_at__date__gte=start, requested_at__date__lte=end)
+            .select_related('system_name', 'system_name__lab')
+            .order_by('requested_at')
+        )
+
+        fault_rows = [{
+            'fault_id': f.fault_id,
+            'reported_at': f.reported_at.isoformat(),
+            'system_name': f.system_name.host_name or '',
+            'lab_name': f.system_name.lab.lab_name if f.system_name.lab else '',
+            'fault_type': f.fault_type,
+            'risk_factor': f.risk_factor,
+            'status': f.status,
+            'description': f.description,
+        } for f in faults]
+
+        resource_rows = [{
+            'resource_id': r.resource_id,
+            'requested_at': r.requested_at.isoformat(),
+            'system_name': r.system_name.host_name or '',
+            'lab_name': r.system_name.lab.lab_name if r.system_name.lab else '',
+            'resource_name': r.resource_name,
+            'quantity': r.quantity,
+            'cost': float(r.cost) if r.cost is not None else None,
+            'status': r.status,
+            'description': r.description,
+        } for r in resources]
+
+
+        return Response({
+            'user': {'id': target.id, 'username': target.username, 'role': target.role},
+            'start': start.isoformat(),
+            'end': end.isoformat(),
+            'generated_at': timezone.now().isoformat(),
+            'faults': fault_rows,
+            'resources': resource_rows,
+            'totals': {
+                'faults': len(fault_rows),
+                'resources': len(resource_rows),
+            },
+        })
+
+
+class AdminBudgetSummaryView(APIView):
+    """Feature E — monthly resource-demand + budget summary for budgeting.
+
+    Groups fulfilled/all resource requests by requested_at year-month, counting
+    distinct requesting assistants and summing cost*quantity.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models import Sum, F, DecimalField
+        from django.db.models.functions import TruncMonth
+
+        denied = _admin_only(request)
+        if denied:
+            return denied
+
+        start, end = _parse_range(request.GET)
+        qs = ResourceRequest.objects.all()
+        if start:
+            qs = qs.filter(requested_at__date__gte=start)
+        if end:
+            qs = qs.filter(requested_at__date__lte=end)
+
+        rows = (
+            qs
+            .annotate(month=TruncMonth('requested_at'))
+            .values('month')
+            .annotate(
+                request_count=Count('resource_id'),
+                distinct_requesters=Count('requested_by', distinct=True),
+                total_cost=Sum(
+                    F('cost') * F('quantity'),
+                    output_field=DecimalField(max_digits=16, decimal_places=2),
+                ),
+            )
+            .order_by('month')
+        )
+
+        months = [{
+            'month': r['month'].strftime('%b %Y') if r['month'] else '',
+            'request_count': r['request_count'],
+            'distinct_requesters': r['distinct_requesters'],
+            'total_cost': float(r['total_cost']) if r['total_cost'] is not None else 0.0,
+        } for r in rows]
+
+        return Response({
+            'start': start.isoformat() if start else None,
+            'end': end.isoformat() if end else None,
+            'generated_at': timezone.now().isoformat(),
+            'months': months,
+            'grand_total_cost': round(sum(m['total_cost'] for m in months), 2),
+        })
+
+
 # ─── Monitoring ──────────────────────────────────────────────────────────────
 
 MONITORING_CACHE_KEY = 'monitoring_latest_v1'
+
 MONITORING_CACHE_TTL = 30  # seconds — matches the frontend 30s polling interval
 
 
@@ -1077,6 +1355,11 @@ class MonitoringView(APIView):
                 memory_usage_percent=info.memory_usage_percent,
             )
             return Response(SystemInfoSerializer(info).data)
+
+        # Fleet-wide monitoring list is restricted to admins and assistants.
+        # (Per-item monitoring above stays open so the QR / system-detail flow works for everyone.)
+        if request.user.role not in ('Administrator', 'Lab Assistant'):
+            return Response({'detail': 'Monitoring is not available for your role.'}, status=403)
 
         from django.core.cache import cache
         cached = cache.get(MONITORING_CACHE_KEY)
@@ -1229,6 +1512,52 @@ class UserListView(APIView):
         data = UserSerializer(users, many=True).data
         cache.set(USER_LIST_CACHE_KEY, data, USER_LIST_CACHE_TTL)
         return Response(data)
+
+
+class AdminCreateUserView(APIView):
+    """Admin creates a pre-configured account (role set) and shares credentials manually."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from django.core.validators import validate_email
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        if request.user.role != 'Administrator':
+            return Response({'detail': 'Admin only.'}, status=403)
+
+        username = request.data.get('username', '').strip()
+        email = request.data.get('email', '').strip().lower()
+        password = request.data.get('password', '')
+        role = request.data.get('role', 'No Roles')
+
+        valid_roles = ('Administrator', 'Lab Incharge', 'Lab Assistant', 'Students', 'No Roles')
+        errors = {}
+        if not username or len(username) < 3:
+            errors['username'] = 'Username must be at least 3 characters.'
+        elif User.objects.filter(username__iexact=username).exists():
+            errors['username'] = 'This username is already taken.'
+        if not email:
+            errors['email'] = 'Email is required.'
+        else:
+            try:
+                validate_email(email)
+            except DjangoValidationError:
+                errors['email'] = 'Enter a valid email address.'
+            else:
+                if User.objects.filter(email__iexact=email).exists():
+                    errors['email'] = 'An account with this email already exists.'
+        if not password or len(password) < 8:
+            errors['password'] = 'Password must be at least 8 characters.'
+        if role not in valid_roles:
+            errors['role'] = 'Invalid role.'
+        if errors:
+            return Response(errors, status=400)
+
+        user = User.objects.create_user(username=username, email=email, password=password, role=role)
+
+        from django.core.cache import cache
+        cache.delete(USER_LIST_CACHE_KEY)
+        return Response({'user': UserSerializer(user).data}, status=status.HTTP_201_CREATED)
 
 
 class UserDetailView(APIView):

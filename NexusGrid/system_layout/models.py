@@ -2,6 +2,9 @@
 from django.db import models
 from login_manager.models import User
 
+# Layout item types that map to a physical System (vs building/floor/room containers).
+SYSTEM_TYPES = ('computer', 'server', 'network_switch', 'router', 'printer', 'ups', 'rack')
+
 class LayoutItem(models.Model):
     ITEM_TYPES = [
         ('building', 'Building'),

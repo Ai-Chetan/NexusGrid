@@ -151,6 +151,10 @@ export default function DashboardPage() {
   const dark = theme === 'dark';
   const user = useAuthStore(s => s.user);
   const isNoRole = user?.role === 'No Roles';
+  // Role-based dashboard: admin sees charts/statistics; incharge sees systems + activity only;
+  // assistant sees system-specific stat cards but no graphs.
+  const isAdmin = user?.role === 'Administrator';
+  const isIncharge = user?.role === 'Lab Incharge';
   const [buildingId, setBuildingId] = useState<string>('');
   const [floorId, setFloorId] = useState<string>('');
   const [roomId, setRoomId] = useState<string>('');
@@ -225,6 +229,23 @@ export default function DashboardPage() {
 
   if (!isNoRole && (isError || !data)) {
     return <ErrorState message="Failed to load dashboard metrics." onRetry={refetch} />;
+  }
+
+  if (isNoRole) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] animate-fade-in">
+        <div className="card p-8 max-w-md text-center space-y-4">
+          <div className="w-14 h-14 mx-auto bg-amber-100 dark:bg-amber-900/40 rounded-full flex items-center justify-center">
+            <AlertTriangle className="w-7 h-7 text-amber-600 dark:text-amber-400" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">No Role Assigned</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+            Your account doesn't have a role yet, so NexusGrid features are unavailable.
+            Please contact an administrator to get a role assigned to your account.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const effective = isNoRole ? ZERO_DATA : data!;
@@ -390,7 +411,8 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Second row */}
+      {/* Second row — hidden for Lab Incharge (they only track systems + their reports) */}
+      {!isIncharge && (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           label="Total Labs"
@@ -419,8 +441,10 @@ export default function DashboardPage() {
           color="bg-indigo-500"
         />
       </div>
+      )}
 
-      {/* Charts Row */}
+      {/* Charts Row — statistics graphs are admin-only */}
+      {isAdmin && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Trend Chart */}
         <div className="lg:col-span-2 card p-5">
@@ -464,15 +488,20 @@ export default function DashboardPage() {
           title="Faults by Type"
         />
       </div>
+      )}
 
       {/* Bottom Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <DonutChart
-          data={faultStatusData}
-          colors={FAULT_STATUS_COLORS}
-          title="Faults by Status"
-        />
-        <ActivityFeed items={recent_activity} />
+        {isAdmin && (
+          <DonutChart
+            data={faultStatusData}
+            colors={FAULT_STATUS_COLORS}
+            title="Faults by Status"
+          />
+        )}
+        <div className={isAdmin ? '' : 'lg:col-span-2'}>
+          <ActivityFeed items={recent_activity} />
+        </div>
       </div>
     </div>
   );

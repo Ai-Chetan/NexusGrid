@@ -22,6 +22,7 @@ const createSchema = z.object({
   system_id: z.coerce.number().min(1, 'Select a system'),
   resource_name: z.string().min(2, 'Resource name required'),
   description: z.string().min(5, 'Description required'),
+  quantity: z.coerce.number().min(1, 'Quantity must be at least 1'),
 });
 type CreateForm = z.infer<typeof createSchema>;
 
@@ -119,6 +120,18 @@ function CreateResourceModal({ open, onClose }: { open: boolean; onClose: () => 
         </div>
 
         <div>
+          <label className="label">Quantity</label>
+          <input
+            {...register('quantity')}
+            type="number"
+            min={1}
+            defaultValue={1}
+            className="input"
+          />
+          {errors.quantity && <p className="mt-1 text-xs text-red-500">{errors.quantity.message}</p>}
+        </div>
+
+        <div>
           <label className="label">Description</label>
           <textarea
             {...register('description')}
@@ -150,11 +163,15 @@ function UpdateStatusModal({
   const qc = useQueryClient();
   const [newStatus, setNewStatus] = useState<string>(resource?.status ?? 'Pending');
   const [summary, setSummary] = useState<string>('');
+  const [quantity, setQuantity] = useState<string>(String(resource?.quantity ?? 1));
+  const [cost, setCost] = useState<string>(resource?.cost != null ? String(resource.cost) : '');
 
   const mutation = useMutation({
     mutationFn: () => resourcesApi.updateStatus(resource!.resource_id, {
       status: newStatus,
       provision_summary: summary,
+      quantity: quantity ? Number(quantity) : undefined,
+      cost: cost === '' ? null : Number(cost),
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['resources'] });
@@ -185,16 +202,28 @@ function UpdateStatusModal({
         </div>
 
         {newStatus === 'Fulfilled' && (
-          <div>
-            <label className="label">Provision Summary</label>
-            <textarea
-              value={summary}
-              onChange={e => setSummary(e.target.value)}
-              rows={3}
-              className="input resize-none"
-              placeholder="Describe what was provided…"
-            />
-          </div>
+          <>
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="label">Quantity</label>
+                <input type="number" min={1} value={quantity} onChange={e => setQuantity(e.target.value)} className="input" />
+              </div>
+              <div className="flex-1">
+                <label className="label">Unit Cost</label>
+                <input type="number" min={0} step="0.01" value={cost} onChange={e => setCost(e.target.value)} className="input" placeholder="0.00" />
+              </div>
+            </div>
+            <div>
+              <label className="label">Provision Summary</label>
+              <textarea
+                value={summary}
+                onChange={e => setSummary(e.target.value)}
+                rows={3}
+                className="input resize-none"
+                placeholder="Describe what was provided…"
+              />
+            </div>
+          </>
         )}
 
         <div className="flex gap-2 pt-1">
@@ -227,6 +256,12 @@ function ResourceRow({ resource, onUpdate }: { resource: ResourceRequest; onUpda
       </td>
       <td className="px-4 py-3 max-w-xs">
         <p className="text-sm text-slate-600 truncate">{resource.description}</p>
+      </td>
+      <td className="px-4 py-3">
+        <p className="text-sm text-slate-700">×{resource.quantity}</p>
+        {resource.line_total != null && (
+          <p className="text-xs text-slate-400">{resource.line_total.toFixed(2)}</p>
+        )}
       </td>
       <td className="px-4 py-3">
         <StatusBadge status={resource.status} />
@@ -334,7 +369,7 @@ export default function ResourcesPage() {
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    {['System', 'Resource', 'Description', 'Status', 'Requested By', ''].map(h => (
+                    {['System', 'Resource', 'Description', 'Qty / Cost', 'Status', 'Requested By', ''].map(h => (
                       <th key={h} className="px-4 py-3 table-header">{h}</th>
                     ))}
                   </tr>

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, Menu, Moon, Sun } from 'lucide-react';
+import { Bell, Megaphone, Menu, Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
+import { useAuthStore } from '@/store/authStore';
 import { notificationsApi } from '@/lib/api';
 import { timeAgo } from '@/lib/utils';
 import type { NotificationItem, PaginatedResponse } from '@/types';
@@ -15,7 +16,6 @@ const pageTitles: Record<string, string> = {
   '/app/reports':    'Reports',
   '/app/monitoring': 'Monitoring',
   '/app/users':      'User Privileges',
-  '/app/admin-controls': 'Admin Controls',
 };
 
 interface HeaderProps {
@@ -27,7 +27,11 @@ export default function Header({ onSidebarToggle }: HeaderProps) {
   const queryClient = useQueryClient();
   const { pathname } = useLocation();
   const { theme, toggle } = useTheme();
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = user?.role === 'Administrator';
   const [openNotifs, setOpenNotifs] = useState(false);
+  const [showBroadcast, setShowBroadcast] = useState(false);
+  const [broadcastMessage, setBroadcastMessage] = useState('');
   const notifPanelRef = useRef<HTMLDivElement | null>(null);
   const prevUnreadRef = useRef<number>(-1);
   const userInteractedRef = useRef<boolean>(false);
@@ -61,6 +65,19 @@ export default function Header({ onSidebarToggle }: HeaderProps) {
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
       queryClient.invalidateQueries({ queryKey: ['notifications-header-list'] });
       queryClient.invalidateQueries({ queryKey: ['notifications-dashboard'] });
+    },
+  });
+
+  const broadcast = useMutation({
+    mutationFn: () => notificationsApi.createAdminMessage({
+      message: broadcastMessage.trim(),
+      send_to_all: true,
+    }),
+    onSuccess: () => {
+      setBroadcastMessage('');
+      setShowBroadcast(false);
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications-header-list'] });
     },
   });
 
@@ -239,6 +256,17 @@ export default function Header({ onSidebarToggle }: HeaderProps) {
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Notifications</p>
                 <div className="flex items-center gap-2">
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => setShowBroadcast((prev) => !prev)}
+                      className="text-xs text-brand-600 flex items-center gap-1"
+                      title="Broadcast a message to all users"
+                    >
+                      <Megaphone className="w-3.5 h-3.5" />
+                      Broadcast
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={clearRead.isPending || readCount === 0}
@@ -257,6 +285,28 @@ export default function Header({ onSidebarToggle }: HeaderProps) {
                   </button>
                 </div>
               </div>
+
+              {isAdmin && showBroadcast && (
+                <div className="mb-2 p-2 rounded-lg border border-brand-200 bg-brand-50 dark:bg-slate-800 dark:border-slate-700">
+                  <textarea
+                    className="input w-full text-sm"
+                    rows={2}
+                    placeholder="Message to broadcast to all users…"
+                    value={broadcastMessage}
+                    onChange={(e) => setBroadcastMessage(e.target.value)}
+                  />
+                  <div className="mt-1.5 flex justify-end">
+                    <button
+                      type="button"
+                      disabled={broadcast.isPending || !broadcastMessage.trim()}
+                      onClick={() => broadcast.mutate()}
+                      className="text-xs font-semibold text-white bg-brand-600 px-3 py-1.5 rounded-lg disabled:opacity-50"
+                    >
+                      {broadcast.isPending ? 'Sending…' : 'Send to all'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {notifications.length === 0 ? (
                 <p className="text-xs text-slate-500 py-2">No notifications</p>

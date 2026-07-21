@@ -9,6 +9,7 @@ import { RefreshCw, Building2, Layers, LayoutDashboard, BookOpen, Download, File
 import { reportsApi, layoutApi, labsApi, privilegesApi } from '@/lib/api';
 import PageHeader from '@/components/common/PageHeader';
 import ErrorState from '@/components/common/ErrorState';
+import OversightSection from '@/pages/reports/OversightSection';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuthStore } from '@/store/authStore';
 import toast from 'react-hot-toast';
@@ -654,6 +655,10 @@ export default function ReportsPage() {
           </div>
         </div>
       )}
+
+      {/* Oversight tools (merged from Admin Oversight): staff activity + budget for admin,
+          self task-sheet generation for assistants. */}
+      <OversightSection />
     </div>
   );
 }

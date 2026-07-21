@@ -127,6 +127,9 @@ export interface ResourceRequest {
   requested_by_username: string;
   resource_name: string;
   description: string;
+  quantity: number;
+  cost: number | null;
+  line_total: number | null;
   status: ResourceStatus;
   requested_at: string;
   provided: Provided | null;

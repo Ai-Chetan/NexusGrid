@@ -58,7 +58,25 @@ def create_system_alert_if_needed(*, hostname: str, memory_usage_percent: float 
     host = (hostname or '').strip() or 'Unknown host'
     usage = round(float(memory_usage_percent), 1)
     message = f'Auto alert: high RAM usage on {host} ({usage}%).'
-    recipients = admin_user_ids()
+
+    # Notify assistants assigned to the lab that owns this host; admins get it as a log entry.
+    from django.db.models import Q
+    from django.utils import timezone as _tz
+    from system_layout.models import System, LabAssignment
+
+    today = _tz.now().date()
+    lab_ids = list(
+        System.objects.filter(host_name__iexact=host).values_list('lab_id', flat=True)
+    )
+    assistant_ids = list(
+        LabAssignment.objects
+        .filter(lab_id__in=[lid for lid in lab_ids if lid], role_type=LabAssignment.ROLE_ASSISTANT)
+        .filter(Q(start_date__isnull=True) | Q(start_date__lte=today))
+        .filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
+        .values_list('user_id', flat=True)
+        .distinct()
+    )
+    recipients = list(set(admin_user_ids()) | set(assistant_ids))
     if not recipients:
         return
 

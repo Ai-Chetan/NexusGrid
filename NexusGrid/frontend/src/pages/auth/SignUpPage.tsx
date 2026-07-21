@@ -191,7 +191,7 @@ export default function SignUpPage() {
     mutationFn: () => authApi.signupVerifyOtp({ otp }),
     onSuccess: (res) => {
       updateUser(res.data.user);
-      toast.success('Account created! Welcome to NexusGrid 🎉');
+      toast.success('Account created! Welcome to NexusGrid');
       navigate('/app/dashboard', { replace: true });
     },
     onError: (err: any) => {
