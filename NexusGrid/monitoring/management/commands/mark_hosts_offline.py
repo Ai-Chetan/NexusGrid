@@ -21,9 +21,20 @@ class Command(BaseCommand):
         timeout_seconds = max(1, int(options['timeout_seconds']))
         cutoff = timezone.now() - timedelta(seconds=timeout_seconds)
 
+        # Get hostnames that will be marked offline
+        offline_hostnames = list(SystemCurrent.objects.filter(
+            last_seen_at__lt=cutoff,
+            health_state=SystemCurrent.STATE_ONLINE,
+        ).values_list('hostname', flat=True))
+
         updated = SystemCurrent.objects.filter(
             last_seen_at__lt=cutoff,
             health_state=SystemCurrent.STATE_ONLINE,
         ).update(health_state=SystemCurrent.STATE_OFFLINE)
 
-        self.stdout.write(self.style.SUCCESS(f'Marked {updated} host(s) offline.'))
+        # Mark corresponding Systems as 'non-functional'
+        if offline_hostnames:
+            from system_layout.models import System
+            System.objects.filter(host_name__in=offline_hostnames).update(status='non-functional')
+
+        self.stdout.write(self.style.SUCCESS(f'Marked {updated} host(s) offline and non-functional.'))

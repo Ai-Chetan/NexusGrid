@@ -12,7 +12,12 @@ try:
 except Exception:
     GPUTIL_INSTALLED = False
 
-API_URL = os.getenv("NEXUSGRID_INGEST_URL", "http://127.0.0.1:8000/api/ingest/")
+# Server Configuration - Easily switch between Local and Render Hosted backend
+# Render Hosted URL: https://nexusgrid.onrender.com
+# Local Server URL:  http://127.0.0.1:8000
+DEFAULT_BASE_URL = os.getenv("NEXUSGRID_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+API_URL = os.getenv("NEXUSGRID_INGEST_URL", f"{DEFAULT_BASE_URL}/api/ingest/")
+
 
 
 def get_primary_ip():

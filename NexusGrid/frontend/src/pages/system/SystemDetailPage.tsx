@@ -94,6 +94,7 @@ export default function SystemDetailPage() {
     queryKey: ['layout-breadcrumb', itemIdNum],
     queryFn: () => layoutApi.getBreadcrumb(itemIdNum).then((r) => r.data as Array<{ id: number; name: string; item_type: string }>),
     enabled: Number.isFinite(itemIdNum),
+    retry: false,
   });
 
   const { data: systems = [] } = useQuery<SimpleSystem[]>({

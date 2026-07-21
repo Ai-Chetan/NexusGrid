@@ -1,6 +1,6 @@
 import json
 from datetime import timedelta
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -13,13 +13,33 @@ from system_layout.models import System
 def system_status_api(request):
     """Return latest snapshots from the current-state table."""
     cutoff = timezone.now() - timedelta(seconds=90)
+    
+    # Mark systems offline
+    offline_hostnames = list(SystemCurrent.objects.filter(
+        last_seen_at__lt=cutoff,
+        health_state=SystemCurrent.STATE_ONLINE,
+    ).values_list('hostname', flat=True))
+    
     SystemCurrent.objects.filter(
         last_seen_at__lt=cutoff,
         health_state=SystemCurrent.STATE_ONLINE,
     ).update(health_state=SystemCurrent.STATE_OFFLINE)
+    
+    if offline_hostnames:
+        System.objects.filter(host_name__in=offline_hostnames).update(status='non-functional')
+        
+    # Mark systems online
+    online_hostnames = list(SystemCurrent.objects.filter(
+        last_seen_at__gte=cutoff,
+    ).exclude(health_state=SystemCurrent.STATE_ONLINE).values_list('hostname', flat=True))
+    
     SystemCurrent.objects.filter(
         last_seen_at__gte=cutoff,
     ).exclude(health_state=SystemCurrent.STATE_ONLINE).update(health_state=SystemCurrent.STATE_ONLINE)
+    
+    if online_hostnames:
+        System.objects.filter(host_name__in=online_hostnames).update(status='active')
+
 
     infos = [
         row.latest_info
@@ -166,5 +186,89 @@ def ingest_system_info(request):
         System.objects.filter(host_name__iexact=hostname).update(status='active')
 
         return JsonResponse({'status': 'ok'})
-    except (json.JSONDecodeError, ValueError) as e:
+    except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
+
+
+def download_script(request):
+    """Serve monitoring script API info or raw script for auto-updating."""
+    import os
+    file_path = os.path.join(os.path.dirname(__file__), 'script.py')
+    if not os.path.exists(file_path):
+        return JsonResponse({'error': 'script.py not found'}, status=404)
+
+    is_raw = request.GET.get('format') == 'raw' or any(
+        ua in (request.META.get('HTTP_USER_AGENT') or '').lower()
+        for ua in ['python', 'curl', 'wget', 'powershell']
+    )
+
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    if is_raw:
+        return HttpResponse(content, content_type='text/plain; charset=utf-8')
+
+    base_url = request.build_absolute_uri('/')[:-1]
+    return JsonResponse({
+        'status': 'success',
+        'agent_name': 'NexusGrid Monitoring Agent',
+        'filename': 'script.py',
+        'backend_server': base_url,
+        'ingest_url': f"{base_url}/api/ingest/",
+        'raw_download_url': f"{base_url}/api/agent/script.py?format=raw",
+        'supported_platforms': ['Windows', 'Linux'],
+    }, json_dumps_params={'indent': 2})
+
+
+def download_windows_installer(request):
+    """API endpoint for Windows monitoring agent details & installer."""
+    import os
+    file_path = os.path.join(os.path.dirname(__file__), 'install_monitoring.bat')
+    if not os.path.exists(file_path):
+        return JsonResponse({'error': 'install_monitoring.bat not found'}, status=404)
+
+    if request.GET.get('format') == 'raw':
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return HttpResponse(f.read(), content_type='text/plain; charset=utf-8')
+
+    base_url = request.build_absolute_uri('/')[:-1]
+    return JsonResponse({
+        'status': 'success',
+        'os': 'Windows',
+        'backend_server': base_url,
+        'ingest_url': f"{base_url}/api/ingest/",
+        'script_url': f"{base_url}/api/agent/script.py",
+        'raw_download_url': f"{base_url}/api/agent/install/windows/?format=raw",
+        'installer_filename': 'install_monitoring.bat',
+        'install_command': 'cmd /c install_monitoring.bat',
+        'auto_start_mechanism': 'Windows Task Scheduler & Startup Folder',
+        'instructions': 'Run install_monitoring.bat in Command Prompt on Windows client.'
+    }, json_dumps_params={'indent': 2})
+
+
+def download_linux_installer(request):
+    """API endpoint for Linux monitoring agent details & installer."""
+    import os
+    file_path = os.path.join(os.path.dirname(__file__), 'install_monitoring.sh')
+    if not os.path.exists(file_path):
+        return JsonResponse({'error': 'install_monitoring.sh not found'}, status=404)
+
+    if request.GET.get('format') == 'raw':
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return HttpResponse(f.read(), content_type='text/plain; charset=utf-8')
+
+    base_url = request.build_absolute_uri('/')[:-1]
+    return JsonResponse({
+        'status': 'success',
+        'os': 'Linux',
+        'backend_server': base_url,
+        'ingest_url': f"{base_url}/api/ingest/",
+        'script_url': f"{base_url}/api/agent/script.py",
+        'raw_download_url': f"{base_url}/api/agent/install/linux/?format=raw",
+        'installer_filename': 'install_monitoring.sh',
+        'install_command': 'chmod +x install_monitoring.sh && ./install_monitoring.sh',
+        'auto_start_mechanism': 'Systemd Service & User Crontab @reboot',
+        'instructions': 'Run chmod +x install_monitoring.sh && ./install_monitoring.sh on Linux client.'
+    }, json_dumps_params={'indent': 2})
+
+

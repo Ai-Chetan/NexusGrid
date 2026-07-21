@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -734,14 +734,23 @@ export default function LayoutPage() {
   const hasNoAccess = isNoRole || (isRestricted && myAssignments.length === 0);
   const items = hasNoAccess ? [] : rawItems;
 
-  const { data: breadcrumb = [] } = useQuery({
+  const { data: breadcrumb = [], isError: breadcrumbError } = useQuery({
     queryKey: ['layout-breadcrumb', parentId],
     queryFn: () =>
       parentId
         ? layoutApi.getBreadcrumb(parentId).then((r) => r.data)
         : Promise.resolve<BreadcrumbItem[]>([]),
     enabled: !!parentId,
+    retry: false,
   });
+
+  // If the breadcrumb fetch failed (e.g. stale/deleted layout ID), reset to root
+  useEffect(() => {
+    if (breadcrumbError && parentId !== null) {
+      sessionStorage.removeItem('lastLayoutId');
+      navigate('/app/layout', { replace: true });
+    }
+  }, [breadcrumbError, parentId, navigate]);
 
   const currentItem = breadcrumb[breadcrumb.length - 1];
   const parentType = currentItem?.item_type ?? 'root';
