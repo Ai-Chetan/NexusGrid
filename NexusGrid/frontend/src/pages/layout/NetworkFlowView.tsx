@@ -393,9 +393,15 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
   useEffect(() => { pendingPositionsRef.current = pendingPositions; }, [pendingPositions]);
 
   const onNodeDragStop = useCallback(
-    (_event: React.MouseEvent, node: ItemFlowNode) => {
+    (_event: React.MouseEvent, _node: ItemFlowNode, draggedNodes: ItemFlowNode[]) => {
       onBeforePositionChange?.(pendingPositionsRef.current);
-      setPendingPositions((prev) => ({ ...prev, [node.id]: node.position }));
+      // React Flow passes ALL dragged nodes as the third arg — a multi-select
+      // drag moves several nodes, not just the one under the pointer.
+      setPendingPositions((prev) => {
+        const next = { ...prev };
+        for (const n of draggedNodes) next[n.id] = n.position;
+        return next;
+      });
     },
     [onBeforePositionChange],
   );
@@ -510,11 +516,22 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
     if (isSaving) return;
     setIsSaving(true);
     onIsSavingChange?.(true);
-    const posEntries = Object.entries(pendingPositions);
+    // Persist the on-screen position of every node, not just the dragged ones:
+    // dagre-auto-laid positions were never written back, so they reshuffled on
+    // the next reload whenever the item set changed and the layout re-ran.
+    const deleted = new Set(pendingDeletes.map(String));
+    const updates = nodes
+      .filter((n) => !deleted.has(n.id))
+      .map((n) => {
+        const pos = pendingPositions[n.id] ?? n.position;
+        const item = n.data.item as LayoutItem;
+        return { id: n.id, x: snapTo(pos.x), y: snapTo(pos.y), item };
+      })
+      .filter(({ x, y, item }) => x !== item.position_x || y !== item.position_y);
     try {
       await Promise.all(
-        posEntries.map(([id, pos]) =>
-          layoutApi.updateItem(parseInt(id, 10), { position_x: snapTo(pos.x), position_y: snapTo(pos.y) }),
+        updates.map(({ id, x, y }) =>
+          layoutApi.updateItem(parseInt(id, 10), { position_x: x, position_y: y }),
         ),
       );
       await onSaveAll();
@@ -528,7 +545,7 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
       setIsSaving(false);
       onIsSavingChange?.(false);
     }
-  }, [isSaving, pendingPositions, onSaveAll, onEditModeChange, onIsSavingChange]);
+  }, [isSaving, pendingPositions, nodes, pendingDeletes, onSaveAll, onEditModeChange, onIsSavingChange]);
 
   const handleDiscard = useCallback(() => {
     setNodes(initialElements.nodes.map((n) => ({ ...n, data: { ...n.data, editMode: false } })));

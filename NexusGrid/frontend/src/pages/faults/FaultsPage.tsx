@@ -420,8 +420,8 @@ export default function FaultsPage() {
     onError: () => toast.error('Failed to delete fault report'),
   });
 
-  // Incharge can only edit/delete their own faults; cannot update status
-  const canUpdateStatus = isAdmin || isAssistant;
+  // Incharge can only edit/delete their own faults; only assistants handle status
+  const canUpdateStatus = isAssistant;
   const canEditDelete = isIncharge;
 
   return (
@@ -430,7 +430,7 @@ export default function FaultsPage() {
         title="Fault Reports"
         description="Track and manage system fault reports across all labs."
         actions={
-          !isAdmin ? (
+          isIncharge || isAssistant ? (
             <button onClick={() => setCreateOpen(true)} className="btn-primary">
               <Plus className="w-4 h-4" /> Report Fault
             </button>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Activity,
@@ -29,6 +29,7 @@ import {
 import QRCode from 'qrcode';
 import toast from 'react-hot-toast';
 import { faultsApi, layoutApi, resourcesApi } from '@/lib/api';
+import { useAuthStore } from '@/store/authStore';
 import { downloadQrPrintSheet } from '@/lib/qrPrint';
 import type { FaultReport, LayoutItem, MonitoringHistoryResponse, ResourceRequest, SimpleSystem, SystemInfo } from '@/types';
 import ErrorState from '@/components/common/ErrorState';
@@ -76,6 +77,14 @@ export default function SystemDetailPage() {
   const { itemId } = useParams<{ itemId: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const user = useAuthStore(s => s.user);
+  const [searchParams] = useSearchParams();
+  // Set when the user arrived here by scanning the system's QR/barcode.
+  const scannedCode = searchParams.get('scan');
+  // Only incharges and assistants may report faults / request resources.
+  const canReport = user?.role === 'Lab Incharge' || user?.role === 'Lab Assistant';
+  // Admins and assistants may update the PC's working status (also enforced by the API).
+  const canUpdateStatus = user?.role === 'Administrator' || user?.role === 'Lab Assistant';
 
   const itemIdNum = Number(itemId);
   const [qrUrl, setQrUrl] = useState('');
@@ -227,6 +236,15 @@ export default function SystemDetailPage() {
       qc.invalidateQueries({ queryKey: ['resources'] });
     },
     onError: () => toast.error('Failed to request resource.'),
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: (status: string) => layoutApi.updateSystemStatus(system!.id, status),
+    onSuccess: () => {
+      toast.success('PC status updated.');
+      qc.invalidateQueries({ queryKey: ['systems-list'] });
+    },
+    onError: () => toast.error('Failed to update PC status.'),
   });
 
   const ensureQrUrl = async (): Promise<string | null> => {
@@ -462,6 +480,33 @@ export default function SystemDetailPage() {
               <PackageSearch className="w-3.5 h-3.5 text-blue-500" /> Request Resource
             </button>
           </div>
+          <div className="rounded-lg border border-slate-200 p-3">
+            <p className="text-xs text-slate-500">Disk</p>
+            <p className={`text-xl font-semibold ${statusColor(latest?.disk_usage_percent)}`}>{fmtPct(latest?.disk_usage_percent)}</p>
+          </div>
+          {system && canUpdateStatus && (
+            <div className={`rounded-lg border p-3 space-y-2 ${scannedCode ? 'border-blue-400 ring-2 ring-blue-200 dark:ring-blue-900/60' : 'border-slate-200'}`}>
+              <p className="text-xs text-slate-500">PC Status</p>
+              <select
+                className="input"
+                value={system.status}
+                onChange={(e) => statusMutation.mutate(e.target.value)}
+                disabled={statusMutation.isPending}
+              >
+                <option value="active">Active (Working)</option>
+                <option value="inactive">Inactive</option>
+                <option value="non-functional">Non-Functional</option>
+              </select>
+              {scannedCode && (
+                <p className="text-[11px] text-blue-600 dark:text-blue-400">
+                  Opened via QR scan ({scannedCode}) — update this PC's status here.
+                </p>
+              )}
+            </div>
+          )}
+          {latestError && (
+            <p className="text-xs text-amber-600">No live monitoring snapshot available right now.</p>
+          )}
         </div>
       </div>
 
@@ -494,6 +539,7 @@ export default function SystemDetailPage() {
           )}
         </div>
 
+        {canReport && (
         <div className="card p-5 space-y-4">
           <p className="text-sm font-semibold text-slate-700">Quick Reporting</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -544,6 +590,7 @@ export default function SystemDetailPage() {
           </div>
           {!system && <p className="text-xs text-amber-600">System record is missing for this layout item, so reporting is disabled.</p>}
         </div>
+        )}
       </div>
 
       <div className="card p-5">

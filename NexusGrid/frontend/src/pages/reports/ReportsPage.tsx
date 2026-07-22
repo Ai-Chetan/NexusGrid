@@ -4,12 +4,13 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, Legend, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line,
 } from 'recharts';
-import { jsPDF } from 'jspdf';
 import { RefreshCw, Building2, Layers, LayoutDashboard, BookOpen, Download, FileText } from 'lucide-react';
 import { reportsApi, layoutApi, labsApi, privilegesApi } from '@/lib/api';
 import PageHeader from '@/components/common/PageHeader';
 import ErrorState from '@/components/common/ErrorState';
 import OversightSection from '@/pages/reports/OversightSection';
+import MaintenanceSection from '@/pages/reports/MaintenanceSection';
+import { generatePdfReport } from '@/lib/pdfReport';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuthStore } from '@/store/authStore';
 import toast from 'react-hot-toast';
@@ -362,66 +363,65 @@ export default function ReportsPage() {
     setExportingPdf(true);
     try {
       const detail = await fetchExportData();
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 40;
-      const contentWidth = pageWidth - margin * 2;
-      let y = margin;
-
-      const ensureSpace = (needed = 18) => {
-        if (y + needed > pageHeight - margin) {
-          doc.addPage();
-          y = margin;
-        }
-      };
-
-      const addTitle = (text: string) => {
-        ensureSpace(24);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.text(text, margin, y);
-        y += 18;
-      };
-
-      const addLine = (text: string) => {
-        const lines = doc.splitTextToSize(text, contentWidth);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        lines.forEach((line: string) => {
-          ensureSpace(14);
-          doc.text(line, margin, y);
-          y += 13;
-        });
-      };
-
-      addTitle('NexusGrid Detailed Report');
-      addLine(`Scope: ${scopeLabel ?? (isRestricted ? 'Assigned Labs' : 'All')}`);
-      addLine(`Generated At: ${detail.generated_at ? new Date(detail.generated_at).toLocaleString() : new Date().toLocaleString()}`);
-      y += 6;
-
-      addTitle(`Systems (${detail.systems.length})`);
-      detail.systems.forEach((s) => {
-        addLine(`- #${s.id} ${s.host_name} | ${s.status} | ${s.building_name} > ${s.floor_name} > ${s.room_name} > ${s.lab_name}`);
+      generatePdfReport({
+        title: 'Detailed Infrastructure Report',
+        subtitle: `Scope: ${scopeLabel ?? (isRestricted ? 'Assigned Labs' : 'All')}`,
+        meta: [`Data as of: ${detail.generated_at ? new Date(detail.generated_at).toLocaleString() : new Date().toLocaleString()}`],
+        stats: [
+          { label: 'Systems', value: String(detail.systems.length) },
+          { label: 'Faults', value: String(detail.faults.length) },
+          { label: 'Resource Requests', value: String(detail.resources.length) },
+        ],
+        tables: [
+          {
+            title: `Systems (${detail.systems.length})`,
+            columns: [
+              { header: 'ID', key: 'id', width: 35 },
+              { header: 'Host Name', key: 'host' },
+              { header: 'Status', key: 'status', width: 80 },
+              { header: 'Building', key: 'building', width: 100 },
+              { header: 'Room', key: 'room', width: 90 },
+              { header: 'Lab', key: 'lab', width: 100 },
+            ],
+            rows: detail.systems.map((s) => ({
+              id: s.id, host: s.host_name, status: s.status,
+              building: s.building_name, room: s.room_name, lab: s.lab_name,
+            })),
+          },
+          {
+            title: `Faults (${detail.faults.length})`,
+            columns: [
+              { header: 'ID', key: 'id', width: 35 },
+              { header: 'Reported', key: 'date', width: 58 },
+              { header: 'Status', key: 'status', width: 68 },
+              { header: 'Type', key: 'type', width: 70 },
+              { header: 'Risk', key: 'risk', align: 'center', width: 32 },
+              { header: 'System', key: 'system', width: 80 },
+              { header: 'Description', key: 'desc' },
+            ],
+            rows: detail.faults.map((f) => ({
+              id: f.fault_id, date: f.reported_at.slice(0, 10), status: f.status,
+              type: f.fault_type, risk: f.risk_factor, system: f.system_name, desc: f.description,
+            })),
+          },
+          {
+            title: `Resource Requests (${detail.resources.length})`,
+            columns: [
+              { header: 'ID', key: 'id', width: 35 },
+              { header: 'Requested', key: 'date', width: 58 },
+              { header: 'Status', key: 'status', width: 60 },
+              { header: 'Resource', key: 'name', width: 110 },
+              { header: 'System', key: 'system', width: 80 },
+              { header: 'Description', key: 'desc' },
+            ],
+            rows: detail.resources.map((r) => ({
+              id: r.resource_id, date: r.requested_at.slice(0, 10), status: r.status,
+              name: r.resource_name, system: r.system_name, desc: r.description,
+            })),
+          },
+        ],
+        fileName: `nexusgrid_detailed_report_${fileScope}.pdf`,
       });
-
-      y += 6;
-      addTitle(`Faults (${detail.faults.length})`);
-      detail.faults.forEach((f) => {
-        addLine(`- Fault #${f.fault_id} | ${f.reported_at} | ${f.status} | ${f.fault_type} (Risk ${f.risk_factor}) | ${f.system_name} | ${f.building_name} > ${f.floor_name} > ${f.room_name} > ${f.lab_name}`);
-        if (f.description) addLine(`  Description: ${f.description}`);
-        if (f.resolution_summary) addLine(`  Resolution: ${f.resolution_summary}`);
-      });
-
-      y += 6;
-      addTitle(`Resource Requests (${detail.resources.length})`);
-      detail.resources.forEach((r) => {
-        addLine(`- Resource #${r.resource_id} | ${r.requested_at} | ${r.status} | ${r.resource_name} | ${r.system_name} | ${r.building_name} > ${r.floor_name} > ${r.room_name} > ${r.lab_name}`);
-        if (r.description) addLine(`  Description: ${r.description}`);
-        if (r.provision_summary) addLine(`  Provision: ${r.provision_summary}`);
-      });
-
-      doc.save(`nexusgrid_detailed_report_${fileScope}.pdf`);
       toast.success('Detailed PDF downloaded.');
     } catch {
       toast.error('Failed to download PDF report.');
@@ -655,6 +655,9 @@ export default function ReportsPage() {
           </div>
         </div>
       )}
+
+      {/* Maintenance summaries, PC status overview, and printable replacement-cost report */}
+      <MaintenanceSection />
 
       {/* Oversight tools (merged from Admin Oversight): staff activity + budget for admin,
           self task-sheet generation for assistants. */}

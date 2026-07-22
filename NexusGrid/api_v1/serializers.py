@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.utils import timezone
 from django.db.models import Q
 from login_manager.models import User
-from system_layout.models import LayoutItem, Lab, System, LabAssignment, PrivilegesConfig, SYSTEM_TYPES
+from system_layout.models import LayoutItem, Lab, System, LabAssignment, PrivilegesConfig, SYSTEM_TYPES, ALLOWED_CHILDREN
 from faults.models import FaultReport
 from resources.models import ResourceRequest
 from monitoring.models import SystemInfo
@@ -127,6 +127,23 @@ class LayoutItemCreateSerializer(serializers.ModelSerializer):
         model = LayoutItem
         fields = ['name', 'item_type', 'parent', 'position_x', 'position_y', 'width', 'height']
 
+    def validate(self, attrs):
+        parent = attrs.get('parent')
+        parent_type = parent.item_type if parent else None
+        allowed = ALLOWED_CHILDREN.get(parent_type)
+        if allowed is None:
+            raise serializers.ValidationError(
+                {'parent': f"A {parent.get_item_type_display()} cannot contain child items."}
+            )
+        item_type = attrs.get('item_type')
+        if item_type not in allowed:
+            location = f"a {parent.get_item_type_display()}" if parent else "the root level"
+            raise serializers.ValidationError(
+                {'item_type': f"'{item_type}' is not allowed inside {location}. "
+                              f"Allowed here: {', '.join(allowed)}."}
+            )
+        return attrs
+
 
 class LayoutItemUpdateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -249,7 +266,10 @@ class LabAssignmentCreateSerializer(serializers.ModelSerializer):
 class PrivilegesConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = PrivilegesConfig
-        fields = ['max_labs_per_incharge', 'max_labs_per_assistant']
+        fields = [
+            'max_labs_per_incharge', 'max_labs_per_assistant',
+            'max_incharges_per_lab', 'max_assistants_per_lab',
+        ]
 
 
 class LabUpdateSerializer(serializers.ModelSerializer):

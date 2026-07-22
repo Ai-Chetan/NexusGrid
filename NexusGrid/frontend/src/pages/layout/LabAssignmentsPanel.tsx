@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { labsApi, privilegesApi, usersApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import type { Lab, LabAssignment, PrivilegesConfig, User } from '@/types';
+import type { CurrentAssignment, Lab, LabAssignment, PrivilegesConfig, User } from '@/types';
 import EmptyState from '@/components/common/EmptyState';
 import Modal from '@/components/common/Modal';
 import toast from 'react-hot-toast';
@@ -84,6 +84,9 @@ function AssignModal({
   const limit = roleType === 'incharge'
     ? config?.max_labs_per_incharge ?? 5
     : config?.max_labs_per_assistant ?? 3;
+  const perLabLimit = roleType === 'incharge'
+    ? config?.max_incharges_per_lab ?? 1
+    : config?.max_assistants_per_lab ?? 1;
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<AssignForm>({
     resolver: zodResolver(assignSchema),
@@ -114,7 +117,7 @@ function AssignModal({
       <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
         <div className="flex items-center gap-2 rounded-lg p-3 text-xs bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400">
           <AlertTriangle className="w-4 h-4 shrink-0" />
-          Each user can handle up to <strong>{limit}</strong> labs as {label}.
+          Each user can handle up to <strong>{limit}</strong> labs as {label}; this lab allows up to <strong>{perLabLimit}</strong> active {label}(s).
         </div>
 
         <div>
@@ -240,14 +243,16 @@ function AssignmentSlot({
   title,
   icon: Icon,
   accent,
-  assignment,
+  assignments,
+  limit,
   onAssign,
   onRevoke,
 }: {
   title: string;
   icon: React.ElementType;
   accent: 'violet' | 'blue';
-  assignment: Lab['current_incharge'];
+  assignments: CurrentAssignment[];
+  limit: number;
   onAssign: () => void;
   onRevoke: (id: number) => void;
 }) {
@@ -255,45 +260,47 @@ function AssignmentSlot({
     ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300'
     : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300';
 
-  if (!assignment) {
-    return (
-      <button
-        onClick={onAssign}
-        className="group flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-full border border-dashed border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:border-brand-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50/50 dark:hover:bg-brand-900/10 transition-colors"
-        title={`Assign ${title}`}
-      >
-        <span className="w-6 h-6 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-800 group-hover:bg-brand-100 dark:group-hover:bg-brand-900/30 transition-colors">
-          <Plus className="w-3.5 h-3.5" />
-        </span>
-        <span className="text-xs font-medium">{title}</span>
-      </button>
-    );
-  }
-
   return (
-    <div
-      className="group flex items-center gap-2 pl-1.5 pr-2 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 shadow-sm"
-      title={`${title}: ${assignment.username}${assignment.end_date ? ` (until ${assignment.end_date})` : ''}`}
-    >
-      <span className={cn('w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold', accentClasses)}>
-        {assignment.username.charAt(0).toUpperCase()}
-      </span>
-      <span className="flex flex-col leading-tight">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 flex items-center gap-1">
-          <Icon className="w-3 h-3" /> {title}
-        </span>
-        <span className="text-xs font-medium text-slate-800 dark:text-slate-200 max-w-32 truncate">
-          {assignment.username}
-        </span>
-      </span>
-      <button
-        onClick={() => onRevoke(assignment.assignment_id)}
-        className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-0.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20"
-        title={`Revoke ${title}`}
-      >
-        <X className="w-3.5 h-3.5" />
-      </button>
-    </div>
+    <>
+      {assignments.map((assignment) => (
+        <div
+          key={assignment.assignment_id}
+          className="group flex items-center gap-2 pl-1.5 pr-2 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 shadow-sm"
+          title={`${title}: ${assignment.username}${assignment.end_date ? ` (until ${assignment.end_date})` : ''}`}
+        >
+          <span className={cn('w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold', accentClasses)}>
+            {assignment.username.charAt(0).toUpperCase()}
+          </span>
+          <span className="flex flex-col leading-tight">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 flex items-center gap-1">
+              <Icon className="w-3 h-3" /> {title}
+            </span>
+            <span className="text-xs font-medium text-slate-800 dark:text-slate-200 max-w-32 truncate">
+              {assignment.username}
+            </span>
+          </span>
+          <button
+            onClick={() => onRevoke(assignment.assignment_id)}
+            className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-0.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20"
+            title={`Revoke ${title}`}
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ))}
+      {assignments.length < limit && (
+        <button
+          onClick={onAssign}
+          className="group flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-full border border-dashed border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:border-brand-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50/50 dark:hover:bg-brand-900/10 transition-colors"
+          title={`Assign ${title}`}
+        >
+          <span className="w-6 h-6 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-800 group-hover:bg-brand-100 dark:group-hover:bg-brand-900/30 transition-colors">
+            <Plus className="w-3.5 h-3.5" />
+          </span>
+          <span className="text-xs font-medium">{title}</span>
+        </button>
+      )}
+    </>
   );
 }
 
@@ -310,6 +317,12 @@ export default function LabAssignmentSection({ labName }: { labName: string }) {
   const { data: labs = [], isLoading } = useQuery<Lab[]>({
     queryKey: ['labs'],
     queryFn: () => labsApi.list().then((r) => r.data),
+    staleTime: 60_000,
+  });
+
+  const { data: config } = useQuery<PrivilegesConfig>({
+    queryKey: ['privileges-config'],
+    queryFn: () => privilegesApi.getConfig().then((r) => r.data),
     staleTime: 60_000,
   });
 
@@ -333,7 +346,8 @@ export default function LabAssignmentSection({ labName }: { labName: string }) {
           title="Incharge"
           icon={UserCog}
           accent="violet"
-          assignment={lab.current_incharge}
+          assignments={lab.current_incharges ?? (lab.current_incharge ? [lab.current_incharge] : [])}
+          limit={config?.max_incharges_per_lab ?? 1}
           onAssign={() => setAssignTarget('incharge')}
           onRevoke={(id) => revokeMutation.mutate(id)}
         />
@@ -341,7 +355,8 @@ export default function LabAssignmentSection({ labName }: { labName: string }) {
           title="Assistant"
           icon={Wrench}
           accent="blue"
-          assignment={lab.current_assistant}
+          assignments={lab.current_assistants ?? (lab.current_assistant ? [lab.current_assistant] : [])}
+          limit={config?.max_assistants_per_lab ?? 1}
           onAssign={() => setAssignTarget('assistant')}
           onRevoke={(id) => revokeMutation.mutate(id)}
         />

@@ -63,7 +63,7 @@ class LoginView(APIView):
 
     def post(self, request):
         username = request.data.get('username', '').strip()
-        password = request.data.get('password', '').strip()
+        password = request.data.get('password', '')
         user = authenticate(request, username=username, password=password)
         if user is None:
             try:
@@ -564,7 +564,7 @@ class LayoutItemsView(APIView):
                     updated_by=request.user,
                 )
         _notify_admins_layout_change(request.user, 'change (created)', item)
-        return Response(LayoutItemSerializer(item).data, status=201)
+        return Response(LayoutItemSerializer(item, context=_layout_serializer_context()).data, status=201)
 
 
 class LayoutItemDetailView(APIView):
@@ -599,7 +599,7 @@ class LayoutItemDetailView(APIView):
                     system.updated_by = request.user
                     system.save(update_fields=['host_name', 'updated_at', 'updated_by_id'])
         _notify_admins_layout_change(request.user, 'change (updated)', item)
-        return Response(LayoutItemSerializer(item).data)
+        return Response(LayoutItemSerializer(item, context=_layout_serializer_context()).data)
 
     def delete(self, request, pk):
         if request.user.role not in ('Administrator', 'Lab Assistant'):
@@ -791,9 +791,9 @@ class FaultDetailView(APIView):
             fault.refresh_from_db()
             return Response(FaultReportSerializer(fault).data)
 
-        # Only admins and assistants (fault handlers) can update fault status.
-        if user.role not in ('Administrator', 'Lab Assistant'):
-            return Response({'detail': 'You do not have permission to update fault status.'}, status=403)
+        # Only assistants (fault handlers) can update fault status — admins observe, not resolve.
+        if user.role != 'Lab Assistant':
+            return Response({'detail': 'Only Lab Assistants can update fault status.'}, status=403)
 
         old_status = fault.status
         ser = FaultStatusUpdateSerializer(data=request.data)
@@ -1409,6 +1409,254 @@ class AdminBudgetSummaryView(APIView):
         })
 
 
+class MaintenanceSummaryView(APIView):
+    """Weekly/monthly maintenance summary.
+
+    ?period=weekly|monthly (default monthly), optional ?start=&end=.
+    ?user_id= scopes to one staff member's work (faults reported/resolved,
+    resources requested/fulfilled by them). ?lab_id= scopes to one lab.
+    Administrators: any scope. Lab Assistants: their own work by default,
+    or one of their currently assigned labs.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models.functions import TruncWeek, TruncMonth
+
+        user = request.user
+        if user.role not in ('Administrator', 'Lab Assistant'):
+            return Response({'detail': 'Reports are not available for this role.'}, status=403)
+
+        period = request.GET.get('period', 'monthly').strip().lower()
+        if period not in ('weekly', 'monthly'):
+            return Response({'detail': 'period must be weekly or monthly.'}, status=400)
+        trunc = TruncWeek if period == 'weekly' else TruncMonth
+        label_fmt = 'Week of %d %b %Y' if period == 'weekly' else '%b %Y'
+
+        start, end = _parse_range(request.GET)
+        lab_id = request.GET.get('lab_id', '').strip()
+        user_id = request.GET.get('user_id', '').strip()
+        if lab_id and not lab_id.isdigit():
+            return Response({'detail': 'lab_id must be numeric.'}, status=400)
+        if user_id and not user_id.isdigit():
+            return Response({'detail': 'user_id must be numeric.'}, status=400)
+
+        if user.role == 'Lab Assistant':
+            if user_id and user_id != str(user.id):
+                return Response({'detail': 'Assistants can only view their own summary.'}, status=403)
+            if lab_id:
+                today = timezone.now().date()
+                assigned = set(
+                    LabAssignment.objects.filter(user=user)
+                    .filter(Q(start_date__isnull=True) | Q(start_date__lte=today))
+                    .filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
+                    .values_list('lab_id', flat=True)
+                )
+                if int(lab_id) not in assigned:
+                    return Response({'detail': 'You can only view labs assigned to you.'}, status=403)
+            else:
+                user_id = str(user.id)
+
+        reported = FaultReport.objects.all()
+        resolved = FaultReport.objects.filter(status='resolved', resolved_at__isnull=False)
+        requested = ResourceRequest.objects.all()
+        fulfilled = ResourceRequest.objects.filter(status='Fulfilled', provided_at__isnull=False)
+        scope = {}
+
+        if user_id:
+            target = get_object_or_404(User, pk=int(user_id))
+            reported = reported.filter(reported_by=target)
+            resolved = resolved.filter(resolved_by=target)
+            requested = requested.filter(requested_by=target)
+            fulfilled = fulfilled.filter(provided_by=target)
+            scope['user'] = {'id': target.id, 'username': target.username, 'role': target.role}
+
+        if lab_id:
+            lab = get_object_or_404(Lab, pk=int(lab_id))
+            reported = reported.filter(system_name__lab=lab)
+            resolved = resolved.filter(system_name__lab=lab)
+            requested = requested.filter(system_name__lab=lab)
+            fulfilled = fulfilled.filter(system_name__lab=lab)
+            scope['lab'] = {'id': lab.id, 'name': lab.lab_name}
+
+        if start:
+            reported = reported.filter(reported_at__date__gte=start)
+            resolved = resolved.filter(resolved_at__date__gte=start)
+            requested = requested.filter(requested_at__date__gte=start)
+            fulfilled = fulfilled.filter(provided_at__date__gte=start)
+        if end:
+            reported = reported.filter(reported_at__date__lte=end)
+            resolved = resolved.filter(resolved_at__date__lte=end)
+            requested = requested.filter(requested_at__date__lte=end)
+            fulfilled = fulfilled.filter(provided_at__date__lte=end)
+
+        def bucket(qs, field, id_field):
+            return {
+                row['p']: row['n']
+                for row in qs.annotate(p=trunc(field)).values('p').annotate(n=Count(id_field))
+                if row['p'] is not None
+            }
+
+        b_reported = bucket(reported, 'reported_at', 'fault_id')
+        b_resolved = bucket(resolved, 'resolved_at', 'fault_id')
+        b_requested = bucket(requested, 'requested_at', 'resource_id')
+        b_fulfilled = bucket(fulfilled, 'provided_at', 'resource_id')
+
+        keys = sorted(set(b_reported) | set(b_resolved) | set(b_requested) | set(b_fulfilled))
+        rows = [{
+            'period': k.strftime(label_fmt),
+            'faults_reported': b_reported.get(k, 0),
+            'faults_resolved': b_resolved.get(k, 0),
+            'resources_requested': b_requested.get(k, 0),
+            'resources_fulfilled': b_fulfilled.get(k, 0),
+        } for k in keys]
+
+        return Response({
+            'period': period,
+            'start': start.isoformat() if start else None,
+            'end': end.isoformat() if end else None,
+            'scope': scope,
+            'generated_at': timezone.now().isoformat(),
+            'rows': rows,
+            'totals': {
+                'faults_reported': sum(b_reported.values()),
+                'faults_resolved': sum(b_resolved.values()),
+                'resources_requested': sum(b_requested.values()),
+                'resources_fulfilled': sum(b_fulfilled.values()),
+            },
+        })
+
+
+class ReplacementCostReportView(APIView):
+    """Admin-only: replacement/resource requests raised by lab assistants,
+    grouped by department (building), with per-part and total costs.
+
+    Read-only payload consumed by the printable report. Optional
+    ?start=&end= and ?status=Pending|Fulfilled|Denied filters.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        denied = _admin_only(request)
+        if denied:
+            return denied
+
+        start, end = _parse_range(request.GET)
+        qs = (
+            ResourceRequest.objects
+            .filter(requested_by__role='Lab Assistant')
+            .select_related(
+                'system_name', 'system_name__lab', 'system_name__lab__layout_item',
+                'system_name__lab__layout_item__parent',
+                'system_name__lab__layout_item__parent__parent',
+                'requested_by',
+            )
+            .order_by('requested_at')
+        )
+        if start:
+            qs = qs.filter(requested_at__date__gte=start)
+        if end:
+            qs = qs.filter(requested_at__date__lte=end)
+        status_param = request.GET.get('status', '').strip()
+        if status_param in ('Pending', 'Fulfilled', 'Denied'):
+            qs = qs.filter(status=status_param)
+
+        departments = {}
+        grand_total = 0.0
+        for r in qs:
+            lab = r.system_name.lab
+            room = getattr(lab, 'layout_item', None) if lab else None
+            floor = getattr(room, 'parent', None) if room else None
+            building = getattr(floor, 'parent', None) if floor else None
+            dept = building.name if building else 'Unassigned'
+            unit_cost = float(r.cost) if r.cost is not None else None
+            line_total = round(unit_cost * r.quantity, 2) if unit_cost is not None else None
+            d = departments.setdefault(dept, {
+                'department': dept, 'items': [], 'subtotal': 0.0, 'items_without_cost': 0,
+            })
+            d['items'].append({
+                'resource_id': r.resource_id,
+                'requested_at': r.requested_at.isoformat(),
+                'resource_name': r.resource_name,
+                'system_name': r.system_name.host_name or '',
+                'lab_name': lab.lab_name if lab else '',
+                'requested_by': r.requested_by.username,
+                'quantity': r.quantity,
+                'unit_cost': unit_cost,
+                'line_total': line_total,
+                'status': r.status,
+            })
+            if line_total is not None:
+                d['subtotal'] = round(d['subtotal'] + line_total, 2)
+                grand_total = round(grand_total + line_total, 2)
+            else:
+                d['items_without_cost'] += 1
+
+        return Response({
+            'start': start.isoformat() if start else None,
+            'end': end.isoformat() if end else None,
+            'generated_at': timezone.now().isoformat(),
+            'departments': sorted(departments.values(), key=lambda d: d['department']),
+            'grand_total': grand_total,
+        })
+
+
+class PcStatusOverviewView(APIView):
+    """Admin-only: overall PC/system counts — total, working, not working,
+    inactive, and under maintenance (open in-progress/scheduled fault),
+    plus a per-lab breakdown.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        denied = _admin_only(request)
+        if denied:
+            return denied
+
+        by_status = dict(
+            System.objects.values('status').annotate(n=Count('id')).values_list('status', 'n')
+        )
+        maintenance_ids = set(
+            FaultReport.objects
+            .filter(status__in=['in-progress', 'scheduled'])
+            .values_list('system_name_id', flat=True)
+        )
+
+        lab_rows = (
+            System.objects
+            .filter(lab__isnull=False)
+            .values('id', 'status', 'lab_id', 'lab__lab_name')
+            .order_by('lab__lab_name')
+        )
+        grouped = {}
+        for row in lab_rows:
+            g = grouped.setdefault(row['lab_id'], {
+                'lab_id': row['lab_id'], 'lab_name': row['lab__lab_name'],
+                'total': 0, 'working': 0, 'inactive': 0, 'not_working': 0, 'under_maintenance': 0,
+            })
+            g['total'] += 1
+            if row['status'] == 'active':
+                g['working'] += 1
+            elif row['status'] == 'inactive':
+                g['inactive'] += 1
+            elif row['status'] == 'non-functional':
+                g['not_working'] += 1
+            if row['id'] in maintenance_ids:
+                g['under_maintenance'] += 1
+        per_lab = sorted(grouped.values(), key=lambda g: g['lab_name'])
+
+        return Response({
+            'generated_at': timezone.now().isoformat(),
+            'total': System.objects.count(),
+            'working': by_status.get('active', 0),
+            'inactive': by_status.get('inactive', 0),
+            'not_working': by_status.get('non-functional', 0),
+            'under_maintenance': len(maintenance_ids),
+            'by_status': by_status,
+            'per_lab': per_lab,
+        })
+
+
 # ─── Monitoring ──────────────────────────────────────────────────────────────
 
 MONITORING_CACHE_KEY = 'monitoring_latest_v1'
@@ -1703,13 +1951,17 @@ class UserDetailView(APIView):
         user = get_object_or_404(User, pk=pk)
         if user.pk == request.user.pk:
             return Response({'detail': 'You cannot delete your own account.'}, status=400)
+        if user.is_superuser and not request.user.is_superuser:
+            return Response({'detail': 'Only a superuser can delete another superuser.'}, status=403)
         username = user.username
-        # Revoke all lab assignments
+        # Revoke lab assignments first (explicit; CASCADE would also cover this)
         LabAssignment.objects.filter(user=user).delete()
         user.delete()
         from django.core.cache import cache
         cache.delete(USER_LIST_CACHE_KEY)
-        return Response({'detail': f'User "{username}" deleted.'}, status=status.HTTP_204_NO_CONTENT)
+        # 200 not 204 — clients need the body for toast messaging
+        return Response({'detail': f'User "{username}" deleted.'})
+
 
 
 class SystemsListView(APIView):
@@ -1839,22 +2091,28 @@ class LabAssignmentListView(APIView):
                 status=400,
             )
 
-        # Validate no overlapping active assignment for same lab + role_type
+        # Validate against per-lab slot limit for this role (admin-configurable)
+        config = PrivilegesConfig.get_config()
         today = timezone.now().date()
         effective_start = start_date or today
         overlap_qs = LabAssignment.objects.filter(lab=lab, role_type=role_type).filter(
             Q(start_date__isnull=True) | Q(start_date__lte=(end_date or timezone.datetime.max.date())),
             Q(end_date__isnull=True)   | Q(end_date__gte=effective_start),
         )
-        if overlap_qs.exists():
-            label = 'Lab Incharge' if role_type == LabAssignment.ROLE_INCHARGE else 'Lab Assistant'
+        label = 'Lab Incharge' if role_type == LabAssignment.ROLE_INCHARGE else 'Lab Assistant'
+        if overlap_qs.filter(user=user).exists():
             return Response(
-                {'detail': f'This lab already has an active {label} during the selected period.'},
+                {'detail': f'{user.username} is already assigned as {label} for this lab during the selected period.'},
+                status=400,
+            )
+        per_lab_limit = config.max_incharges_per_lab if role_type == LabAssignment.ROLE_INCHARGE else config.max_assistants_per_lab
+        if overlap_qs.count() >= per_lab_limit:
+            return Response(
+                {'detail': f'This lab already has {overlap_qs.count()} active {label}(s) during the selected period (limit: {per_lab_limit}).'},
                 status=400,
             )
 
         # Validate per-user concurrent assignment limit
-        config = PrivilegesConfig.get_config()
         limit = config.max_labs_per_incharge if role_type == LabAssignment.ROLE_INCHARGE else config.max_labs_per_assistant
         concurrent_count = LabAssignment.objects.filter(user=user, role_type=role_type).filter(
             Q(start_date__isnull=True) | Q(start_date__lte=(end_date or timezone.datetime.max.date())),

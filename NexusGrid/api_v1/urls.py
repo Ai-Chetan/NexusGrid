@@ -44,6 +44,9 @@ urlpatterns = [
     # Reports
     path('reports/', views.ReportsView.as_view(), name='api-reports'),
     path('reports/details/', views.ReportsDetailView.as_view(), name='api-reports-details'),
+    path('reports/maintenance-summary/', views.MaintenanceSummaryView.as_view(), name='api-reports-maintenance-summary'),
+    path('reports/replacement-costs/', views.ReplacementCostReportView.as_view(), name='api-reports-replacement-costs'),
+    path('reports/pc-status/', views.PcStatusOverviewView.as_view(), name='api-reports-pc-status'),
 
     # Admin oversight & budgeting
     path('admin/staff-activity/', views.AdminStaffActivityView.as_view(), name='api-admin-staff-activity'),
