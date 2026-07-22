@@ -203,6 +203,12 @@ function AddItemModal({ open, onClose, parentType, parentId, existingItems }: Ad
   const qc = useQueryClient();
 
   const options = getChildTypes(parentType);
+  const singleOption = options.length === 1 ? options[0] : null;
+
+  // Only one child type possible (e.g. root→building) — pre-select it, no dropdown needed.
+  useEffect(() => {
+    if (open && singleOption) setItemType(singleOption.value);
+  }, [open, singleOption]);
 
   const mutation = useMutation({
     mutationFn: (data: { name: string; item_type: string; parent?: number | null; position_x?: number; position_y?: number }) =>
@@ -267,17 +273,19 @@ function AddItemModal({ open, onClose, parentType, parentId, existingItems }: Ad
   }, [existingItems]);
 
   return (
-    <Modal open={open} onClose={onClose} title="Add New Item">
+    <Modal open={open} onClose={onClose} title={singleOption ? `Add New ${singleOption.label}` : 'Add New Item'}>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="label">Item Type</label>
-          <select value={itemType} onChange={(e) => setItemType(e.target.value)} className="input" required>
-            <option value="">Select type…</option>
-            {options.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
+        {!singleOption && (
+          <div>
+            <label className="label">Item Type</label>
+            <select value={itemType} onChange={(e) => setItemType(e.target.value)} className="input" required>
+              <option value="">Select type…</option>
+              {options.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className="label">Name</label>
           <input
@@ -1046,8 +1054,8 @@ export default function LayoutPage() {
           onIsSavingChange={setIsSavingFlow}
           onBeforePositionChange={handleBeforePositionChange}
           onMonitorClick={(item) => navigate(`/app/system/${item.id}`)}
-          onFaultCreate={(item) => setFaultItem(item)}
-          onResourceCreate={(item) => setResourceItem(item)}
+          onFaultCreate={isRestricted ? (item) => setFaultItem(item) : undefined}
+          onResourceCreate={isRestricted ? (item) => setResourceItem(item) : undefined}
           {...sharedProps}
         />
       )}

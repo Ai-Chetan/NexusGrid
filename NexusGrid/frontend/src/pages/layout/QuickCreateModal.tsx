@@ -140,8 +140,14 @@ function generateBulkNamesFromFirst(firstName: string, count: number): string[] 
 }
 
 // ─── Position layout helpers ─────────────────────────────────────────────────
-const ORIGIN = { x: 80, y: 80 };
-const CARD_GAP = 20; // uniform gap (px) between every card edge
+// NetworkFlowView snaps every rendered/saved position to a 24px grid, so spawn
+// coordinates must land on multiples of 24 — otherwise per-index rounding
+// makes some gaps one grid unit (24px) wider than others.
+const SNAP = 24; // must match SNAP in NetworkFlowView
+const snapUp = (v: number) => Math.ceil(v / SNAP) * SNAP;
+
+const ORIGIN = { x: snapUp(80), y: snapUp(80) };
+const CARD_GAP = 20; // minimum gap (px) between card edges, before grid alignment
 
 // Card sizes mirror NetworkFlowView nodeSizes
 const CARD_SIZES: Record<string, { w: number; h: number }> = {
@@ -152,14 +158,14 @@ const CARD_SIZES: Record<string, { w: number; h: number }> = {
 };
 
 const GAPS: Record<string, { x: number; y: number }> = {
-  root:     { x: CARD_SIZES.building.w + CARD_GAP, y: 0 }, // buildings → side by side
-  building: { x: 0, y: CARD_SIZES.floor.h + CARD_GAP },   // floors    → stacked
-  floor:    { x: CARD_SIZES.room.w + CARD_GAP, y: 0 },     // rooms     → side by side
+  root:     { x: snapUp(CARD_SIZES.building.w + CARD_GAP), y: 0 }, // buildings → side by side
+  building: { x: 0, y: snapUp(CARD_SIZES.floor.h + CARD_GAP) },    // floors    → stacked
+  floor:    { x: snapUp(CARD_SIZES.room.w + CARD_GAP), y: 0 },     // rooms     → side by side
 };
-// equal horizontal + vertical gap for devices
+// equal horizontal + vertical gap for devices, grid-aligned
 const DEVICE_GAP = {
-  x: CARD_SIZES.device.w + CARD_GAP,
-  y: CARD_SIZES.device.h + CARD_GAP,
+  x: snapUp(CARD_SIZES.device.w + CARD_GAP),
+  y: snapUp(CARD_SIZES.device.h + CARD_GAP),
 };
 
 function calcChildPositions(
@@ -174,7 +180,7 @@ function calcChildPositions(
         y: ORIGIN.y + Math.floor(i / devicesPerRow) * DEVICE_GAP.y,
       };
     }
-    const gap = GAPS[parentType] ?? { x: 250, y: 0 };
+    const gap = GAPS[parentType] ?? { x: snapUp(250), y: 0 };
     // Floors stack bottom-up: floor 1 is lowest, floor N is highest
     const idx = parentType === 'building' ? (count - 1 - i) : i;
     return { x: ORIGIN.x + idx * gap.x, y: ORIGIN.y + idx * gap.y };

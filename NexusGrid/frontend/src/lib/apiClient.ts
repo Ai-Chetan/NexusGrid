@@ -132,6 +132,11 @@ export const reportsApi = {
     apiClient.get('/reports/', { params }),
   details: (params?: { building_id?: number; floor_id?: number; lab_id?: number; room_id?: number }) =>
     apiClient.get('/reports/details/', { params }),
+  maintenanceSummary: (params?: { period?: 'weekly' | 'monthly'; start?: string; end?: string; user_id?: number; lab_id?: number }) =>
+    apiClient.get('/reports/maintenance-summary/', { params }),
+  replacementCosts: (params?: { start?: string; end?: string; status?: string }) =>
+    apiClient.get('/reports/replacement-costs/', { params }),
+  pcStatus: () => apiClient.get('/reports/pc-status/'),
 };
 
 // ─── Admin oversight & budgeting ────────────────────────────────────────────────
@@ -179,7 +184,7 @@ export const privilegesApi = {
   }) => apiClient.post('/privileges/assignments/', data),
   deleteAssignment: (id: number) => apiClient.delete(`/privileges/assignments/${id}/`),
   getConfig: () => apiClient.get('/privileges/config/'),
-  updateConfig: (data: { max_labs_per_incharge?: number; max_labs_per_assistant?: number }) =>
+  updateConfig: (data: { max_labs_per_incharge?: number; max_labs_per_assistant?: number; max_incharges_per_lab?: number; max_assistants_per_lab?: number }) =>
     apiClient.patch('/privileges/config/', data),
 };
 

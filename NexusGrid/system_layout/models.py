@@ -5,6 +5,16 @@ from login_manager.models import User
 # Layout item types that map to a physical System (vs building/floor/room containers).
 SYSTEM_TYPES = ('computer', 'server', 'network_switch', 'router', 'printer', 'ups', 'rack')
 
+# Allowed child item_types for each parent context. None key = root level.
+# Single source of truth for hierarchy validation (mirrors frontend CHILD_TYPES).
+ALLOWED_CHILDREN = {
+    None:       ('building',),
+    'building': ('floor',),
+    'floor':    ('room',),
+    'room':     SYSTEM_TYPES,
+}
+
+
 class LayoutItem(models.Model):
     ITEM_TYPES = [
         ('building', 'Building'),
@@ -160,6 +170,14 @@ class PrivilegesConfig(models.Model):
     max_labs_per_assistant = models.PositiveIntegerField(
         default=3,
         help_text="Maximum number of labs a single Lab Assistant can be concurrently assigned to.",
+    )
+    max_incharges_per_lab = models.PositiveIntegerField(
+        default=1,
+        help_text="Maximum number of concurrently active Lab Incharges per lab.",
+    )
+    max_assistants_per_lab = models.PositiveIntegerField(
+        default=1,
+        help_text="Maximum number of concurrently active Lab Assistants per lab.",
     )
 
     class Meta:

@@ -432,7 +432,7 @@ export default function ResourcesPage() {
         title="Resource Requests"
         description="Manage hardware and software resource requests for lab systems."
         actions={
-          !isAdmin ? (
+          isIncharge || isAssistant ? (
             <button onClick={() => setCreateOpen(true)} className="btn-primary">
               <Plus className="w-4 h-4" /> New Request
             </button>

@@ -77,6 +77,8 @@ export interface Lab {
   systems_count: number;
   current_incharge: CurrentAssignment | null;
   current_assistant: CurrentAssignment | null;
+  current_incharges: CurrentAssignment[];
+  current_assistants: CurrentAssignment[];
 }
 
 export interface BreadcrumbItem {
@@ -379,6 +381,8 @@ export interface LabAssignment {
 export interface PrivilegesConfig {
   max_labs_per_incharge: number;
   max_labs_per_assistant: number;
+  max_incharges_per_lab: number;
+  max_assistants_per_lab: number;
 }
 
 export interface CurrentAssignment {
