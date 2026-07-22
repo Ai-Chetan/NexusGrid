@@ -133,16 +133,13 @@ if %ERRORLEVEL% EQU 0 (
     del "%TASK_XML%" >nul 2>&1
 )
 
-:: Attempt 5b: Windows Startup Folder fallback (Loops every 30 seconds)
+:: Attempt 5b: Windows Startup Folder fallback (Silent VBScript loop every 30 seconds)
 set "STARTUP_FOLDER=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 if exist "%STARTUP_FOLDER%" (
-    echo @echo off > "%STARTUP_FOLDER%\NexusGridMonitoring.bat"
-    echo set "NEXUSGRID_BASE_URL=%NEXUSGRID_BASE_URL%" >> "%STARTUP_FOLDER%\NexusGridMonitoring.bat"
-    echo :loop >> "%STARTUP_FOLDER%\NexusGridMonitoring.bat"
-    echo call "%LAUNCHER%" >> "%STARTUP_FOLDER%\NexusGridMonitoring.bat"
-    echo timeout /t 30 /nobreak ^>nul >> "%STARTUP_FOLDER%\NexusGridMonitoring.bat"
-    echo goto loop >> "%STARTUP_FOLDER%\NexusGridMonitoring.bat"
-    echo [OK] Created Startup loop entry in: %STARTUP_FOLDER%\NexusGridMonitoring.bat - Interval: Every 30 seconds
+    if exist "%STARTUP_FOLDER%\NexusGridMonitoring.bat" del "%STARTUP_FOLDER%\NexusGridMonitoring.bat" >nul 2>&1
+    echo Set WshShell = CreateObject("WScript.Shell") > "%STARTUP_FOLDER%\NexusGridMonitoring.vbs"
+    echo WshShell.Run "wscript.exe """ ^& "%SCRIPT_DIR%run_silent.vbs" ^& """", 0, False >> "%STARTUP_FOLDER%\NexusGridMonitoring.vbs"
+    echo [OK] Created Silent Startup entry in: %STARTUP_FOLDER%\NexusGridMonitoring.vbs - Interval: Every 30 seconds (Hidden)
 )
 
 echo.

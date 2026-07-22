@@ -137,6 +137,16 @@ export interface ResourceRequest {
 }
 
 // ─── Monitoring ──────────────────────────────────────────────────────────────
+export interface GpuStat {
+  gpu_id: number;
+  gpu_name: string;
+  gpu_load_percent: number;
+  gpu_memory_used: number;
+  gpu_memory_total: number;
+  gpu_memory_percent: number;
+  gpu_temperature: number;
+}
+
 export interface SystemInfo {
   id?: number;
   hostname: string;
@@ -171,6 +181,9 @@ export interface SystemInfo {
   // Users
   users_count: number | null;
   logged_in_users: string | null;
+  // GPU
+  gpu_available?: boolean | null;
+  gpu_stats?: GpuStat[] | null;
   // Timestamp
   timestamp: string;
   // Legacy aliases kept for MonitoringPage compat

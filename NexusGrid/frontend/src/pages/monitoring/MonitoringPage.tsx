@@ -57,6 +57,9 @@ function SystemRow({
       <div className="hidden sm:flex items-center gap-1.5 shrink-0">
         <UsagePill label="CPU" value={info.cpu_usage ?? null} />
         <UsagePill label="RAM" value={ramUsage} />
+        {info.gpu_stats && info.gpu_stats.length > 0 && (
+          <UsagePill label="GPU" value={info.gpu_stats[0].gpu_load_percent ?? null} />
+        )}
         <UsagePill label="Disk" value={diskUsage} />
       </div>
       <span className="hidden md:flex items-center gap-1 text-xs text-slate-400 shrink-0 w-24 justify-end">
@@ -76,13 +79,14 @@ export default function MonitoringPage() {
   const { data, isLoading, isError, refetch } = useQuery<{ systems: SystemInfo[] }>({
     queryKey: ['monitoring'],
     queryFn: () => monitoringApi.latest().then(r => r.data),
-    refetchInterval: 30_000, // auto-refresh every 30s
+    refetchInterval: 5_000, // auto-refresh every 5s for real-time live data
   });
 
   const { data: knownSystems = [] } = useQuery<SimpleSystem[]>({
     queryKey: ['systems-list'],
     queryFn: () => layoutApi.getSystems().then(r => r.data as SimpleSystem[]),
-    staleTime: 60_000,
+    staleTime: 5_000,
+    refetchInterval: 5_000,
   });
 
   const rawSystems = data?.systems ?? [];

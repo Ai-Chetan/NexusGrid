@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import {
   X, Monitor, Cpu, HardDrive, Wifi, Users, Clock,
   ChevronDown, ChevronUp, Activity, Server as ServerIcon,
-  AlertTriangle, PackageSearch, QrCode, Download,
+  AlertTriangle, PackageSearch, QrCode, Download, Zap,
 } from 'lucide-react';
 import { layoutApi } from '@/lib/api';
 import type { SystemInfo, LayoutItem, SimpleSystem } from '@/types';
@@ -152,14 +152,15 @@ export default function ComputerMonitorModal({ itemId, itemName, item, onClose, 
   const { data: info, isLoading, isError } = useQuery<SystemInfo>({
     queryKey: ['item-monitoring', itemId],
     queryFn: () => layoutApi.getItemMonitoring(itemId).then(r => r.data),
-    refetchInterval: 30_000,
-    staleTime: 15_000,
+    refetchInterval: 5_000,
+    staleTime: 5_000,
   });
 
   const { data: systems = [] } = useQuery<SimpleSystem[]>({
     queryKey: ['systems-list'],
     queryFn: () => layoutApi.getSystems().then((r) => r.data as SimpleSystem[]),
-    staleTime: 60_000,
+    staleTime: 5_000,
+    refetchInterval: 5_000,
   });
 
   const system = systems.find((s) => s.layout_item_id === itemId) ?? null;
@@ -195,6 +196,7 @@ export default function ComputerMonitorModal({ itemId, itemName, item, onClose, 
   const cpuColor  = (info?.cpu_usage ?? 0) > 85 ? '#ef4444' : (info?.cpu_usage ?? 0) > 60 ? '#f59e0b' : '#10b981';
   const ramColor  = (info?.memory_usage_percent ?? 0) > 85 ? '#ef4444' : (info?.memory_usage_percent ?? 0) > 60 ? '#f59e0b' : '#3b82f6';
   const diskColor = (info?.disk_usage_percent ?? 0) > 85 ? '#ef4444' : (info?.disk_usage_percent ?? 0) > 60 ? '#f59e0b' : '#8b5cf6';
+  const gpuColor  = (info?.gpu_stats?.[0]?.gpu_load_percent ?? 0) > 85 ? '#ef4444' : (info?.gpu_stats?.[0]?.gpu_load_percent ?? 0) > 60 ? '#f59e0b' : '#ec4899';
 
   // Close on backdrop click
   const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -284,12 +286,15 @@ export default function ComputerMonitorModal({ itemId, itemName, item, onClose, 
                 ))}
               </div>
 
-              {/* ── Bar breakdowns for memory and disk ── */}
+              {/* ── Bar breakdowns for memory, disk, and GPU ── */}
               <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
                 <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">Resource Details</p>
                 <GaugeBar value={info.cpu_usage} color={cpuColor} label="CPU Usage" />
                 <GaugeBar value={info.memory_usage_percent} color={ramColor} label="Memory Usage" />
                 <GaugeBar value={info.disk_usage_percent} color={diskColor} label="Disk Usage" />
+                {info.gpu_stats && info.gpu_stats.length > 0 && (
+                  <GaugeBar value={info.gpu_stats[0].gpu_load_percent} color={gpuColor} label={`GPU Usage (${info.gpu_stats[0].gpu_name || 'GPU'})`} />
+                )}
               </div>
 
               {/* ── Timestamp ── */}
@@ -323,6 +328,23 @@ export default function ComputerMonitorModal({ itemId, itemName, item, onClose, 
                   <InfoRow label="Processor" value={info.processor} />
                 </div>
               </Collapsible>
+
+              {/* ── Additional: GPU Details ── */}
+              {info.gpu_stats && info.gpu_stats.length > 0 && (
+                <Collapsible title="GPU Details" icon={Zap} defaultOpen>
+                  <div className="space-y-0">
+                    {info.gpu_stats.map((gpu) => (
+                      <div key={gpu.gpu_id} className="space-y-0">
+                        <InfoRow label="GPU Model" value={gpu.gpu_name || `GPU #${gpu.gpu_id}`} />
+                        <InfoRow label="GPU Load" value={gpu.gpu_load_percent != null ? `${gpu.gpu_load_percent.toFixed(1)}%` : '—'} />
+                        <InfoRow label="VRAM Used" value={`${(gpu.gpu_memory_used / 1024).toFixed(2)} GB / ${(gpu.gpu_memory_total / 1024).toFixed(2)} GB`} />
+                        <InfoRow label="VRAM Usage" value={gpu.gpu_memory_percent != null ? `${gpu.gpu_memory_percent.toFixed(1)}%` : '—'} />
+                        <InfoRow label="Temperature" value={gpu.gpu_temperature != null ? `${gpu.gpu_temperature}°C` : '—'} />
+                      </div>
+                    ))}
+                  </div>
+                </Collapsible>
+              )}
 
               {/* ── Additional: CPU ── */}
               <Collapsible title="CPU Details" icon={Cpu}>

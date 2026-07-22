@@ -13,6 +13,7 @@ import {
   PackageSearch,
   QrCode,
   Server,
+  Zap,
 } from 'lucide-react';
 import {
   Area,
@@ -79,10 +80,41 @@ export default function SystemDetailPage() {
   const itemIdNum = Number(itemId);
   const [qrUrl, setQrUrl] = useState('');
   const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [faultModalOpen, setFaultModalOpen] = useState(false);
+  const [resourceModalOpen, setResourceModalOpen] = useState(false);
   const [faultType, setFaultType] = useState('Hardware');
   const [faultDesc, setFaultDesc] = useState('');
   const [resourceName, setResourceName] = useState('');
   const [resourceDesc, setResourceDesc] = useState('');
+
+  const createFaultMutation = useMutation({
+    mutationFn: (data: { fault_type: string; description: string; system_host_name: string }) =>
+      faultsApi.create(data),
+    onSuccess: () => {
+      toast.success('Fault report submitted successfully');
+      setFaultModalOpen(false);
+      setFaultDesc('');
+      qc.invalidateQueries({ queryKey: ['system-fault-history'] });
+    },
+    onError: () => {
+      toast.error('Failed to submit fault report');
+    },
+  });
+
+  const createResourceMutation = useMutation({
+    mutationFn: (data: { resource_name: string; description: string; system_host_name: string }) =>
+      resourcesApi.create(data),
+    onSuccess: () => {
+      toast.success('Resource request submitted successfully');
+      setResourceModalOpen(false);
+      setResourceName('');
+      setResourceDesc('');
+      qc.invalidateQueries({ queryKey: ['system-resource-history'] });
+    },
+    onError: () => {
+      toast.error('Failed to submit resource request');
+    },
+  });
 
   const { data: item, isLoading: itemLoading, isError: itemError, refetch: refetchItem } = useQuery<LayoutItem>({
     queryKey: ['layout-item-detail', itemIdNum],
@@ -100,7 +132,8 @@ export default function SystemDetailPage() {
   const { data: systems = [] } = useQuery<SimpleSystem[]>({
     queryKey: ['systems-list'],
     queryFn: () => layoutApi.getSystems().then((r) => r.data as SimpleSystem[]),
-    staleTime: 60_000,
+    staleTime: 5_000,
+    refetchInterval: 5_000,
   });
 
   const system = useMemo(() => systems.find((s) => s.layout_item_id === itemIdNum) ?? null, [systems, itemIdNum]);
@@ -109,14 +142,17 @@ export default function SystemDetailPage() {
     queryKey: ['item-monitoring-latest', itemIdNum],
     queryFn: () => layoutApi.getItemMonitoring(itemIdNum).then((r) => r.data as SystemInfo),
     enabled: Number.isFinite(itemIdNum),
-    refetchInterval: 30_000,
+    refetchInterval: 5_000,
   });
+
+  const gpuStats = latest?.gpu_stats ?? [];
+  const hasGpu = Boolean(latest?.gpu_available || (gpuStats && gpuStats.length > 0));
 
   const { data: historyResponse } = useQuery<MonitoringHistoryResponse>({
     queryKey: ['item-monitoring-history', itemIdNum],
     queryFn: () => layoutApi.getItemMonitoringHistory(itemIdNum, 120).then((r) => r.data as MonitoringHistoryResponse),
     enabled: Number.isFinite(itemIdNum),
-    refetchInterval: 60_000,
+    refetchInterval: 10_000,
   });
 
   const history = historyResponse?.history ?? [];
@@ -254,12 +290,24 @@ export default function SystemDetailPage() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      {/* Header bar */}
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <button onClick={() => navigate(roomCrumb ? `/app/layout/${roomCrumb.id}` : '/app/layout')} className="btn-secondary mb-3">
+          <button onClick={() => navigate(roomCrumb ? `/app/layout/${roomCrumb.id}` : '/app/layout')} className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-brand-600 mb-2 transition-colors">
             <ArrowLeft className="w-4 h-4" /> Back to Layout
           </button>
-          <h1 className="text-2xl font-bold text-slate-900">{item.name}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{item.name}</h1>
+            {hasGpu ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                <Zap className="w-3 h-3" /> GPU Active
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+                GPU: Not Available
+              </span>
+            )}
+          </div>
           <p className="text-sm text-slate-500 mt-1">
             {item.item_type.replace(/_/g, ' ')}{system?.lab_name ? ` • ${system.lab_name}` : ''}
           </p>
@@ -269,70 +317,91 @@ export default function SystemDetailPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard label="CPU Usage" value={fmtPct(latest?.cpu_usage)} sub={latest?.cpu_total_cores ? `${latest.cpu_total_cores} cores` : undefined} icon={Cpu} />
+      {/* Top Metric Cards */}
+      <div className={`grid grid-cols-2 ${hasGpu ? 'md:grid-cols-3 lg:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
+        <MetricCard
+          label="CPU Usage"
+          value={fmtPct(latest?.cpu_usage)}
+          sub={latest?.processor ? `${latest.processor.replace(/Intel\(R\)|Core\(TM\)|Processor|CPU|12th Gen|11th Gen|10th Gen|13th Gen|14th Gen/gi, '').trim()} (${latest?.cpu_total_cores ?? '?'} cores)` : (latest?.cpu_total_cores ? `${latest.cpu_total_cores} cores` : undefined)}
+          icon={Cpu}
+        />
         <MetricCard label="Memory Usage" value={fmtPct(latest?.memory_usage_percent)} sub={`${fmtGb(latest?.memory_used)} / ${fmtGb(latest?.memory_total)}`} icon={MemoryStick} />
+        {hasGpu && (
+          <MetricCard
+            label="GPU Usage"
+            value={gpuStats && gpuStats.length > 0 ? fmtPct(gpuStats[0].gpu_load_percent) : 'Detected'}
+            sub={gpuStats && gpuStats.length > 0 ? `${gpuStats[0].gpu_name} (${gpuStats[0].gpu_temperature ? `${gpuStats[0].gpu_temperature}°C` : 'No temp'})` : 'GPU Available'}
+            icon={Zap}
+          />
+        )}
         <MetricCard label="Disk Usage" value={fmtPct(latest?.disk_usage_percent)} sub={`${fmtGb(latest?.disk_used)} / ${fmtGb(latest?.disk_total)}`} icon={HardDrive} />
         <MetricCard label="Last Seen" value={latest ? new Date(latest.timestamp).toLocaleTimeString() : 'N/A'} sub={latest?.ip_address ?? undefined} icon={Clock} />
       </div>
 
+      {/* Snapshot Details */}
       <div className="card p-5">
-        <p className="text-sm font-semibold text-slate-700 mb-4">System Snapshot Details</p>
+        <div className="flex items-center justify-between mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">System Specifications & Telemetry</p>
+          {!hasGpu && (
+            <span className="text-xs text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md font-mono">
+              GPU: Not Available
+            </span>
+          )}
+        </div>
         {!latest ? (
           <p className="text-sm text-slate-500">No latest snapshot available.</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 text-sm">
-            <div className="space-y-1.5">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Identity</p>
-              <p><span className="text-slate-500">Snapshot ID:</span> <span className="font-medium">{fmtNumber(latest.id)}</span></p>
-              <p><span className="text-slate-500">Hostname:</span> <span className="font-medium">{latest.hostname || 'N/A'}</span></p>
-              <p><span className="text-slate-500">IP Address:</span> <span className="font-medium">{latest.ip_address || 'N/A'}</span></p>
-              <p><span className="text-slate-500">Timestamp:</span> <span className="font-medium">{fmtTimestamp(latest.timestamp)}</span></p>
+          <div className={`grid grid-cols-1 md:grid-cols-2 ${hasGpu ? 'xl:grid-cols-4' : 'xl:grid-cols-3'} gap-6 text-sm`}>
+            {/* Column 1: System & Identity */}
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">System & Identity</p>
+              <p className="flex justify-between"><span className="text-slate-500">Hostname:</span> <span className="font-medium text-slate-800 dark:text-slate-200">{latest.hostname || 'N/A'}</span></p>
+              <p className="flex justify-between"><span className="text-slate-500">IP Address:</span> <span className="font-mono text-slate-800 dark:text-slate-200">{latest.ip_address || 'N/A'}</span></p>
+              <p className="flex justify-between"><span className="text-slate-500">OS:</span> <span className="font-medium text-slate-800 dark:text-slate-200">{[latest.system, latest.release].filter(Boolean).join(' ') || 'N/A'}</span></p>
+              <p className="flex justify-between"><span className="text-slate-500">Architecture:</span> <span className="font-medium text-slate-800 dark:text-slate-200">{latest.architecture || 'N/A'}</span></p>
+              <p className="flex justify-between"><span className="text-slate-500">Last Telemetry:</span> <span className="font-medium text-slate-800 dark:text-slate-200">{fmtTimestamp(latest.timestamp)}</span></p>
             </div>
 
-            <div className="space-y-1.5">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">OS & Hardware</p>
-              <p><span className="text-slate-500">System:</span> <span className="font-medium">{latest.system || 'N/A'}</span></p>
-              <p><span className="text-slate-500">Release:</span> <span className="font-medium">{latest.release || 'N/A'}</span></p>
-              <p><span className="text-slate-500">Version:</span> <span className="font-medium">{latest.version || 'N/A'}</span></p>
-              <p><span className="text-slate-500">Machine:</span> <span className="font-medium">{latest.machine || 'N/A'}</span></p>
-              <p><span className="text-slate-500">Architecture:</span> <span className="font-medium">{latest.architecture || 'N/A'}</span></p>
-              <p><span className="text-slate-500">Processor:</span> <span className="font-medium">{latest.processor || 'N/A'}</span></p>
+            {/* Column 2: Processor & CPU */}
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Processor & CPU</p>
+              <p className="flex justify-between items-start gap-2">
+                <span className="text-slate-500 shrink-0">Processor:</span>
+                <span className="font-bold text-slate-900 dark:text-slate-100 text-right leading-tight break-words">{latest.processor || 'N/A'}</span>
+              </p>
+              <p className="flex justify-between"><span className="text-slate-500">Cores:</span> <span className="font-medium text-slate-800 dark:text-slate-200">{fmtNumber(latest.cpu_physical_cores)} physical / {fmtNumber(latest.cpu_total_cores)} logical</span></p>
+              <p className="flex justify-between"><span className="text-slate-500">Current Freq:</span> <span className="font-medium text-slate-800 dark:text-slate-200">{fmtNumber(latest.cpu_current_freq)} MHz</span></p>
+              <p className="flex justify-between"><span className="text-slate-500">Max Freq:</span> <span className="font-medium text-slate-800 dark:text-slate-200">{fmtNumber(latest.cpu_max_freq)} MHz</span></p>
             </div>
 
-            <div className="space-y-1.5">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">CPU</p>
-              <p><span className="text-slate-500">Usage:</span> <span className="font-medium">{fmtPct(latest.cpu_usage)}</span></p>
-              <p><span className="text-slate-500">Current Freq:</span> <span className="font-medium">{fmtNumber(latest.cpu_current_freq)}</span></p>
-              <p><span className="text-slate-500">Max Freq:</span> <span className="font-medium">{fmtNumber(latest.cpu_max_freq)}</span></p>
-              <p><span className="text-slate-500">Min Freq:</span> <span className="font-medium">{fmtNumber(latest.cpu_min_freq)}</span></p>
-              <p><span className="text-slate-500">Physical Cores:</span> <span className="font-medium">{fmtNumber(latest.cpu_physical_cores)}</span></p>
-              <p><span className="text-slate-500">Total Cores:</span> <span className="font-medium">{fmtNumber(latest.cpu_total_cores)}</span></p>
+            {/* Column 3: Memory & Storage */}
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Memory & Storage</p>
+              <p className="flex justify-between"><span className="text-slate-500">RAM Total:</span> <span className="font-medium text-slate-800 dark:text-slate-200">{fmtGb(latest.memory_total)}</span></p>
+              <p className="flex justify-between"><span className="text-slate-500">RAM Used / Available:</span> <span className="font-medium text-slate-800 dark:text-slate-200">{fmtGb(latest.memory_used)} / {fmtGb(latest.memory_available)}</span></p>
+              <p className="flex justify-between"><span className="text-slate-500">Disk Total:</span> <span className="font-medium text-slate-800 dark:text-slate-200">{fmtGb(latest.disk_total)}</span></p>
+              <p className="flex justify-between"><span className="text-slate-500">Disk Used / Free:</span> <span className="font-medium text-slate-800 dark:text-slate-200">{fmtGb(latest.disk_used)} / {fmtGb(latest.disk_free)}</span></p>
             </div>
 
-            <div className="space-y-1.5">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Memory</p>
-              <p><span className="text-slate-500">Usage:</span> <span className="font-medium">{fmtPct(latest.memory_usage_percent)}</span></p>
-              <p><span className="text-slate-500">Total:</span> <span className="font-medium">{fmtGb(latest.memory_total)}</span></p>
-              <p><span className="text-slate-500">Used:</span> <span className="font-medium">{fmtGb(latest.memory_used)}</span></p>
-              <p><span className="text-slate-500">Available:</span> <span className="font-medium">{fmtGb(latest.memory_available)}</span></p>
-            </div>
-
-            <div className="space-y-1.5">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Disk</p>
-              <p><span className="text-slate-500">Usage:</span> <span className="font-medium">{fmtPct(latest.disk_usage_percent)}</span></p>
-              <p><span className="text-slate-500">Total:</span> <span className="font-medium">{fmtGb(latest.disk_total)}</span></p>
-              <p><span className="text-slate-500">Used:</span> <span className="font-medium">{fmtGb(latest.disk_used)}</span></p>
-              <p><span className="text-slate-500">Free:</span> <span className="font-medium">{fmtGb(latest.disk_free)}</span></p>
-            </div>
-
-            <div className="space-y-1.5">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Network & Users</p>
-              <p><span className="text-slate-500">Bytes Sent:</span> <span className="font-medium">{fmtNumber(latest.bytes_sent)}</span></p>
-              <p><span className="text-slate-500">Bytes Received:</span> <span className="font-medium">{fmtNumber(latest.bytes_received)}</span></p>
-              <p><span className="text-slate-500">Users Count:</span> <span className="font-medium">{fmtNumber(latest.users_count)}</span></p>
-              <p><span className="text-slate-500">Logged In Users:</span> <span className="font-medium">{latest.logged_in_users || 'N/A'}</span></p>
-            </div>
+            {/* Column 4: Dedicated GPU (only if detected) */}
+            {hasGpu && (
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Dedicated GPU</p>
+                {gpuStats && gpuStats.length > 0 ? (
+                  gpuStats.map((gpu) => (
+                    <div key={gpu.gpu_id} className="space-y-1.5 pt-1">
+                      <p className="font-bold text-slate-900 dark:text-slate-100">{gpu.gpu_name || `GPU #${gpu.gpu_id}`}</p>
+                      <p className="flex justify-between"><span className="text-slate-500">GPU Load:</span> <span className="font-medium text-slate-800 dark:text-slate-200">{gpu.gpu_load_percent != null ? `${gpu.gpu_load_percent.toFixed(1)}%` : 'N/A'}</span></p>
+                      <p className="flex justify-between"><span className="text-slate-500">VRAM Used:</span> <span className="font-medium text-slate-800 dark:text-slate-200">{(gpu.gpu_memory_used / 1024).toFixed(2)} GB / {(gpu.gpu_memory_total / 1024).toFixed(2)} GB</span></p>
+                      <p className="flex justify-between"><span className="text-slate-500">VRAM Usage:</span> <span className="font-medium text-slate-800 dark:text-slate-200">{gpu.gpu_memory_percent != null ? `${gpu.gpu_memory_percent.toFixed(1)}%` : 'N/A'}</span></p>
+                      <p className="flex justify-between"><span className="text-slate-500">Temperature:</span> <span className="font-medium text-slate-800 dark:text-slate-200">{gpu.gpu_temperature != null ? `${gpu.gpu_temperature}°C` : 'N/A'}</span></p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">GPU Detected</p>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -340,7 +409,7 @@ export default function SystemDetailPage() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="card p-5 xl:col-span-2">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-semibold text-slate-700">Performance Trend</p>
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Performance Trend</p>
             <Activity className="w-4 h-4 text-slate-400" />
           </div>
           {chartData.length === 0 ? (
@@ -364,23 +433,35 @@ export default function SystemDetailPage() {
           )}
         </div>
 
-        <div className="card p-5 space-y-3">
-          <p className="text-sm font-semibold text-slate-700">Current Health</p>
-          <div className="rounded-lg border border-slate-200 p-3">
-            <p className="text-xs text-slate-500">CPU</p>
-            <p className={`text-xl font-semibold ${statusColor(latest?.cpu_usage)}`}>{fmtPct(latest?.cpu_usage)}</p>
+        <div className="card p-5 space-y-4">
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">System Overview</p>
+          <div className="space-y-2 text-xs">
+            <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-500">Operational Status</span>
+              <span className={`px-2 py-0.5 rounded-md font-semibold ${system?.status === 'non-functional' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'}`}>
+                {system?.status === 'non-functional' ? 'Non-Functional' : 'Active'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-500">GPU Hardware</span>
+              <span className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[150px]">
+                {hasGpu && gpuStats.length > 0 ? gpuStats[0].gpu_name : (hasGpu ? 'Detected' : 'Not Available')}
+              </span>
+            </div>
+            <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-500">Network IP</span>
+              <span className="font-mono text-slate-800 dark:text-slate-200">{latest?.ip_address || 'N/A'}</span>
+            </div>
           </div>
-          <div className="rounded-lg border border-slate-200 p-3">
-            <p className="text-xs text-slate-500">Memory</p>
-            <p className={`text-xl font-semibold ${statusColor(latest?.memory_usage_percent)}`}>{fmtPct(latest?.memory_usage_percent)}</p>
+
+          <div className="pt-2 space-y-2">
+            <button onClick={() => setFaultModalOpen(true)} className="w-full btn-secondary text-xs flex items-center justify-center gap-1.5 py-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> Report Hardware Fault
+            </button>
+            <button onClick={() => setResourceModalOpen(true)} className="w-full btn-secondary text-xs flex items-center justify-center gap-1.5 py-2">
+              <PackageSearch className="w-3.5 h-3.5 text-blue-500" /> Request Resource
+            </button>
           </div>
-          <div className="rounded-lg border border-slate-200 p-3">
-            <p className="text-xs text-slate-500">Disk</p>
-            <p className={`text-xl font-semibold ${statusColor(latest?.disk_usage_percent)}`}>{fmtPct(latest?.disk_usage_percent)}</p>
-          </div>
-          {latestError && (
-            <p className="text-xs text-amber-600">No live monitoring snapshot available right now.</p>
-          )}
         </div>
       </div>
 
@@ -564,6 +645,115 @@ export default function SystemDetailPage() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Fault Report Modal */}
+      <Modal
+        open={faultModalOpen}
+        onClose={() => setFaultModalOpen(false)}
+        title={`Report Hardware Fault - ${system?.host_name ?? item.name}`}
+        size="md"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!faultDesc.trim()) return;
+            createFaultMutation.mutate({
+              fault_type: faultType,
+              description: faultDesc,
+              system_host_name: system?.host_name ?? item.name,
+            });
+          }}
+          className="space-y-4"
+        >
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Fault Category</label>
+            <select
+              value={faultType}
+              onChange={(e) => setFaultType(e.target.value)}
+              className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5"
+            >
+              <option value="Hardware">Hardware Fault</option>
+              <option value="Display / Monitor">Display / Monitor</option>
+              <option value="GPU / Graphics">GPU / Graphics Fault</option>
+              <option value="Peripherals">Peripherals (Keyboard/Mouse)</option>
+              <option value="Network">Network / Connectivity</option>
+              <option value="Power / UPS">Power / UPS</option>
+              <option value="Other">Other Issue</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Issue Description</label>
+            <textarea
+              rows={3}
+              value={faultDesc}
+              onChange={(e) => setFaultDesc(e.target.value)}
+              placeholder="Describe the issue observed on this machine..."
+              className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5"
+              required
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setFaultModalOpen(false)} className="btn-secondary">Cancel</button>
+            <button type="submit" disabled={createFaultMutation.isPending} className="btn-primary">
+              {createFaultMutation.isPending ? 'Submitting...' : 'Submit Report'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Resource Request Modal */}
+      <Modal
+        open={resourceModalOpen}
+        onClose={() => setResourceModalOpen(false)}
+        title={`Request Resource - ${system?.host_name ?? item.name}`}
+        size="md"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!resourceName.trim() || !resourceDesc.trim()) return;
+            createResourceMutation.mutate({
+              resource_name: resourceName,
+              description: resourceDesc,
+              system_host_name: system?.host_name ?? item.name,
+            });
+          }}
+          className="space-y-4"
+        >
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Requested Component / Component Name</label>
+            <input
+              type="text"
+              value={resourceName}
+              onChange={(e) => setResourceName(e.target.value)}
+              placeholder="e.g. 16GB RAM module, HDMI cable, GPU upgrade..."
+              className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Justification / Details</label>
+            <textarea
+              rows={3}
+              value={resourceDesc}
+              onChange={(e) => setResourceDesc(e.target.value)}
+              placeholder="Provide reason for this resource request..."
+              className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5"
+              required
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setResourceModalOpen(false)} className="btn-secondary">Cancel</button>
+            <button type="submit" disabled={createResourceMutation.isPending} className="btn-primary">
+              {createResourceMutation.isPending ? 'Submitting...' : 'Submit Request'}
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   );
