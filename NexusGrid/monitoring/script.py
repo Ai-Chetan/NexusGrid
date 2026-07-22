@@ -14,6 +14,9 @@ DEFAULT_BASE_URL = os.getenv("NEXUSGRID_BASE_URL", "https://nexusgrid.onrender.c
 API_URL = os.getenv("NEXUSGRID_INGEST_URL", f"{DEFAULT_BASE_URL}/api/ingest/")
 
 
+CREATE_NO_WINDOW = 0x08000000 if platform.system() == "Windows" else 0
+
+
 def get_primary_ip():
     """Resolve host IP without requiring external connectivity."""
     try:
@@ -32,7 +35,7 @@ def get_gpu_info():
             '--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu',
             '--format=csv,noheader,nounits'
         ]
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=5, creationflags=CREATE_NO_WINDOW)
         if res.returncode == 0 and res.stdout.strip():
             gpu_data = []
             for line in res.stdout.strip().splitlines():
@@ -66,7 +69,7 @@ def get_gpu_info():
                 'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
                 'Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM | ConvertTo-Json'
             ]
-            res = subprocess.run(ps_cmd, capture_output=True, text=True, timeout=8)
+            res = subprocess.run(ps_cmd, capture_output=True, text=True, timeout=8, creationflags=CREATE_NO_WINDOW)
             if res.returncode == 0 and res.stdout.strip():
                 data = json.loads(res.stdout)
                 if isinstance(data, dict):
@@ -115,7 +118,7 @@ def get_processor_name():
             pass
     elif sys_type == 'Darwin':
         try:
-            return subprocess.check_output(['sysctl', '-n', 'machdep.cpu.brand_string'], text=True).strip()
+            return subprocess.check_output(['sysctl', '-n', 'machdep.cpu.brand_string'], text=True, creationflags=CREATE_NO_WINDOW).strip()
         except Exception:
             pass
     return platform.processor() or 'Unknown Processor'
@@ -254,13 +257,91 @@ def send_data_to_api(system_info):
     try:
         headers = {"Content-Type": "application/json"}
         response = requests.post(API_URL, json=system_info, headers=headers)
-        info=get_system_info()
-        print(info)
         print(f"Sent! Status: {response.status_code}")
     except Exception as e:
         print(f"Error sending data: {e}")
 
+import sys
+import time
+
 if __name__ == "__main__":
-    system_info = get_system_info()
-    if system_info:
-        send_data_to_api(system_info)
+    run_once = "--once" in sys.argv
+    while True:
+        try:
+            system_info = get_system_info()
+            if system_info:
+                send_data_to_api(system_info)
+        except Exception as e:
+            pass
+        if run_once:
+            break
+        time.sleep(60)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

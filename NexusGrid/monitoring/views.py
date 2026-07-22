@@ -202,8 +202,8 @@ def download_script(request):
         for ua in ['python', 'curl', 'wget', 'powershell']
     )
 
-    with open(file_path, 'r', encoding='utf-8') as f:
-        content = f.read()
+    with open(file_path, 'r', encoding='utf-8-sig') as f:
+        content = f.read().lstrip('\ufeff')
 
     if is_raw:
         return HttpResponse(content, content_type='text/plain; charset=utf-8')

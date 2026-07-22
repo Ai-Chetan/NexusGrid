@@ -116,8 +116,8 @@ echo     ^<Hidden^>true^</Hidden^> >> "%TASK_XML%"
 echo   ^</Settings^> >> "%TASK_XML%"
 echo   ^<Actions^> >> "%TASK_XML%"
 echo     ^<Exec^> >> "%TASK_XML%"
-echo       ^<Command^>cmd.exe^</Command^> >> "%TASK_XML%"
-echo       ^<Arguments^>/c "%LAUNCHER%"^</Arguments^> >> "%TASK_XML%"
+echo       ^<Command^>wscript.exe^</Command^> >> "%TASK_XML%"
+echo       ^<Arguments^>"%SCRIPT_DIR%run_silent.vbs"^</Arguments^> >> "%TASK_XML%"
 echo       ^<WorkingDirectory^>%SCRIPT_DIR%^</WorkingDirectory^> >> "%TASK_XML%"
 echo     ^</Exec^> >> "%TASK_XML%"
 echo   ^</Actions^> >> "%TASK_XML%"
@@ -133,13 +133,13 @@ if %ERRORLEVEL% EQU 0 (
     del "%TASK_XML%" >nul 2>&1
 )
 
-:: Attempt 5b: Windows Startup Folder fallback (Silent VBScript loop every 30 seconds)
+:: Attempt 5b: Windows Startup Folder fallback (Silent VBScript loop every 1 minute)
 set "STARTUP_FOLDER=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 if exist "%STARTUP_FOLDER%" (
     if exist "%STARTUP_FOLDER%\NexusGridMonitoring.bat" del "%STARTUP_FOLDER%\NexusGridMonitoring.bat" >nul 2>&1
     echo Set WshShell = CreateObject("WScript.Shell") > "%STARTUP_FOLDER%\NexusGridMonitoring.vbs"
     echo WshShell.Run "wscript.exe """ ^& "%SCRIPT_DIR%run_silent.vbs" ^& """", 0, False >> "%STARTUP_FOLDER%\NexusGridMonitoring.vbs"
-    echo [OK] Created Silent Startup entry in: %STARTUP_FOLDER%\NexusGridMonitoring.vbs - Interval: Every 30 seconds (Hidden)
+    echo [OK] Created Silent Startup entry in: %STARTUP_FOLDER%\NexusGridMonitoring.vbs - Interval: Every 1 minute (Hidden)
 )
 
 echo.
@@ -148,7 +148,7 @@ echo   Installation Completed Successfully!
 echo   - Backend Server: %NEXUSGRID_BASE_URL%
 echo   - Script ran immediately: YES
 echo   - Runs on system restart: YES
-echo   - Execution Frequency: EVERY 30 SECONDS
+echo   - Execution Frequency: EVERY 1 MINUTE
 echo =======================================================
 
 echo.

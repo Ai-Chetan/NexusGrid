@@ -1,10 +1,8 @@
+On Error Resume Next
 Set WshShell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 scriptDir = fso.GetParentFolderName(WScript.ScriptFullName)
-launcherPath = scriptDir & "\run_monitoring.bat"
+pyScript = scriptDir & "\script.py"
 
-' Run launcher continuously every 30 seconds with 0 window style (100% hidden)
-Do
-    WshShell.Run "cmd /c """ & launcherPath & """", 0, True
-    WScript.Sleep 30000
-Loop
+' Launch Python GUI process directly in 100% hidden background (0 = SW_HIDE, zero CMD popups)
+WshShell.Run "pythonw.exe """ & pyScript & """", 0, False
