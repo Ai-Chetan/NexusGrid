@@ -64,8 +64,7 @@ urlpatterns = [
     path('privileges/assignments/<int:pk>/', views.LabAssignmentDetailView.as_view(), name='api-lab-assignment-detail'),
     path('privileges/config/', views.PrivilegesConfigView.as_view(), name='api-privileges-config'),
 
-    # Profile / OTP
-    path('profile/request-otp/', views.ProfileRequestOTPView.as_view(), name='api-profile-request-otp'),
-    path('profile/verify-otp/', views.ProfileVerifyOTPView.as_view(), name='api-profile-verify-otp'),
+    # Profile (password-validated, no OTP)
+    path('profile/update/', views.ProfileUpdateView.as_view(), name='api-profile-update'),
     path('profile/delete/', views.DeleteAccountView.as_view(), name='api-profile-delete'),
 ]

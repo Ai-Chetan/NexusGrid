@@ -4,11 +4,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  AlertTriangle, Plus, Search, Filter, ChevronLeft, ChevronRight,
-  Monitor, Clock, User, Loader2, RefreshCw, CheckCircle2,
+  AlertTriangle, Plus, Search, ChevronLeft, ChevronRight,
+  Clock, User, Loader2, RefreshCw, Trash2, Edit2, Wrench,
 } from 'lucide-react';
 import { faultsApi, layoutApi } from '@/lib/api';
-import { timeAgo, formatDateTime, cn } from '@/lib/utils';
+import { timeAgo, cn } from '@/lib/utils';
+import { useAuthStore } from '@/store/authStore';
 import type { FaultReport, PaginatedResponse, System } from '@/types';
 import PageHeader from '@/components/common/PageHeader';
 import StatusBadge from '@/components/common/StatusBadge';
@@ -21,12 +22,12 @@ import toast from 'react-hot-toast';
 const createSchema = z.object({
   system_id: z.coerce.number().min(1, 'Select a system'),
   fault_type: z.enum(['Hardware', 'Software', 'Network']),
-  risk_factor: z.coerce.number().int().min(1).max(5),
+  risk_factor: z.coerce.number().int().min(1).max(5).optional(),
   description: z.string().min(10, 'Please provide more detail (min 10 chars)'),
 });
 type CreateForm = z.infer<typeof createSchema>;
 
-function CreateFaultModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+function CreateFaultModal({ open, onClose, showRiskFactor }: { open: boolean; onClose: () => void; showRiskFactor: boolean }) {
   const qc = useQueryClient();
   const [selectedRoom, setSelectedRoom] = useState('');
 
@@ -41,7 +42,6 @@ function CreateFaultModal({ open, onClose }: { open: boolean; onClose: () => voi
     defaultValues: { fault_type: 'Hardware', risk_factor: 1 },
   });
 
-  // Unique room names sorted
   const rooms = [...new Set(
     systems.map(s => s.lab_name).filter(Boolean) as string[]
   )].sort();
@@ -77,7 +77,6 @@ function CreateFaultModal({ open, onClose }: { open: boolean; onClose: () => voi
   return (
     <Modal open={open} onClose={handleClose} title="Report a Fault" size="lg">
       <form onSubmit={handleSubmit(d => mutation.mutate(d))} className="space-y-4">
-        {/* Step 1 — Room */}
         <div>
           <label className="label">Room / Lab</label>
           <select
@@ -95,7 +94,6 @@ function CreateFaultModal({ open, onClose }: { open: boolean; onClose: () => voi
           </select>
         </div>
 
-        {/* Step 2 — System (only shown once a room is chosen) */}
         <div className={selectedRoom ? '' : 'opacity-50 pointer-events-none'}>
           <label className="label">
             System
@@ -119,16 +117,18 @@ function CreateFaultModal({ open, onClose }: { open: boolean; onClose: () => voi
               <option value="Network">Network</option>
             </select>
           </div>
-          <div>
-            <label className="label">Risk Factor</label>
-            <select {...register('risk_factor')} className="input">
-              <option value={1}>1 - Least severe</option>
-              <option value={2}>2 - Low</option>
-              <option value={3}>3 - Moderate</option>
-              <option value={4}>4 - High</option>
-              <option value={5}>5 - Critical</option>
-            </select>
-          </div>
+          {showRiskFactor && (
+            <div>
+              <label className="label">Risk Factor</label>
+              <select {...register('risk_factor')} className="input">
+                <option value={1}>1 - Least severe</option>
+                <option value={2}>2 - Low</option>
+                <option value={3}>3 - Moderate</option>
+                <option value={4}>4 - High</option>
+                <option value={5}>5 - Critical</option>
+              </select>
+            </div>
+          )}
         </div>
 
         <div>
@@ -153,16 +153,75 @@ function CreateFaultModal({ open, onClose }: { open: boolean; onClose: () => voi
   );
 }
 
-// ─── Update Status Modal ──────────────────────────────────────────────────────
+// ─── Edit Fault Modal (Incharge edits own fault) ─────────────────────────────
+function EditFaultModal({ fault, onClose }: { fault: FaultReport | null; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [description, setDescription] = useState(fault?.description ?? '');
+  const [faultType, setFaultType] = useState<string>(fault?.fault_type ?? 'Hardware');
+
+  const mutation = useMutation({
+    mutationFn: () => faultsApi.updateStatus(fault!.fault_id, {
+      description,
+      fault_type: faultType,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['faults'] });
+      toast.success('Fault report updated');
+      onClose();
+    },
+    onError: () => toast.error('Failed to update fault'),
+  });
+
+  if (!fault) return null;
+
+  return (
+    <Modal open={!!fault} onClose={onClose} title="Edit Fault Report" size="sm">
+      <div className="space-y-4">
+        <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+          <p className="text-xs text-slate-500">Fault on</p>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{fault.system_host_name}</p>
+          {fault.lab_name && <p className="text-xs text-slate-500">{fault.lab_name}</p>}
+        </div>
+        <div>
+          <label className="label">Fault Type</label>
+          <select value={faultType} onChange={e => setFaultType(e.target.value)} className="input">
+            <option value="Hardware">Hardware</option>
+            <option value="Software">Software</option>
+            <option value="Network">Network</option>
+          </select>
+        </div>
+        <div>
+          <label className="label">Description</label>
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            rows={4}
+            className="input resize-none"
+          />
+        </div>
+        <div className="flex gap-2 pt-1">
+          <button onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          <button onClick={() => mutation.mutate()} className="btn-primary flex-1" disabled={mutation.isPending}>
+            {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Update Status Modal (Assistant/Admin) ────────────────────────────────────
 function UpdateStatusModal({ fault, onClose }: { fault: FaultReport | null; onClose: () => void }) {
   const qc = useQueryClient();
   const [newStatus, setNewStatus] = useState<string>(fault?.status ?? 'unaddressed');
   const [resolution, setResolution] = useState<string>('');
+  const [riskFactor, setRiskFactor] = useState<number>(fault?.risk_factor ?? 1);
 
   const mutation = useMutation({
     mutationFn: () => faultsApi.updateStatus(fault!.fault_id, {
       status: newStatus,
       resolution_summary: resolution,
+      risk_factor: riskFactor,
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['faults'] });
@@ -177,10 +236,21 @@ function UpdateStatusModal({ fault, onClose }: { fault: FaultReport | null; onCl
   return (
     <Modal open={!!fault} onClose={onClose} title="Update Fault Status" size="sm">
       <div className="space-y-4">
-        <div className="p-3 bg-slate-50 rounded-xl">
+        <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
           <p className="text-xs text-slate-500">Fault on</p>
-          <p className="text-sm font-semibold text-slate-800">{fault.system_host_name}</p>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{fault.system_host_name}</p>
           {fault.lab_name && <p className="text-xs text-slate-500">{fault.lab_name}</p>}
+        </div>
+
+        <div>
+          <label className="label">Risk Factor</label>
+          <select value={riskFactor} onChange={e => setRiskFactor(Number(e.target.value))} className="input">
+            <option value={1}>1 - Least severe</option>
+            <option value={2}>2 - Low</option>
+            <option value={3}>3 - Moderate</option>
+            <option value={4}>4 - High</option>
+            <option value={5}>5 - Critical</option>
+          </select>
         </div>
 
         <div>
@@ -220,7 +290,21 @@ function UpdateStatusModal({ fault, onClose }: { fault: FaultReport | null; onCl
 }
 
 // ─── Fault Row ────────────────────────────────────────────────────────────────
-function FaultRow({ fault, onUpdate }: { fault: FaultReport; onUpdate: (f: FaultReport) => void }) {
+function FaultRow({
+  fault,
+  onUpdate,
+  onEdit,
+  onDelete,
+  canUpdateStatus,
+  canEditDelete,
+}: {
+  fault: FaultReport;
+  onUpdate: (f: FaultReport) => void;
+  onEdit: (f: FaultReport) => void;
+  onDelete: (f: FaultReport) => void;
+  canUpdateStatus: boolean;
+  canEditDelete: boolean;
+}) {
   const riskTone =
     fault.risk_factor >= 5 ? 'bg-red-100 text-red-700 border-red-200' :
     fault.risk_factor >= 4 ? 'bg-orange-100 text-orange-700 border-orange-200' :
@@ -228,10 +312,10 @@ function FaultRow({ fault, onUpdate }: { fault: FaultReport; onUpdate: (f: Fault
     'bg-slate-100 text-slate-700 border-slate-200';
 
   return (
-    <tr className="hover:bg-slate-50 transition-colors">
+    <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
       <td className="px-4 py-3">
         <div>
-          <p className="text-sm font-medium text-slate-800">{fault.system_host_name}</p>
+          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{fault.system_host_name}</p>
           {fault.lab_name && <p className="text-xs text-slate-500">{fault.lab_name}</p>}
         </div>
       </td>
@@ -243,7 +327,7 @@ function FaultRow({ fault, onUpdate }: { fault: FaultReport; onUpdate: (f: Fault
         )}>{fault.fault_type}</span>
       </td>
       <td className="px-4 py-3 max-w-xs">
-        <p className="text-sm text-slate-600 truncate">{fault.description}</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400 truncate">{fault.description}</p>
       </td>
       <td className="px-4 py-3">
         <span className={cn('badge', riskTone)}>{fault.risk_factor}</span>
@@ -252,7 +336,7 @@ function FaultRow({ fault, onUpdate }: { fault: FaultReport; onUpdate: (f: Fault
         <StatusBadge status={fault.status} />
       </td>
       <td className="px-4 py-3">
-          <div className="flex items-center gap-1 text-xs text-slate-500">
+        <div className="flex items-center gap-1 text-xs text-slate-500">
           <User className="w-3 h-3" />
           {fault.reported_by_username}
         </div>
@@ -260,14 +344,39 @@ function FaultRow({ fault, onUpdate }: { fault: FaultReport; onUpdate: (f: Fault
           <Clock className="w-3 h-3" />
           {timeAgo(fault.reported_at)}
         </div>
+        {fault.resolved?.resolved_by_username && (
+          <div className="flex items-center gap-1 text-xs text-emerald-600 mt-0.5">
+            <Wrench className="w-3 h-3" />
+            {fault.resolved.resolved_by_username}
+          </div>
+        )}
       </td>
       <td className="px-4 py-3">
-        <button
-          onClick={() => onUpdate(fault)}
-          className="btn-secondary text-xs py-1 px-2"
-        >
-          Update
-        </button>
+        <div className="flex items-center gap-1.5">
+          {canUpdateStatus && (
+            <button onClick={() => onUpdate(fault)} className="btn-secondary text-xs py-1 px-2">
+              Update
+            </button>
+          )}
+          {canEditDelete && (
+            <>
+              <button
+                onClick={() => onEdit(fault)}
+                className="text-slate-400 hover:text-brand-600 p-1 rounded hover:bg-brand-50 dark:hover:bg-brand-900/20"
+                title="Edit"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => onDelete(fault)}
+                className="text-slate-400 hover:text-red-500 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20"
+                title="Delete"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
+        </div>
       </td>
     </tr>
   );
@@ -278,13 +387,22 @@ const STATUS_OPTIONS = ['all', 'unaddressed', 'in-progress', 'scheduled', 'resol
 const TIME_OPTIONS = ['all', 'today', 'week', 'month'];
 
 export default function FaultsPage() {
+  const user = useAuthStore(s => s.user);
+  const isAdmin = user?.role === 'Administrator';
+  const isIncharge = user?.role === 'Lab Incharge';
+  const isAssistant = user?.role === 'Lab Assistant';
+
   const [createOpen, setCreateOpen] = useState(false);
   const [updateFault, setUpdateFault] = useState<FaultReport | null>(null);
+  const [editFault, setEditFault] = useState<FaultReport | null>(null);
+  const [deleteFault, setDeleteFault] = useState<FaultReport | null>(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [time, setTime] = useState('all');
   const [sort, setSort] = useState('newest');
   const [page, setPage] = useState(1);
+
+  const qc = useQueryClient();
 
   const { data, isLoading, isError, refetch } = useQuery<PaginatedResponse<FaultReport>>({
     queryKey: ['faults', { search, status, time, sort, page }],
@@ -292,21 +410,36 @@ export default function FaultsPage() {
     placeholderData: prev => prev,
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => faultsApi.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['faults'] });
+      toast.success('Fault report deleted');
+      setDeleteFault(null);
+    },
+    onError: () => toast.error('Failed to delete fault report'),
+  });
+
+  // Incharge can only edit/delete their own faults; cannot update status
+  const canUpdateStatus = isAdmin || isAssistant;
+  const canEditDelete = isIncharge;
+
   return (
     <div className="space-y-5 animate-fade-in">
       <PageHeader
         title="Fault Reports"
         description="Track and manage system fault reports across all labs."
         actions={
-          <button onClick={() => setCreateOpen(true)} className="btn-primary">
-            <Plus className="w-4 h-4" /> Report Fault
-          </button>
+          !isAdmin ? (
+            <button onClick={() => setCreateOpen(true)} className="btn-primary">
+              <Plus className="w-4 h-4" /> Report Fault
+            </button>
+          ) : undefined
         }
       />
 
       {/* Filters */}
       <div className="card p-4 flex flex-wrap gap-3 items-center">
-        {/* Search */}
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -356,24 +489,31 @@ export default function FaultsPage() {
           <>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
+                <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                   <tr>
-                    {['System', 'Type', 'Description', 'Risk', 'Status', 'Reported By', ''].map(h => (
+                    {['System', 'Type', 'Description', 'Risk', 'Status', 'Reported / Handled By', ''].map(h => (
                       <th key={h} className="px-4 py-3 table-header">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                   {data?.results.map(fault => (
-                    <FaultRow key={fault.fault_id} fault={fault} onUpdate={setUpdateFault} />
+                    <FaultRow
+                      key={fault.fault_id}
+                      fault={fault}
+                      onUpdate={setUpdateFault}
+                      onEdit={setEditFault}
+                      onDelete={setDeleteFault}
+                      canUpdateStatus={canUpdateStatus}
+                      canEditDelete={canEditDelete && fault.reported_by_username === user?.username}
+                    />
                   ))}
                 </tbody>
               </table>
             </div>
 
-            {/* Pagination */}
             {data && data.total_pages > 1 && (
-              <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between">
+              <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
                 <p className="text-xs text-slate-500">
                   {data.count} total · page {data.page} of {data.total_pages}
                 </p>
@@ -400,8 +540,31 @@ export default function FaultsPage() {
       </div>
 
       {/* Modals */}
-      <CreateFaultModal open={createOpen} onClose={() => setCreateOpen(false)} />
+      <CreateFaultModal open={createOpen} onClose={() => setCreateOpen(false)} showRiskFactor={!isIncharge} />
       <UpdateStatusModal fault={updateFault} onClose={() => setUpdateFault(null)} />
+      <EditFaultModal fault={editFault} onClose={() => setEditFault(null)} />
+
+      {/* Delete Confirmation */}
+      {deleteFault && (
+        <Modal open onClose={() => setDeleteFault(null)} title="Delete Fault Report" size="sm">
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              Are you sure you want to delete this fault report for <strong>{deleteFault.system_host_name}</strong>?
+              This action cannot be undone.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteFault(null)} className="btn-secondary flex-1">Cancel</button>
+              <button
+                onClick={() => deleteMutation.mutate(deleteFault.fault_id)}
+                disabled={deleteMutation.isPending}
+                className="btn-danger flex-1"
+              >
+                {deleteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

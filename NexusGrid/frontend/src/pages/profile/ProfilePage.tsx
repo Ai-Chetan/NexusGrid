@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  User as UserIcon, Mail, Lock, Edit2, CheckCircle2,
+  User as UserIcon, Mail, Lock, Edit2,
   Loader2, Shield, Calendar, Clock, Trash2, AlertTriangle,
 } from 'lucide-react';
 import { profileApi } from '@/lib/api';
@@ -18,27 +18,24 @@ import toast from 'react-hot-toast';
 
 const usernameSchema = z.object({
   new_value: z.string().min(3, 'Username must be at least 3 characters'),
+  current_password: z.string().min(1, 'Current password is required'),
 });
 const emailSchema = z.object({
   new_value: z.string().email('Enter a valid email address'),
+  current_password: z.string().min(1, 'Current password is required'),
 });
 const passwordSchema = z.object({
   new_value: z.string().min(8, 'Password must be at least 8 characters'),
   confirm: z.string(),
+  current_password: z.string().min(1, 'Current password is required'),
 }).refine(d => d.new_value === d.confirm, {
   message: 'Passwords do not match',
   path: ['confirm'],
-});
-const otpSchema = z.object({
-  otp: z.string().length(6, 'OTP must be exactly 6 digits').regex(/^\d+$/, 'OTP must be numeric'),
 });
 
 type UsernameForm = z.infer<typeof usernameSchema>;
 type EmailForm = z.infer<typeof emailSchema>;
 type PasswordForm = z.infer<typeof passwordSchema>;
-type OtpForm = z.infer<typeof otpSchema>;
-
-type FieldAction = 'change_username' | 'change_email' | 'change_password';
 
 // ─── Role Badge ───────────────────────────────────────────────────────────────
 
@@ -58,64 +55,75 @@ function RoleBadge({ role }: { role: string }) {
   );
 }
 
-// ─── OTP Step ────────────────────────────────────────────────────────────────
+// ─── Change Username Section ──────────────────────────────────────────────────
 
-interface OtpStepProps {
-  onSuccess: (updatedUser: unknown) => void;
-  onCancel: () => void;
-}
+function ChangeUsernameSection({ currentUsername, onUpdated }: { currentUsername: string; onUpdated: (u: unknown) => void }) {
+  const [editing, setEditing] = useState(false);
 
-function OtpStep({ onSuccess, onCancel }: OtpStepProps) {
-  const { register, handleSubmit, formState: { errors } } = useForm<OtpForm>({
-    resolver: zodResolver(otpSchema),
+  const { register, handleSubmit, formState: { errors } } = useForm<UsernameForm>({
+    resolver: zodResolver(usernameSchema),
+    defaultValues: { new_value: currentUsername, current_password: '' },
   });
 
-  const verifyMutation = useMutation({
-    mutationFn: (data: OtpForm) => profileApi.verifyOtp({ otp: data.otp }),
+  const mutation = useMutation({
+    mutationFn: (data: UsernameForm) =>
+      profileApi.update({ action: 'change_username', new_value: data.new_value, current_password: data.current_password }),
     onSuccess: (res) => {
-      onSuccess(res.data.user);
+      onUpdated(res.data.user);
+      setEditing(false);
+      toast.success('Username updated!');
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      toast.error(msg ?? 'Verification failed.');
+      const data = (err as { response?: { data?: Record<string, string> } })?.response?.data;
+      const msg = data?.new_value ?? data?.current_password ?? data?.detail ?? 'Update failed.';
+      toast.error(msg);
     },
   });
 
+  if (!editing) {
+    return (
+      <button
+        onClick={() => setEditing(true)}
+        className="inline-flex items-center gap-1.5 text-xs text-brand-600 dark:text-brand-400 hover:underline font-medium"
+      >
+        <Edit2 className="w-3.5 h-3.5" /> Change
+      </button>
+    );
+  }
+
   return (
-    <form onSubmit={handleSubmit(d => verifyMutation.mutate(d))} className="mt-4 space-y-3">
-      <p className="text-sm text-slate-600 dark:text-slate-400">
-        A 6-digit OTP has been sent to your registered email. Enter it below to confirm the change.
-      </p>
-      <div>
-        <input
-          {...register('otp')}
-          type="text"
-          inputMode="numeric"
-          maxLength={6}
-          placeholder="Enter 6-digit OTP"
-          className="w-full sm:w-48 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                     bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100
-                     text-center tracking-widest text-lg font-mono
-                     focus:outline-none focus:ring-2 focus:ring-brand-500"
-        />
-        {errors.otp && <p className="mt-1 text-xs text-red-500">{errors.otp.message}</p>}
-      </div>
+    <form onSubmit={handleSubmit(d => mutation.mutate(d))} className="mt-3 space-y-2">
+      <input
+        {...register('new_value')}
+        type="text"
+        placeholder="New username"
+        className="w-full sm:w-64 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                   bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-brand-500"
+      />
+      {errors.new_value && <p className="text-xs text-red-500">{errors.new_value.message}</p>}
+      <input
+        {...register('current_password')}
+        type="password"
+        placeholder="Current password"
+        className="w-full sm:w-64 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                   bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-brand-500"
+      />
+      {errors.current_password && <p className="text-xs text-red-500">{errors.current_password.message}</p>}
       <div className="flex items-center gap-2">
         <button
           type="submit"
-          disabled={verifyMutation.isPending}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium
+          disabled={mutation.isPending}
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-600 text-white text-sm font-medium
                      hover:bg-brand-700 disabled:opacity-60 transition-colors"
         >
-          {verifyMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-          Verify & Save
+          {mutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+          Save
         </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-medium
-                     text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
-        >
+        <button type="button" onClick={() => setEditing(false)}
+          className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm
+                     text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
           Cancel
         </button>
       </div>
@@ -123,244 +131,169 @@ function OtpStep({ onSuccess, onCancel }: OtpStepProps) {
   );
 }
 
-// ─── Change Username Section ──────────────────────────────────────────────────
-
-function ChangeUsernameSection({ currentUsername, onUpdated }: { currentUsername: string; onUpdated: (u: unknown) => void }) {
-  const [step, setStep] = useState<'idle' | 'form' | 'otp'>('idle');
-
-  const { register, handleSubmit, getValues, formState: { errors } } = useForm<UsernameForm>({
-    resolver: zodResolver(usernameSchema),
-    defaultValues: { new_value: currentUsername },
-  });
-
-  const requestMutation = useMutation({
-    mutationFn: (data: UsernameForm) =>
-      profileApi.requestOtp({ action: 'change_username', new_value: data.new_value }),
-    onSuccess: () => {
-      toast.success('OTP sent to your email');
-      setStep('otp');
-    },
-    onError: (err: unknown) => {
-      const data = (err as { response?: { data?: Record<string, string> } })?.response?.data;
-      const msg = data?.new_value ?? data?.detail ?? 'Failed to send OTP.';
-      toast.error(msg);
-    },
-  });
-
-  if (step === 'idle') {
-    return (
-      <button
-        onClick={() => setStep('form')}
-        className="inline-flex items-center gap-1.5 text-xs text-brand-600 dark:text-brand-400
-                   hover:underline font-medium"
-      >
-        <Edit2 className="w-3.5 h-3.5" /> Change
-      </button>
-    );
-  }
-
-  if (step === 'form') {
-    return (
-      <form onSubmit={handleSubmit(d => requestMutation.mutate(d))} className="mt-3 space-y-2">
-        <input
-          {...register('new_value')}
-          type="text"
-          placeholder="New username"
-          className="w-full sm:w-64 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                     bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm
-                     focus:outline-none focus:ring-2 focus:ring-brand-500"
-        />
-        {errors.new_value && <p className="text-xs text-red-500">{errors.new_value.message}</p>}
-        <div className="flex items-center gap-2">
-          <button
-            type="submit"
-            disabled={requestMutation.isPending}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-600 text-white text-sm font-medium
-                       hover:bg-brand-700 disabled:opacity-60 transition-colors"
-          >
-            {requestMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-            Send OTP
-          </button>
-          <button type="button" onClick={() => setStep('idle')}
-            className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm
-                       text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-            Cancel
-          </button>
-        </div>
-      </form>
-    );
-  }
-
-  // OTP step
-  return (
-    <OtpStep
-      onSuccess={(user) => { onUpdated(user); setStep('idle'); toast.success('Username updated!'); }}
-      onCancel={() => setStep('idle')}
-    />
-  );
-}
-
 // ─── Change Email Section ─────────────────────────────────────────────────────
 
 function ChangeEmailSection({ currentEmail, onUpdated }: { currentEmail: string; onUpdated: (u: unknown) => void }) {
-  const [step, setStep] = useState<'idle' | 'form' | 'otp'>('idle');
+  const [editing, setEditing] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<EmailForm>({
     resolver: zodResolver(emailSchema),
-    defaultValues: { new_value: currentEmail },
+    defaultValues: { new_value: currentEmail, current_password: '' },
   });
 
-  const requestMutation = useMutation({
+  const mutation = useMutation({
     mutationFn: (data: EmailForm) =>
-      profileApi.requestOtp({ action: 'change_email', new_value: data.new_value }),
-    onSuccess: () => {
-      toast.success('OTP sent to your current email');
-      setStep('otp');
+      profileApi.update({ action: 'change_email', new_value: data.new_value, current_password: data.current_password }),
+    onSuccess: (res) => {
+      onUpdated(res.data.user);
+      setEditing(false);
+      toast.success('Email updated!');
     },
     onError: (err: unknown) => {
       const data = (err as { response?: { data?: Record<string, string> } })?.response?.data;
-      const msg = data?.new_value ?? data?.detail ?? 'Failed to send OTP.';
+      const msg = data?.new_value ?? data?.current_password ?? data?.detail ?? 'Update failed.';
       toast.error(msg);
     },
   });
 
-  if (step === 'idle') {
+  if (!editing) {
     return (
       <button
-        onClick={() => setStep('form')}
-        className="inline-flex items-center gap-1.5 text-xs text-brand-600 dark:text-brand-400
-                   hover:underline font-medium"
+        onClick={() => setEditing(true)}
+        className="inline-flex items-center gap-1.5 text-xs text-brand-600 dark:text-brand-400 hover:underline font-medium"
       >
         <Edit2 className="w-3.5 h-3.5" /> Change
       </button>
     );
   }
 
-  if (step === 'form') {
-    return (
-      <form onSubmit={handleSubmit(d => requestMutation.mutate(d))} className="mt-3 space-y-2">
-        <input
-          {...register('new_value')}
-          type="email"
-          placeholder="New email address"
-          className="w-full sm:w-72 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                     bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm
-                     focus:outline-none focus:ring-2 focus:ring-brand-500"
-        />
-        {errors.new_value && <p className="text-xs text-red-500">{errors.new_value.message}</p>}
-        <div className="flex items-center gap-2">
-          <button
-            type="submit"
-            disabled={requestMutation.isPending}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-600 text-white text-sm font-medium
-                       hover:bg-brand-700 disabled:opacity-60 transition-colors"
-          >
-            {requestMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-            Send OTP
-          </button>
-          <button type="button" onClick={() => setStep('idle')}
-            className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm
-                       text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-            Cancel
-          </button>
-        </div>
-      </form>
-    );
-  }
-
   return (
-    <OtpStep
-      onSuccess={(user) => { onUpdated(user); setStep('idle'); toast.success('Email updated!'); }}
-      onCancel={() => setStep('idle')}
-    />
+    <form onSubmit={handleSubmit(d => mutation.mutate(d))} className="mt-3 space-y-2">
+      <input
+        {...register('new_value')}
+        type="email"
+        placeholder="New email address"
+        className="w-full sm:w-72 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                   bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-brand-500"
+      />
+      {errors.new_value && <p className="text-xs text-red-500">{errors.new_value.message}</p>}
+      <input
+        {...register('current_password')}
+        type="password"
+        placeholder="Current password"
+        className="w-full sm:w-72 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                   bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-brand-500"
+      />
+      {errors.current_password && <p className="text-xs text-red-500">{errors.current_password.message}</p>}
+      <div className="flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={mutation.isPending}
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-600 text-white text-sm font-medium
+                     hover:bg-brand-700 disabled:opacity-60 transition-colors"
+        >
+          {mutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+          Save
+        </button>
+        <button type="button" onClick={() => setEditing(false)}
+          className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm
+                     text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 
 // ─── Change Password Section ──────────────────────────────────────────────────
 
 function ChangePasswordSection({ onUpdated }: { onUpdated: (u: unknown) => void }) {
-  const [step, setStep] = useState<'idle' | 'form' | 'otp'>('idle');
+  const [editing, setEditing] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<PasswordForm>({
     resolver: zodResolver(passwordSchema),
   });
 
-  const requestMutation = useMutation({
+  const mutation = useMutation({
     mutationFn: (data: PasswordForm) =>
-      profileApi.requestOtp({ action: 'change_password', new_value: data.new_value }),
-    onSuccess: () => {
-      toast.success('OTP sent to your email');
-      setStep('otp');
+      profileApi.update({ action: 'change_password', new_value: data.new_value, current_password: data.current_password }),
+    onSuccess: (res) => {
+      onUpdated(res.data.user);
+      setEditing(false);
+      toast.success('Password updated!');
     },
     onError: (err: unknown) => {
       const data = (err as { response?: { data?: Record<string, string> } })?.response?.data;
-      const msg = data?.new_value ?? data?.detail ?? 'Failed to send OTP.';
+      const msg = data?.new_value ?? data?.current_password ?? data?.detail ?? 'Update failed.';
       toast.error(msg);
     },
   });
 
-  if (step === 'idle') {
+  if (!editing) {
     return (
       <button
-        onClick={() => setStep('form')}
-        className="inline-flex items-center gap-1.5 text-xs text-brand-600 dark:text-brand-400
-                   hover:underline font-medium"
+        onClick={() => setEditing(true)}
+        className="inline-flex items-center gap-1.5 text-xs text-brand-600 dark:text-brand-400 hover:underline font-medium"
       >
         <Edit2 className="w-3.5 h-3.5" /> Change Password
       </button>
     );
   }
 
-  if (step === 'form') {
-    return (
-      <form onSubmit={handleSubmit(d => requestMutation.mutate(d))} className="mt-3 space-y-2">
-        <div>
-          <input
-            {...register('new_value')}
-            type="password"
-            placeholder="New password (min 8 chars)"
-            className="w-full sm:w-72 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                       bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm
-                       focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-          {errors.new_value && <p className="mt-0.5 text-xs text-red-500">{errors.new_value.message}</p>}
-        </div>
-        <div>
-          <input
-            {...register('confirm')}
-            type="password"
-            placeholder="Confirm new password"
-            className="w-full sm:w-72 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                       bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm
-                       focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-          {errors.confirm && <p className="mt-0.5 text-xs text-red-500">{errors.confirm.message}</p>}
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="submit"
-            disabled={requestMutation.isPending}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-600 text-white text-sm font-medium
-                       hover:bg-brand-700 disabled:opacity-60 transition-colors"
-          >
-            {requestMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-            Send OTP
-          </button>
-          <button type="button" onClick={() => setStep('idle')}
-            className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm
-                       text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-            Cancel
-          </button>
-        </div>
-      </form>
-    );
-  }
-
   return (
-    <OtpStep
-      onSuccess={(user) => { onUpdated(user); setStep('idle'); toast.success('Password updated!'); }}
-      onCancel={() => setStep('idle')}
-    />
+    <form onSubmit={handleSubmit(d => mutation.mutate(d))} className="mt-3 space-y-2">
+      <div>
+        <input
+          {...register('new_value')}
+          type="password"
+          placeholder="New password (min 8 chars)"
+          className="w-full sm:w-72 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                     bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-brand-500"
+        />
+        {errors.new_value && <p className="mt-0.5 text-xs text-red-500">{errors.new_value.message}</p>}
+      </div>
+      <div>
+        <input
+          {...register('confirm')}
+          type="password"
+          placeholder="Confirm new password"
+          className="w-full sm:w-72 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                     bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-brand-500"
+        />
+        {errors.confirm && <p className="mt-0.5 text-xs text-red-500">{errors.confirm.message}</p>}
+      </div>
+      <div>
+        <input
+          {...register('current_password')}
+          type="password"
+          placeholder="Current password"
+          className="w-full sm:w-72 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                     bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-brand-500"
+        />
+        {errors.current_password && <p className="mt-0.5 text-xs text-red-500">{errors.current_password.message}</p>}
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={mutation.isPending}
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-600 text-white text-sm font-medium
+                     hover:bg-brand-700 disabled:opacity-60 transition-colors"
+        >
+          {mutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+          Save
+        </button>
+        <button type="button" onClick={() => setEditing(false)}
+          className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm
+                     text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -386,8 +319,7 @@ function DeleteAccountSection() {
     return (
       <button
         onClick={() => setConfirming(true)}
-        className="inline-flex items-center gap-1.5 text-xs text-red-500 dark:text-red-400
-                   hover:underline font-medium"
+        className="inline-flex items-center gap-1.5 text-xs text-red-500 dark:text-red-400 hover:underline font-medium"
       >
         <Trash2 className="w-3.5 h-3.5" /> Delete Account
       </button>

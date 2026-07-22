@@ -240,8 +240,17 @@ def get_dashboard_metrics(
     )
     resource_counts = resource_qs.aggregate(
         pending=Count(Case(When(status='Pending', then=1), output_field=IntegerField())),
+        fulfilled=Count(Case(When(status='Fulfilled', then=1), output_field=IntegerField())),
         total=Count('resource_id'),
     )
+
+    # Today's activity — default headline stats (resolved faults / fulfilled requests today)
+    today_stats = {
+        'faults_reported': fault_qs.filter(reported_at__date=today).count(),
+        'faults_resolved': fault_qs.filter(status='resolved', resolved_at__date=today).count(),
+        'resources_requested': resource_qs.filter(requested_at__date=today).count(),
+        'resources_fulfilled': resource_qs.filter(status='Fulfilled', provided_at__date=today).count(),
+    }
 
     # 3 ── 6-month trend lines
     fault_trend = list(
@@ -278,12 +287,12 @@ def get_dashboard_metrics(
     # 5 ── Recent activity
     recent_faults = list(
         fault_qs
-        .select_related('system_name', 'reported_by')
+        .select_related('system_name', 'reported_by', 'resolved_by')
         .order_by('-reported_at')[:5]
     )
     recent_resources = list(
         resource_qs
-        .select_related('system_name', 'requested_by')
+        .select_related('system_name', 'requested_by', 'provided_by')
         .order_by('-requested_at')[:5]
     )
 
@@ -297,6 +306,7 @@ def get_dashboard_metrics(
             'status':   f.status,
             'time':     f.reported_at.isoformat(),
             'user':     f.reported_by.username,
+            'assignee': f.resolved_by.username if f.resolved_by else None,
         })
     for r in recent_resources:
         activity.append({
@@ -307,6 +317,7 @@ def get_dashboard_metrics(
             'status':   r.status,
             'time':     r.requested_at.isoformat(),
             'user':     r.requested_by.username,
+            'assignee': r.provided_by.username if r.provided_by else None,
         })
     activity.sort(key=lambda x: x['time'], reverse=True)
 
@@ -334,6 +345,7 @@ def get_dashboard_metrics(
         'fault_by_type':  fault_by_type,
         'fault_by_status': fault_by_status,
         'recent_activity': activity[:8],
+        'today': today_stats,
     }
 
     if is_admin and not has_filters:

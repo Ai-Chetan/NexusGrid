@@ -6,6 +6,7 @@ export interface User {
   role: 'Administrator' | 'Lab Incharge' | 'Lab Assistant' | 'Students' | 'No Roles';
   is_staff: boolean;
   is_superuser: boolean;
+  assigned_labs?: string[];
   date_joined: string;
   last_login: string | null;
 }
@@ -198,7 +199,13 @@ export interface DashboardMetrics {
     utilization_pct: number;
   };
   faults: { open: number; total: number };
-  resources: { pending: number; total: number };
+  resources: { pending: number; fulfilled?: number; total: number };
+  today?: {
+    faults_reported: number;
+    faults_resolved: number;
+    resources_requested: number;
+    resources_fulfilled: number;
+  };
   labs_total: number;
   fault_trend: { month: string; count: number }[];
   resource_trend: { month: string; count: number }[];
@@ -221,6 +228,7 @@ export interface ActivityItem {
   title: string;
   subtitle: string;
   status: string;
+  assignee?: string | null;
   time: string;
   user: string;
 }
