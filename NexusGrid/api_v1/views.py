@@ -1105,16 +1105,33 @@ class ReportsView(APIView):
         if request.user.role == 'Lab Incharge':
             return Response({'detail': 'Reports are not available for Lab Incharge.'}, status=403)
         lab_ids = _resolve_report_lab_scope(request.user, request.GET)
-        return Response(get_report_metrics(lab_ids=lab_ids))
+        start_date = request.GET.get('start_date', '').strip() or None
+        end_date = request.GET.get('end_date', '').strip() or None
+        return Response(get_report_metrics(lab_ids=lab_ids, start_date=start_date, end_date=end_date))
 
 
 class ReportsDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        from datetime import datetime as _dt
+
         if request.user.role == 'Lab Incharge':
             return Response({'detail': 'Reports are not available for Lab Incharge.'}, status=403)
         lab_ids = _resolve_report_lab_scope(request.user, request.GET)
+
+        # Parse optional date range
+        start_date_str = request.GET.get('start_date', '').strip()
+        end_date_str = request.GET.get('end_date', '').strip()
+        start_date = None
+        end_date = None
+        try:
+            if start_date_str:
+                start_date = _dt.strptime(start_date_str, '%Y-%m-%d').date()
+            if end_date_str:
+                end_date = _dt.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
 
         if lab_ids is None:
             lab_filter = Q()
@@ -1155,6 +1172,14 @@ class ReportsDetailView(APIView):
             )
             .order_by('-requested_at')
         )
+
+        # Apply date range filters
+        if start_date:
+            faults_qs = faults_qs.filter(reported_at__date__gte=start_date)
+            resources_qs = resources_qs.filter(requested_at__date__gte=start_date)
+        if end_date:
+            faults_qs = faults_qs.filter(reported_at__date__lte=end_date)
+            resources_qs = resources_qs.filter(requested_at__date__lte=end_date)
 
         def _location(lab):
             room = getattr(lab, 'layout_item', None)

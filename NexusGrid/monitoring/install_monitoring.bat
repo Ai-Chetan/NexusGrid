@@ -12,14 +12,9 @@ cd /d "%SCRIPT_DIR%"
 :: Load existing config if present
 if exist "%SCRIPT_DIR%nexusgrid_config.bat" call "%SCRIPT_DIR%nexusgrid_config.bat"
 
-:: Auto-detect local backend if NEXUSGRID_BASE_URL is not set
+:: Set default hosted backend if NEXUSGRID_BASE_URL is not set
 if "%NEXUSGRID_BASE_URL%"=="" (
-    powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/agent/script.py' -TimeoutSec 1 -UseBasicParsing -ErrorAction SilentlyContinue; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 }" >nul 2>&1
-    if !ERRORLEVEL! EQU 0 (
-        set "NEXUSGRID_BASE_URL=http://127.0.0.1:8000"
-    ) else (
-        set "NEXUSGRID_BASE_URL=https://nexusgrid.onrender.com"
-    )
+    set "NEXUSGRID_BASE_URL=https://nexusgrid.onrender.com"
 )
 
 :: Ensure URL doesn't end with trailing slash
