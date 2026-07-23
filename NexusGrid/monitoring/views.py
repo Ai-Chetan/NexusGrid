@@ -5,14 +5,15 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.utils import timezone
+from django.db.models import Q
 from .models import SystemInfo, SystemCurrent
-from system_layout.models import System
+from system_layout.models import System, LayoutItem, SYSTEM_TYPES
 
 
 @login_required(login_url="/login/")
 def system_status_api(request):
     """Return latest snapshots from the current-state table."""
-    cutoff = timezone.now() - timedelta(minutes=5)
+    cutoff = timezone.now() - timedelta(minutes=2)
     
     # Mark systems offline
     offline_hostnames = list(SystemCurrent.objects.filter(
@@ -26,7 +27,9 @@ def system_status_api(request):
     ).update(health_state=SystemCurrent.STATE_OFFLINE)
     
     if offline_hostnames:
-        System.objects.filter(host_name__in=offline_hostnames).update(status='inactive')
+        System.objects.filter(
+            Q(host_name__in=offline_hostnames) | Q(layout_item__name__in=offline_hostnames)
+        ).update(status='inactive')
         
     # Mark systems online
     online_hostnames = list(SystemCurrent.objects.filter(
@@ -38,7 +41,9 @@ def system_status_api(request):
     ).exclude(health_state=SystemCurrent.STATE_ONLINE).update(health_state=SystemCurrent.STATE_ONLINE)
     
     if online_hostnames:
-        System.objects.filter(host_name__in=online_hostnames).update(status='active')
+        System.objects.filter(
+            Q(host_name__in=online_hostnames) | Q(layout_item__name__in=online_hostnames)
+        ).update(status='active')
 
 
     infos = [
@@ -183,13 +188,22 @@ def ingest_system_info(request):
         cache.delete('monitoring_latest_v1')
 
         # Auto-mark the matching System as active so the layout shows green
-        System.objects.filter(host_name__iexact=hostname).update(status='active')
+        System.objects.filter(
+            Q(host_name__iexact=hostname) | Q(layout_item__name__iexact=hostname)
+        ).update(status='active')
 
-        # ── Auto-sweep stale hosts (5-minute timeout) ───────────────────────
-        # Every heartbeat also checks all OTHER machines. If any haven't
-        # reported in 5+ minutes, mark them inactive automatically.
-        # This means the timeout works even without the frontend polling.
-        stale_cutoff = info.timestamp - timedelta(minutes=5)
+        # Link or create System object for matching LayoutItem if unlinked
+        unlinked_items = LayoutItem.objects.filter(name__iexact=hostname, item_type__in=SYSTEM_TYPES, system__isnull=True)
+        for li in unlinked_items:
+            System.objects.create(
+                layout_item=li,
+                host_name=li.name,
+                status='active',
+                updated_at=timezone.now()
+            )
+
+        # ── Auto-sweep stale hosts (2-minute timeout) ───────────────────────
+        stale_cutoff = info.timestamp - timedelta(minutes=2)
         stale_hostnames = list(
             SystemCurrent.objects
             .filter(last_seen_at__lt=stale_cutoff, health_state=SystemCurrent.STATE_ONLINE)
@@ -201,7 +215,9 @@ def ingest_system_info(request):
                 last_seen_at__lt=stale_cutoff,
                 health_state=SystemCurrent.STATE_ONLINE,
             ).exclude(hostname_key=hostname.lower()).update(health_state=SystemCurrent.STATE_OFFLINE)
-            System.objects.filter(host_name__in=stale_hostnames).update(status='inactive')
+            System.objects.filter(
+                Q(host_name__in=stale_hostnames) | Q(layout_item__name__in=stale_hostnames)
+            ).update(status='inactive')
 
         return JsonResponse({'status': 'ok'})
     except Exception as e:
@@ -228,8 +244,10 @@ def mark_system_offline(request):
             health_state=SystemCurrent.STATE_OFFLINE,
         )
 
-        # Mark the System layout entry as inactive immediately
-        System.objects.filter(host_name__iexact=hostname).update(status='inactive')
+        # Mark the System layout entry as inactive immediately (grey color)
+        System.objects.filter(
+            Q(host_name__iexact=hostname) | Q(layout_item__name__iexact=hostname)
+        ).update(status='inactive')
 
         # Invalidate monitoring cache so UI reflects new state immediately
         from django.core.cache import cache
@@ -238,7 +256,7 @@ def mark_system_offline(request):
         return JsonResponse({
             'status': 'ok',
             'hostname': hostname,
-            'marked_offline': updated > 0,
+            'marked_offline': True,
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
