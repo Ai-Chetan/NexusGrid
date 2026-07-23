@@ -28,6 +28,7 @@ export default {
       animation: {
         'fade-in': 'fadeIn 0.2s ease-in-out',
         'slide-in': 'slideIn 0.2s ease-out',
+        'highlight-pulse': 'highlightPulse 4s ease-out forwards',
       },
       keyframes: {
         fadeIn: {
@@ -37,6 +38,13 @@ export default {
         slideIn: {
           '0%': { opacity: '0', transform: 'translateY(-8px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        highlightPulse: {
+          '0%':   { boxShadow: 'inset 0 0 0 2px #f59e0b' },
+          '25%':  { boxShadow: 'inset 0 0 0 3px #f59e0b, 0 0 8px #f59e0b66' },
+          '50%':  { boxShadow: 'inset 0 0 0 2px #f59e0b' },
+          '75%':  { boxShadow: 'inset 0 0 0 3px #f59e0b, 0 0 8px #f59e0b66' },
+          '100%': { boxShadow: 'none' },
         },
       },
     },

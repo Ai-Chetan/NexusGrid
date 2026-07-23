@@ -46,6 +46,22 @@ def admin_user_ids() -> list[int]:
     return list(User.objects.filter(role='Administrator').values_list('id', flat=True))
 
 
+def lab_assistant_ids_for_lab(lab_id: int | None) -> list[int]:
+    """Return user IDs of currently-active Lab Assistants assigned to the given lab.
+
+    Returns an empty list when lab_id is None or no active assignments exist.
+    """
+    if not lab_id:
+        return []
+    from system_layout.models import LabAssignment
+    return list(
+        LabAssignment.active_qs()
+        .filter(lab_id=lab_id, role_type=LabAssignment.ROLE_ASSISTANT)
+        .values_list('user_id', flat=True)
+        .distinct()
+    )
+
+
 def create_system_alert_if_needed(*, hostname: str, memory_usage_percent: float | None, threshold: float = 90.0) -> None:
     """Emit a system alert notification for admins when memory usage crosses threshold.
 

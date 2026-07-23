@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -297,6 +298,8 @@ function FaultRow({
   onDelete,
   canUpdateStatus,
   canEditDelete,
+  highlighted,
+  rowRef,
 }: {
   fault: FaultReport;
   onUpdate: (f: FaultReport) => void;
@@ -304,6 +307,8 @@ function FaultRow({
   onDelete: (f: FaultReport) => void;
   canUpdateStatus: boolean;
   canEditDelete: boolean;
+  highlighted?: boolean;
+  rowRef?: React.Ref<HTMLTableRowElement>;
 }) {
   const riskTone =
     fault.risk_factor >= 5 ? 'bg-red-100 text-red-700 border-red-200' :
@@ -312,7 +317,15 @@ function FaultRow({
     'bg-slate-100 text-slate-700 border-slate-200';
 
   return (
-    <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+    <tr
+      ref={rowRef as React.RefObject<HTMLTableRowElement>}
+      className={cn(
+        'transition-colors',
+        highlighted
+          ? 'bg-amber-50 dark:bg-amber-900/20 ring-2 ring-inset ring-amber-400 dark:ring-amber-500 animate-highlight-pulse'
+          : 'hover:bg-slate-50 dark:hover:bg-slate-800/30',
+      )}
+    >
       <td className="px-4 py-3">
         <div>
           <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{fault.system_host_name}</p>
@@ -392,6 +405,11 @@ export default function FaultsPage() {
   const isIncharge = user?.role === 'Lab Incharge';
   const isAssistant = user?.role === 'Lab Assistant';
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightId = searchParams.get('highlight') ? Number(searchParams.get('highlight')) : null;
+  const [activeHighlight, setActiveHighlight] = useState<number | null>(highlightId);
+  const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
+
   const [createOpen, setCreateOpen] = useState(false);
   const [updateFault, setUpdateFault] = useState<FaultReport | null>(null);
   const [editFault, setEditFault] = useState<FaultReport | null>(null);
@@ -409,6 +427,23 @@ export default function FaultsPage() {
     queryFn: ({ signal }) => faultsApi.list({ search, status, time, sort, page, page_size: 15 }, signal).then(r => r.data),
     placeholderData: prev => prev,
   });
+
+  // Scroll to + briefly highlight the row from a notification deep-link
+  useEffect(() => {
+    if (!activeHighlight || !data?.results) return;
+    const exists = data.results.some(f => f.fault_id === activeHighlight);
+    if (!exists) return;
+    // Give the DOM a tick to render before scrolling
+    const timer = setTimeout(() => {
+      highlightRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 120);
+    // Clear highlight and URL param after 4 s
+    const clearTimer = setTimeout(() => {
+      setActiveHighlight(null);
+      setSearchParams(prev => { prev.delete('highlight'); return prev; }, { replace: true });
+    }, 4000);
+    return () => { clearTimeout(timer); clearTimeout(clearTimer); };
+  }, [activeHighlight, data]);
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => faultsApi.delete(id),
@@ -497,17 +532,22 @@ export default function FaultsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                  {data?.results.map(fault => (
-                    <FaultRow
-                      key={fault.fault_id}
-                      fault={fault}
-                      onUpdate={setUpdateFault}
-                      onEdit={setEditFault}
-                      onDelete={setDeleteFault}
-                      canUpdateStatus={canUpdateStatus}
-                      canEditDelete={canEditDelete && fault.reported_by_username === user?.username}
-                    />
-                  ))}
+                  {data?.results.map(fault => {
+                    const isHighlighted = activeHighlight === fault.fault_id;
+                    return (
+                      <FaultRow
+                        key={fault.fault_id}
+                        fault={fault}
+                        onUpdate={setUpdateFault}
+                        onEdit={setEditFault}
+                        onDelete={setDeleteFault}
+                        canUpdateStatus={canUpdateStatus}
+                        canEditDelete={canEditDelete && fault.reported_by_username === user?.username}
+                        highlighted={isHighlighted}
+                        rowRef={isHighlighted ? highlightRowRef : undefined}
+                      />
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
