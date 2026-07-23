@@ -90,13 +90,18 @@ echo [5/5] Setting up automatic run on system restart / logon + shutdown offline
 set "STARTUP_FOLDER=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 %PY_CMD% "%SCRIPT_DIR%setup_persistence.py" "%SCRIPT_DIR%" "%NEXUSGRID_BASE_URL%"
 
+:: Step 6: Start continuous background monitoring immediately
+echo [6/6] Launching continuous background monitoring process...
+wscript.exe "%SCRIPT_DIR%run_silent.vbs"
+
 echo.
 echo =======================================================
 echo   Installation Completed Successfully!
 echo   - Backend Server : %NEXUSGRID_BASE_URL%
-echo   - Script ran immediately  : YES
-echo   - Runs on system restart  : YES (BootTrigger + Startup folder)
-echo   - Execution Frequency     : EVERY 1 MINUTE
+echo   - Initial test payload sent: YES
+echo   - Continuous loop launched : YES (Runs silently in background)
+echo   - Auto-runs on system boot : YES (Task Scheduler / Startup folder)
+echo   - Execution Frequency      : EVERY 1 MINUTE
 echo   - Offline signal on shutdown: YES (NexusGridOffline task)
 echo =======================================================
 
