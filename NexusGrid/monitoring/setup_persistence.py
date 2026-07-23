@@ -149,7 +149,7 @@ if os.path.isdir(startup_folder):
     with open(vbs_startup, "w") as f:
         f.write('Set WshShell = CreateObject("WScript.Shell")\r\n')
         # Run install_monitoring.bat silently (windowStyle=0, bWaitOnReturn=False)
-        f.write(f'WshShell.Run "cmd.exe /c \"""{install_bat}\"""", 0, False\r\n')
+        f.write(f'WshShell.Run "cmd.exe /c \"\"\" & "{install_bat}" & \"\"\"\", 0, False\r\n')
     p(f"[OK] Created Silent Startup entry: {vbs_startup} -> runs install_monitoring.bat on boot (turns Green)")
 
 # ── 6. HKCU Registry Run fallback ───────────────────────────────────────────

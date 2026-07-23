@@ -288,6 +288,36 @@ def send_data_to_api(system_info):
     except Exception as e:
         log_event(f"[ERROR] Error sending data to {API_URL}: {e}")
 
+def send_offline_signal():
+    """Send immediate offline state signal to backend API on shutdown/logoff."""
+    try:
+        url = f"{DEFAULT_BASE_URL}/api/offline/"
+        hostname = socket.gethostname()
+        requests.post(url, json={"hostname": hostname}, timeout=3)
+        log_event(f"[INFO] Sent shutdown offline signal to {url} for host {hostname}")
+    except Exception as e:
+        log_event(f"[ERROR] Error sending offline signal to {DEFAULT_BASE_URL}: {e}")
+
+# Register Windows console control handler for shutdown/logoff events
+if platform.system() == "Windows":
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        PHANDLER_ROUTINE = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.DWORD)
+
+        def _console_ctrl_handler(ctrl_type):
+            if ctrl_type in (2, 5, 6):  # CTRL_CLOSE_EVENT, CTRL_LOGOFF_EVENT, CTRL_SHUTDOWN_EVENT
+                log_event(f"[INFO] Detected system shutdown/logoff (event {ctrl_type}). Marking offline...")
+                send_offline_signal()
+                return True
+            return False
+
+        _global_ctrl_handler = PHANDLER_ROUTINE(_console_ctrl_handler)
+        ctypes.windll.kernel32.SetConsoleCtrlHandler(_global_ctrl_handler, True)
+    except Exception as e:
+        log_event(f"[WARNING] Could not register Windows console ctrl handler: {e}")
+
 import sys
 import time
 
@@ -303,6 +333,7 @@ if __name__ == "__main__":
         if run_once:
             break
         time.sleep(60)
+
 
 
 
