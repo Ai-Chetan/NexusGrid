@@ -1,17 +1,36 @@
+import os
+import sys
+import time
 import socket
 import platform
-import psutil
-import requests
-import os
 import subprocess
 import json
-from datetime import datetime
+import psutil
+import requests
+from datetime import datetime, timezone, timedelta
+
+# IST (India Standard Time) UTC+5:30 offset
+IST = timezone(timedelta(hours=5, minutes=30))
+LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "agent.log")
+
+def get_ist_now():
+    return datetime.now(IST)
+
+def log_event(message):
+    timestamp_str = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
+    log_line = f"{timestamp_str} {message}\n"
+    print(log_line.strip())
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(log_line)
+    except Exception:
+        pass
 
 # Server Configuration - Easily switch between Local and Render Hosted backend
 # Render Hosted URL: https://nexusgrid.onrender.com
 # Local Server URL:  http://127.0.0.1:8000
-DEFAULT_BASE_URL = os.getenv("NEXUSGRID_BASE_URL", "https://nexusgrid.onrender.com").rstrip("/")
-API_URL = os.getenv("NEXUSGRID_INGEST_URL", f"{DEFAULT_BASE_URL}/api/ingest/")
+DEFAULT_BASE_URL = os.getenv("NEXUSGRID_BASE_URL", "https://nexusgrid.onrender.com").strip().rstrip("/")
+API_URL = os.getenv("NEXUSGRID_INGEST_URL", f"{DEFAULT_BASE_URL}/api/ingest/").strip()
 
 
 CREATE_NO_WINDOW = 0x08000000 if platform.system() == "Windows" else 0
@@ -243,23 +262,31 @@ def get_system_info():
             "users_count": len(logged_in_users),  # unit: count
             "logged_in_users": ", ".join(logged_in_users),  # unit: comma-separated usernames
 
-            # Timestamp
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # unit: datetime string (YYYY-MM-DD HH:MM:SS)
+            # Timestamp (IST)
+            "timestamp": get_ist_now().strftime("%Y-%m-%d %H:%M:%S")  # unit: datetime string in IST (YYYY-MM-DD HH:MM:SS)
         }
 
         return system_info
 
     except Exception as e:
-        print(f"Error fetching system info: {e}")
+        log_event(f"[ERROR] Error fetching system info: {e}")
         return {}
 
 def send_data_to_api(system_info):
     try:
         headers = {"Content-Type": "application/json"}
-        response = requests.post(API_URL, json=system_info, headers=headers)
-        print(f"Sent! Status: {response.status_code}")
+        response = requests.post(API_URL, json=system_info, headers=headers, timeout=10)
+        gpu_str = "Active" if system_info.get("gpu_available") else "None"
+        cpu_val = system_info.get("cpu_usage", 0)
+        ram_val = system_info.get("memory_usage_percent", 0)
+        host_val = system_info.get("hostname", "Unknown")
+
+        log_event(
+            f"[INFO] Sent telemetry to {API_URL} | Status: {response.status_code} | "
+            f"Host: {host_val} | CPU: {cpu_val}% | RAM: {ram_val}% | GPU: {gpu_str}"
+        )
     except Exception as e:
-        print(f"Error sending data: {e}")
+        log_event(f"[ERROR] Error sending data to {API_URL}: {e}")
 
 import sys
 import time

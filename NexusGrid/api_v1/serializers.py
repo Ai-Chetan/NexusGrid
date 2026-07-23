@@ -83,9 +83,8 @@ class LayoutItemSerializer(serializers.ModelSerializer):
             system = getattr(obj, 'system', None)
             if system is None:
                 return None
-            monitored = self.context.get('monitored_hostnames', set())
-            if system.host_name and system.host_name.lower() in monitored:
-                return 'active'
+            # Return the real database status — set to 'active' by ingest,
+            # 'inactive' by the offline signal / heartbeat timeout.
             return system.status
         return None
 

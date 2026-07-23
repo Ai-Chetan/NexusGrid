@@ -12,7 +12,7 @@ from system_layout.models import System
 @login_required(login_url="/login/")
 def system_status_api(request):
     """Return latest snapshots from the current-state table."""
-    cutoff = timezone.now() - timedelta(seconds=90)
+    cutoff = timezone.now() - timedelta(minutes=5)
     
     # Mark systems offline
     offline_hostnames = list(SystemCurrent.objects.filter(
@@ -26,7 +26,7 @@ def system_status_api(request):
     ).update(health_state=SystemCurrent.STATE_OFFLINE)
     
     if offline_hostnames:
-        System.objects.filter(host_name__in=offline_hostnames).update(status='non-functional')
+        System.objects.filter(host_name__in=offline_hostnames).update(status='inactive')
         
     # Mark systems online
     online_hostnames = list(SystemCurrent.objects.filter(
@@ -185,7 +185,61 @@ def ingest_system_info(request):
         # Auto-mark the matching System as active so the layout shows green
         System.objects.filter(host_name__iexact=hostname).update(status='active')
 
+        # ── Auto-sweep stale hosts (5-minute timeout) ───────────────────────
+        # Every heartbeat also checks all OTHER machines. If any haven't
+        # reported in 5+ minutes, mark them inactive automatically.
+        # This means the timeout works even without the frontend polling.
+        stale_cutoff = info.timestamp - timedelta(minutes=5)
+        stale_hostnames = list(
+            SystemCurrent.objects
+            .filter(last_seen_at__lt=stale_cutoff, health_state=SystemCurrent.STATE_ONLINE)
+            .exclude(hostname_key=hostname.lower())
+            .values_list('hostname', flat=True)
+        )
+        if stale_hostnames:
+            SystemCurrent.objects.filter(
+                last_seen_at__lt=stale_cutoff,
+                health_state=SystemCurrent.STATE_ONLINE,
+            ).exclude(hostname_key=hostname.lower()).update(health_state=SystemCurrent.STATE_OFFLINE)
+            System.objects.filter(host_name__in=stale_hostnames).update(status='inactive')
+
         return JsonResponse({'status': 'ok'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+@require_POST
+def mark_system_offline(request):
+    """Shutdown hook: immediately marks a machine as offline/inactive.
+
+    Called by send_offline.bat when the PC shuts down or logs off.
+    Expects JSON body: {"hostname": "<machine-hostname>"}
+    """
+    try:
+        data = json.loads(request.body)
+        hostname = (data.get('hostname') or '').strip()
+        if not hostname:
+            return JsonResponse({'error': 'hostname is required'}, status=400)
+
+        hostname_key = hostname.lower()
+
+        updated = SystemCurrent.objects.filter(hostname_key=hostname_key).update(
+            health_state=SystemCurrent.STATE_OFFLINE,
+        )
+
+        # Mark the System layout entry as inactive immediately
+        System.objects.filter(host_name__iexact=hostname).update(status='inactive')
+
+        # Invalidate monitoring cache so UI reflects new state immediately
+        from django.core.cache import cache
+        cache.delete('monitoring_latest_v1')
+
+        return JsonResponse({
+            'status': 'ok',
+            'hostname': hostname,
+            'marked_offline': updated > 0,
+        })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
