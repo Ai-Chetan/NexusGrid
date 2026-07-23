@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Download, FileText, Monitor, Printer, Wrench } from 'lucide-react';
+import { Download, FileText, Monitor, Printer, Wrench, Calendar } from 'lucide-react';
 import { adminApi, labsApi, privilegesApi, reportsApi } from '@/lib/api';
 import { buildCsvSection, downloadCsv } from '@/lib/csv';
 import { generatePdfReport } from '@/lib/pdfReport';
@@ -39,19 +39,24 @@ interface PcStatusData {
   not_working: number; under_maintenance: number; per_lab: PcLabRow[];
 }
 
-function SectionCard({ icon: Icon, title, actions, children }: {
-  icon: React.ElementType; title: string; actions?: React.ReactNode; children: React.ReactNode;
+function SectionCard({ icon: Icon, title, subtitle, actions, children }: {
+  icon: React.ElementType; title: string; subtitle?: string; actions?: React.ReactNode; children: React.ReactNode;
 }) {
   return (
-    <div className="card p-5 space-y-4">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Icon className="w-4 h-4 text-slate-500" />
-          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">{title}</h3>
+    <div className="card overflow-hidden">
+      <div className="flex items-center justify-between gap-2 flex-wrap px-5 pt-5 pb-3">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/50">
+            <Icon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">{title}</h3>
+            {subtitle && <p className="text-xs text-slate-400 dark:text-slate-500">{subtitle}</p>}
+          </div>
         </div>
-        {actions}
+        {actions && <div className="flex gap-2">{actions}</div>}
       </div>
-      {children}
+      <div className="px-5 pb-5">{children}</div>
     </div>
   );
 }
@@ -154,10 +159,10 @@ export default function MaintenanceSection() {
       subtitle: scopeText,
       meta: [`Range: ${start} to ${end}`],
       stats: [
-        { label: 'Faults Reported', value: String(summary.totals.faults_reported) },
-        { label: 'Faults Resolved', value: String(summary.totals.faults_resolved) },
-        { label: 'Resources Requested', value: String(summary.totals.resources_requested) },
-        { label: 'Resources Fulfilled', value: String(summary.totals.resources_fulfilled) },
+        { label: 'Faults Reported', value: String(summary.totals.faults_reported), color: 'red' },
+        { label: 'Faults Resolved', value: String(summary.totals.faults_resolved), color: 'emerald' },
+        { label: 'Resources Requested', value: String(summary.totals.resources_requested), color: 'blue' },
+        { label: 'Resources Fulfilled', value: String(summary.totals.resources_fulfilled), color: 'violet' },
       ],
       tables: [{
         columns: [
@@ -184,7 +189,7 @@ export default function MaintenanceSection() {
 
   const printCostReport = () => {
     if (!costs || !costs.departments.length) return toast.error('No replacement requests in this range.');
-    const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>');
     const money = (v: number | null) => (v == null ? '—' : v.toFixed(2));
     const sections = costs.departments.map((d) => `
       <h2>${esc(d.department)}</h2>
@@ -196,21 +201,22 @@ export default function MaintenanceSection() {
         <tfoot><tr><td colspan="8">Subtotal — ${esc(d.department)}${d.items_without_cost ? ` (${d.items_without_cost} item(s) without cost excluded)` : ''}</td><td class="num">${d.subtotal.toFixed(2)}</td></tr></tfoot>
       </table>`).join('');
     const html = `<!doctype html><html><head><title>Replacement Cost Report</title><style>
-      body{font-family:Helvetica,Arial,sans-serif;color:#0f172a;margin:32px;}
-      h1{font-size:20px;margin:0 0 4px;} .meta{color:#475569;font-size:12px;margin-bottom:20px;}
-      h2{font-size:14px;margin:24px 0 8px;}
-      table{width:100%;border-collapse:collapse;font-size:11px;}
-      th,td{border:1px solid #cbd5e1;padding:5px 7px;text-align:left;}
-      th{background:#f1f5f9;} .num{text-align:right;}
-      tfoot td{font-weight:bold;background:#f8fafc;}
-      .grand{margin-top:24px;font-size:14px;font-weight:bold;text-align:right;}
+      body{font-family:'Segoe UI',Helvetica,Arial,sans-serif;color:#0f172a;margin:40px;background:#fff;}
+      h1{font-size:22px;margin:0 0 4px;color:#0f172a;} .meta{color:#475569;font-size:12px;margin-bottom:24px;line-height:1.6;}
+      h2{font-size:15px;margin:28px 0 10px;color:#1e293b;border-bottom:2px solid #3b82f6;padding-bottom:6px;}
+      table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px;}
+      th,td{border:1px solid #e2e8f0;padding:6px 8px;text-align:left;}
+      th{background:#f1f5f9;font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:0.3px;}
+      .num{text-align:right;}
+      tfoot td{font-weight:bold;background:#f8fafc;border-top:2px solid #0f172a;}
+      .grand{margin-top:28px;font-size:16px;font-weight:bold;text-align:right;color:#0f172a;padding:12px 0;border-top:3px solid #3b82f6;}
       @media print{body{margin:12mm;}}
     </style></head><body>
       <h1>NexusGrid — Replacement Cost Report</h1>
       <div class="meta">Replacement/resource requests raised by Lab Assistants, grouped by department.<br/>
         Range: ${esc(costs.start ?? 'beginning')} to ${esc(costs.end ?? 'today')} &nbsp;•&nbsp; Generated: ${esc(new Date(costs.generated_at).toLocaleString())}</div>
       ${sections}
-      <div class="grand">Grand Total: ${costs.grand_total.toFixed(2)}</div>
+      <div class="grand">Grand Total: ₹${costs.grand_total.toFixed(2)}</div>
     </body></html>`;
     const w = window.open('', '_blank', 'width=980,height=760');
     if (!w) return toast.error('Popup blocked — allow popups to print the report.');
@@ -228,12 +234,12 @@ export default function MaintenanceSection() {
       subtitle: 'Requests raised by Lab Assistants, grouped by department',
       meta: [
         `Range: ${costs.start ?? 'beginning'} to ${costs.end ?? 'today'}`,
-        `Grand Total: ${costs.grand_total.toFixed(2)}`,
+        `Grand Total: ₹${costs.grand_total.toFixed(2)}`,
       ],
       stats: [
-        { label: 'Departments', value: String(costs.departments.length) },
-        { label: 'Requests', value: String(costs.departments.reduce((a, d) => a + d.items.length, 0)) },
-        { label: 'Grand Total', value: costs.grand_total.toFixed(2) },
+        { label: 'Departments', value: String(costs.departments.length), color: 'violet' },
+        { label: 'Requests', value: String(costs.departments.reduce((a, d) => a + d.items.length, 0)), color: 'blue' },
+        { label: 'Grand Total', value: `₹${costs.grand_total.toFixed(2)}`, color: 'emerald' },
       ],
       tables: costs.departments.map((d) => ({
         title: `${d.department}${d.items_without_cost ? `  (${d.items_without_cost} item(s) without cost)` : ''}`,
@@ -264,11 +270,11 @@ export default function MaintenanceSection() {
       subtitle: 'Fleet-wide system status',
       meta: [`Data as of: ${new Date(pc.generated_at).toLocaleString()}`],
       stats: [
-        { label: 'Total PCs', value: String(pc.total) },
-        { label: 'Working', value: String(pc.working) },
-        { label: 'Not Working', value: String(pc.not_working) },
-        { label: 'Inactive', value: String(pc.inactive) },
-        { label: 'Under Maintenance', value: String(pc.under_maintenance) },
+        { label: 'Total PCs', value: String(pc.total), color: 'violet' },
+        { label: 'Working', value: String(pc.working), color: 'emerald' },
+        { label: 'Not Working', value: String(pc.not_working), color: 'red' },
+        { label: 'Inactive', value: String(pc.inactive), color: 'slate' },
+        { label: 'Under Maintenance', value: String(pc.under_maintenance), color: 'amber' },
       ],
       tables: [{
         title: 'Per-Lab Breakdown',
@@ -291,40 +297,42 @@ export default function MaintenanceSection() {
   };
 
   const pcCards = pc ? [
-    { label: 'Total PCs', value: pc.total, color: 'text-violet-500' },
-    { label: 'Working', value: pc.working, color: 'text-emerald-500' },
-    { label: 'Not Working', value: pc.not_working, color: 'text-red-500' },
-    { label: 'Inactive', value: pc.inactive, color: 'text-slate-500' },
-    { label: 'Under Maintenance', value: pc.under_maintenance, color: 'text-amber-500' },
+    { label: 'Total PCs', value: pc.total, color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-950/40' },
+    { label: 'Working', value: pc.working, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40' },
+    { label: 'Not Working', value: pc.not_working, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-950/40' },
+    { label: 'Inactive', value: pc.inactive, color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-50 dark:bg-slate-800' },
+    { label: 'Under Maintenance', value: pc.under_maintenance, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/40' },
   ] : [];
 
   return (
     <div className="space-y-5">
-      {/* Maintenance summary — admin (any scope) + assistant (own work / own labs) */}
+      {/* Maintenance summary */}
       <SectionCard
         icon={Wrench}
         title="Maintenance Summary"
+        subtitle="Track faults and resource activity over time"
         actions={
-          <div className="flex gap-2">
-            <button type="button" className="btn-secondary" onClick={exportSummary}>
-              <Download className="w-4 h-4" /> Export CSV
+          <>
+            <button type="button" className="btn-secondary text-xs" onClick={exportSummary}>
+              <Download className="w-3.5 h-3.5" /> CSV
             </button>
-            <button type="button" className="btn-primary" onClick={downloadSummaryPdf}>
-              <FileText className="w-4 h-4" /> Download PDF
+            <button type="button" className="btn-primary text-xs" onClick={downloadSummaryPdf}>
+              <FileText className="w-3.5 h-3.5" /> PDF
             </button>
-          </div>
+          </>
         }
       >
-        <div className="flex flex-wrap items-end gap-3">
+        {/* Filters */}
+        <div className="flex flex-wrap items-end gap-3 mb-4 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
           <div>
-            <label className="label">Group by</label>
+            <label className="label text-xs">Group by</label>
             <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
               {(['weekly', 'monthly'] as const).map((p) => (
                 <button
                   key={p} type="button" onClick={() => setPeriod(p)}
-                  className={`px-3 py-2 text-xs font-medium transition-colors ${period === p
+                  className={`px-3.5 py-1.5 text-xs font-medium transition-colors ${period === p
                     ? 'bg-blue-600 text-white'
-                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 bg-white dark:bg-slate-800'}`}
                 >
                   {p === 'weekly' ? 'Weekly' : 'Monthly'}
                 </button>
@@ -332,17 +340,17 @@ export default function MaintenanceSection() {
             </div>
           </div>
           <div>
-            <label className="label">From</label>
-            <input type="date" className="input" value={start} max={end} onChange={(e) => setStart(e.target.value)} />
+            <label className="label text-xs">From</label>
+            <input type="date" className="input text-xs py-1.5" value={start} max={end} onChange={(e) => setStart(e.target.value)} />
           </div>
           <div>
-            <label className="label">To</label>
-            <input type="date" className="input" value={end} min={start} onChange={(e) => setEnd(e.target.value)} />
+            <label className="label text-xs">To</label>
+            <input type="date" className="input text-xs py-1.5" value={end} min={start} onChange={(e) => setEnd(e.target.value)} />
           </div>
           {isAdmin && (
-            <div className="min-w-[200px]">
-              <label className="label">Lab assistant</label>
-              <select className="input" value={staffId} onChange={(e) => setStaffId(e.target.value ? Number(e.target.value) : '')}>
+            <div className="min-w-[180px]">
+              <label className="label text-xs">Lab assistant</label>
+              <select className="input text-xs py-1.5" value={staffId} onChange={(e) => setStaffId(e.target.value ? Number(e.target.value) : '')}>
                 <option value="">All assistants</option>
                 {assistants.map((s) => (
                   <option key={s.user_id} value={s.user_id}>{s.username}</option>
@@ -350,9 +358,9 @@ export default function MaintenanceSection() {
               </select>
             </div>
           )}
-          <div className="min-w-[200px]">
-            <label className="label">Lab</label>
-            <select className="input" value={labId} onChange={(e) => setLabId(e.target.value ? Number(e.target.value) : '')}>
+          <div className="min-w-[180px]">
+            <label className="label text-xs">Lab</label>
+            <select className="input text-xs py-1.5" value={labId} onChange={(e) => setLabId(e.target.value ? Number(e.target.value) : '')}>
               <option value="">{isAdmin ? 'All labs' : 'My work (all my labs)'}</option>
               {labOptions.map((l) => (
                 <option key={l.id} value={l.id}>{l.name}</option>
@@ -361,41 +369,44 @@ export default function MaintenanceSection() {
           </div>
         </div>
 
-        <p className="text-xs text-slate-400">Scope: {scopeText}</p>
+        <p className="text-xs text-slate-400 mb-3 flex items-center gap-1.5">
+          <Calendar className="w-3 h-3" />
+          Scope: {scopeText}
+        </p>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-slate-500 border-b border-slate-200 dark:border-slate-700">
-                <th className="py-2 pr-4">{period === 'weekly' ? 'Week' : 'Month'}</th>
-                <th className="py-2 pr-4">Faults Reported</th>
-                <th className="py-2 pr-4">Faults Resolved</th>
-                <th className="py-2 pr-4">Resources Requested</th>
-                <th className="py-2 pr-4">Resources Fulfilled</th>
+              <tr className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-800/80">
+                <th className="py-3 px-4">{period === 'weekly' ? 'Week' : 'Month'}</th>
+                <th className="py-3 px-4">Faults Reported</th>
+                <th className="py-3 px-4">Faults Resolved</th>
+                <th className="py-3 px-4">Resources Requested</th>
+                <th className="py-3 px-4">Resources Fulfilled</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {(summary?.rows ?? []).map((r) => (
-                <tr key={r.period} className="border-b border-slate-100 dark:border-slate-800">
-                  <td className="py-2 pr-4 font-medium text-slate-800 dark:text-slate-200">{r.period}</td>
-                  <td className="py-2 pr-4">{r.faults_reported}</td>
-                  <td className="py-2 pr-4">{r.faults_resolved}</td>
-                  <td className="py-2 pr-4">{r.resources_requested}</td>
-                  <td className="py-2 pr-4">{r.resources_fulfilled}</td>
+                <tr key={r.period} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                  <td className="py-2.5 px-4 font-medium text-slate-800 dark:text-slate-200">{r.period}</td>
+                  <td className="py-2.5 px-4 text-red-600 dark:text-red-400">{r.faults_reported}</td>
+                  <td className="py-2.5 px-4 text-emerald-600 dark:text-emerald-400">{r.faults_resolved}</td>
+                  <td className="py-2.5 px-4 text-blue-600 dark:text-blue-400">{r.resources_requested}</td>
+                  <td className="py-2.5 px-4 text-violet-600 dark:text-violet-400">{r.resources_fulfilled}</td>
                 </tr>
               ))}
               {!summaryLoading && !summary?.rows.length && (
-                <tr><td colSpan={5} className="py-4 text-center text-slate-400">No maintenance activity in this range.</td></tr>
+                <tr><td colSpan={5} className="py-8 text-center text-slate-400">No maintenance activity in this range.</td></tr>
               )}
             </tbody>
             {summary && summary.rows.length > 0 && (
               <tfoot>
-                <tr className="font-semibold text-slate-800 dark:text-slate-200">
-                  <td className="py-2 pr-4">Totals</td>
-                  <td className="py-2 pr-4">{summary.totals.faults_reported}</td>
-                  <td className="py-2 pr-4">{summary.totals.faults_resolved}</td>
-                  <td className="py-2 pr-4">{summary.totals.resources_requested}</td>
-                  <td className="py-2 pr-4">{summary.totals.resources_fulfilled}</td>
+                <tr className="font-semibold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/80 border-t-2 border-slate-200 dark:border-slate-700">
+                  <td className="py-3 px-4">Totals</td>
+                  <td className="py-3 px-4 text-red-600 dark:text-red-400">{summary.totals.faults_reported}</td>
+                  <td className="py-3 px-4 text-emerald-600 dark:text-emerald-400">{summary.totals.faults_resolved}</td>
+                  <td className="py-3 px-4 text-blue-600 dark:text-blue-400">{summary.totals.resources_requested}</td>
+                  <td className="py-3 px-4 text-violet-600 dark:text-violet-400">{summary.totals.resources_fulfilled}</td>
                 </tr>
               </tfoot>
             )}
@@ -408,45 +419,46 @@ export default function MaintenanceSection() {
         <SectionCard
           icon={Monitor}
           title="PC Status Overview"
+          subtitle="Fleet-wide system health at a glance"
           actions={
-            <button type="button" className="btn-primary" onClick={downloadPcStatusPdf}>
-              <FileText className="w-4 h-4" /> Download PDF
+            <button type="button" className="btn-primary text-xs" onClick={downloadPcStatusPdf}>
+              <FileText className="w-3.5 h-3.5" /> PDF
             </button>
           }
         >
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
             {pcCards.map((c) => (
-              <div key={c.label} className="p-4 rounded-xl text-center bg-slate-50 dark:bg-slate-800">
+              <div key={c.label} className={`p-4 rounded-xl text-center ${c.bg}`}>
                 <p className={`text-2xl font-bold ${c.color}`}>{c.value}</p>
-                <p className="text-xs mt-1 text-slate-500 dark:text-slate-400">{c.label}</p>
+                <p className="text-[11px] mt-1 text-slate-500 dark:text-slate-400 font-medium">{c.label}</p>
               </div>
             ))}
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-slate-500 border-b border-slate-200 dark:border-slate-700">
-                  <th className="py-2 pr-4">Lab</th>
-                  <th className="py-2 pr-4">Total</th>
-                  <th className="py-2 pr-4">Working</th>
-                  <th className="py-2 pr-4">Not Working</th>
-                  <th className="py-2 pr-4">Inactive</th>
-                  <th className="py-2 pr-4">Under Maintenance</th>
+                <tr className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-800/80">
+                  <th className="py-3 px-4">Lab</th>
+                  <th className="py-3 px-4">Total</th>
+                  <th className="py-3 px-4">Working</th>
+                  <th className="py-3 px-4">Not Working</th>
+                  <th className="py-3 px-4">Inactive</th>
+                  <th className="py-3 px-4">Under Maintenance</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {(pc?.per_lab ?? []).map((l) => (
-                  <tr key={l.lab_id} className="border-b border-slate-100 dark:border-slate-800">
-                    <td className="py-2 pr-4 font-medium text-slate-800 dark:text-slate-200">{l.lab_name}</td>
-                    <td className="py-2 pr-4">{l.total}</td>
-                    <td className="py-2 pr-4 text-emerald-600">{l.working}</td>
-                    <td className="py-2 pr-4 text-red-600">{l.not_working}</td>
-                    <td className="py-2 pr-4">{l.inactive}</td>
-                    <td className="py-2 pr-4 text-amber-600">{l.under_maintenance}</td>
+                  <tr key={l.lab_id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                    <td className="py-2.5 px-4 font-medium text-slate-800 dark:text-slate-200">{l.lab_name}</td>
+                    <td className="py-2.5 px-4 font-semibold">{l.total}</td>
+                    <td className="py-2.5 px-4 text-emerald-600 dark:text-emerald-400 font-medium">{l.working}</td>
+                    <td className="py-2.5 px-4 text-red-600 dark:text-red-400 font-medium">{l.not_working}</td>
+                    <td className="py-2.5 px-4 text-slate-500">{l.inactive}</td>
+                    <td className="py-2.5 px-4 text-amber-600 dark:text-amber-400 font-medium">{l.under_maintenance}</td>
                   </tr>
                 ))}
                 {!pc?.per_lab.length && (
-                  <tr><td colSpan={6} className="py-4 text-center text-slate-400">No systems assigned to labs yet.</td></tr>
+                  <tr><td colSpan={6} className="py-8 text-center text-slate-400">No systems assigned to labs yet.</td></tr>
                 )}
               </tbody>
             </table>
@@ -454,55 +466,52 @@ export default function MaintenanceSection() {
         </SectionCard>
       )}
 
-      {/* Replacement-cost report — admin only, printable & read-only */}
+      {/* Replacement-cost report — admin only */}
       {isAdmin && (
         <SectionCard
           icon={Printer}
-          title="Replacement Cost Report (by Department)"
+          title="Replacement Cost Report"
+          subtitle="Resource requests grouped by department with cost tracking"
           actions={
-            <div className="flex gap-2">
-              <button type="button" className="btn-secondary" onClick={printCostReport}>
-                <Printer className="w-4 h-4" /> Print
+            <>
+              <button type="button" className="btn-secondary text-xs" onClick={printCostReport}>
+                <Printer className="w-3.5 h-3.5" /> Print
               </button>
-              <button type="button" className="btn-primary" onClick={downloadCostPdf}>
-                <FileText className="w-4 h-4" /> Download PDF
+              <button type="button" className="btn-primary text-xs" onClick={downloadCostPdf}>
+                <FileText className="w-3.5 h-3.5" /> PDF
               </button>
-            </div>
+            </>
           }
         >
-          <p className="text-xs text-slate-400">
-            Replacement/resource requests raised by lab assistants in the date range above,
-            grouped by department with per-part and total costs. The printout is read-only.
-          </p>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-slate-500 border-b border-slate-200 dark:border-slate-700">
-                  <th className="py-2 pr-4">Department</th>
-                  <th className="py-2 pr-4">Requests</th>
-                  <th className="py-2 pr-4">Without Cost</th>
-                  <th className="py-2 pr-4">Subtotal</th>
+                <tr className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-800/80">
+                  <th className="py-3 px-4">Department</th>
+                  <th className="py-3 px-4">Requests</th>
+                  <th className="py-3 px-4">Without Cost</th>
+                  <th className="py-3 px-4">Subtotal</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {(costs?.departments ?? []).map((d) => (
-                  <tr key={d.department} className="border-b border-slate-100 dark:border-slate-800">
-                    <td className="py-2 pr-4 font-medium text-slate-800 dark:text-slate-200">{d.department}</td>
-                    <td className="py-2 pr-4">{d.items.length}</td>
-                    <td className="py-2 pr-4">{d.items_without_cost}</td>
-                    <td className="py-2 pr-4">{d.subtotal.toFixed(2)}</td>
+                  <tr key={d.department} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                    <td className="py-2.5 px-4 font-medium text-slate-800 dark:text-slate-200">{d.department}</td>
+                    <td className="py-2.5 px-4">{d.items.length}</td>
+                    <td className="py-2.5 px-4 text-amber-600 dark:text-amber-400">{d.items_without_cost}</td>
+                    <td className="py-2.5 px-4 font-semibold text-slate-800 dark:text-slate-200">₹{d.subtotal.toFixed(2)}</td>
                   </tr>
                 ))}
                 {!costs?.departments.length && (
-                  <tr><td colSpan={4} className="py-4 text-center text-slate-400">No assistant-raised requests in this range.</td></tr>
+                  <tr><td colSpan={4} className="py-8 text-center text-slate-400">No assistant-raised requests in this range.</td></tr>
                 )}
               </tbody>
               {costs && costs.departments.length > 0 && (
                 <tfoot>
-                  <tr className="font-semibold text-slate-800 dark:text-slate-200">
-                    <td className="py-2 pr-4">Grand Total</td>
+                  <tr className="font-semibold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/80 border-t-2 border-slate-200 dark:border-slate-700">
+                    <td className="py-3 px-4">Grand Total</td>
                     <td /><td />
-                    <td className="py-2 pr-4">{costs.grand_total.toFixed(2)}</td>
+                    <td className="py-3 px-4 text-lg">₹{costs.grand_total.toFixed(2)}</td>
                   </tr>
                 </tfoot>
               )}

@@ -2,14 +2,16 @@ import { useState, useMemo } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import {
   BarChart, Bar, PieChart, Pie, Cell, Legend, XAxis, YAxis,
-  CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line,
+  CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart,
 } from 'recharts';
-import { RefreshCw, Building2, Layers, LayoutDashboard, BookOpen, Download, FileText } from 'lucide-react';
+import {
+  RefreshCw, Building2, Layers, LayoutDashboard, BookOpen, Download,
+  FileText, TrendingUp, AlertTriangle, Package, Monitor, Filter, X,
+} from 'lucide-react';
 import { reportsApi, layoutApi, labsApi, privilegesApi } from '@/lib/api';
 import PageHeader from '@/components/common/PageHeader';
 import ErrorState from '@/components/common/ErrorState';
 import OversightSection from '@/pages/reports/OversightSection';
-import MaintenanceSection from '@/pages/reports/MaintenanceSection';
 import { generatePdfReport } from '@/lib/pdfReport';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuthStore } from '@/store/authStore';
@@ -17,6 +19,8 @@ import toast from 'react-hot-toast';
 import type { LayoutItem, Lab, ReportsData, ReportsDetailData } from '@/types';
 
 const COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#06b6d4', '#ec4899'];
+const PIE_COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#06b6d4'];
+
 type ReportFilterParams = { building_id?: number; floor_id?: number; lab_id?: number };
 
 function csvEscape(value: unknown): string {
@@ -47,16 +51,31 @@ function triggerDownload(blob: Blob, fileName: string): void {
   URL.revokeObjectURL(url);
 }
 
-function Card({ title, children, dark }: { title: string; children: React.ReactNode; dark?: boolean }) {
+// ─── Section wrapper with icon header ─────────────────────────────────────────
+function ChartSection({ icon: Icon, title, subtitle, children, className }: {
+  icon: React.ElementType;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="card p-5">
-      <p className={`text-sm font-semibold mb-4 ${dark ? 'text-slate-200' : 'text-slate-700'}`}>{title}</p>
-      {children}
+    <div className={`card overflow-hidden ${className ?? ''}`}>
+      <div className="flex items-center gap-3 px-5 pt-5 pb-3">
+        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/50">
+          <Icon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">{title}</h3>
+          {subtitle && <p className="text-xs text-slate-400 dark:text-slate-500">{subtitle}</p>}
+        </div>
+      </div>
+      <div className="px-5 pb-5">{children}</div>
     </div>
   );
 }
 
-// Tiny select used in the admin filter bar
+// ─── Filter select ────────────────────────────────────────────────────────────
 function FilterSelect({
   label, icon: Icon, value, onChange, disabled, placeholder, options, dark,
 }: {
@@ -70,8 +89,8 @@ function FilterSelect({
   dark: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-1 min-w-[160px]">
-      <label className={`text-xs font-medium flex items-center gap-1 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+    <div className="flex flex-col gap-1.5 min-w-[170px]">
+      <label className={`text-xs font-medium flex items-center gap-1.5 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
         <Icon className="w-3.5 h-3.5" />
         {label}
       </label>
@@ -79,10 +98,10 @@ function FilterSelect({
         value={value}
         onChange={e => onChange(e.target.value === '' ? '' : Number(e.target.value))}
         disabled={disabled}
-        className={`text-sm rounded-lg border px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition
+        className={`text-sm rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition
           ${dark
             ? 'bg-slate-800 border-slate-600 text-slate-200 disabled:text-slate-600'
-            : 'bg-white border-slate-300 text-slate-700 disabled:text-slate-400'
+            : 'bg-white border-slate-200 text-slate-700 disabled:text-slate-400'
           } disabled:cursor-not-allowed`}
       >
         <option value="">{placeholder}</option>
@@ -90,6 +109,28 @@ function FilterSelect({
           <option key={o.id} value={o.id}>{o.name}</option>
         ))}
       </select>
+    </div>
+  );
+}
+
+// ─── Summary stat card ────────────────────────────────────────────────────────
+function StatCard({ label, value, icon: Icon, color, subtext }: {
+  label: string;
+  value: number;
+  icon: React.ElementType;
+  color: string;
+  subtext?: string;
+}) {
+  return (
+    <div className="card p-4 flex items-center gap-4">
+      <div className={`flex items-center justify-center w-11 h-11 rounded-xl ${color}`}>
+        <Icon className="w-5 h-5" />
+      </div>
+      <div>
+        <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{value}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+        {subtext && <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">{subtext}</p>}
+      </div>
     </div>
   );
 }
@@ -110,7 +151,7 @@ export default function ReportsPage() {
           description="Visual overview of faults, resources, and system status."
         />
         <div className={`flex flex-col items-center justify-center py-20 rounded-xl border
-          ${ dark
+          ${dark
             ? 'bg-slate-900 border-slate-700 text-slate-400'
             : 'bg-white border-slate-200 text-slate-500'
           }`}>
@@ -126,8 +167,8 @@ export default function ReportsPage() {
 
   // ── Admin filter state ──────────────────────────────────────────────────
   const [selectedBuilding, setSelectedBuilding] = useState<number | ''>('');
-  const [selectedFloor, setSelectedFloor]     = useState<number | ''>('');
-  const [selectedLab, setSelectedLab]         = useState<number | ''>('');
+  const [selectedFloor, setSelectedFloor] = useState<number | ''>('');
+  const [selectedLab, setSelectedLab] = useState<number | ''>('');
 
   // ── Incharge/Assistant filter state ────────────────────────────────────
   const [selectedRestrictedLab, setSelectedRestrictedLab] = useState<number | ''>('');
@@ -142,7 +183,6 @@ export default function ReportsPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Deduplicate by lab id (a user may have incharge + assistant on the same lab)
   const myLabs = useMemo(() => {
     const seen = new Set<number>();
     return myAssignments.filter(a => {
@@ -171,7 +211,6 @@ export default function ReportsPage() {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Defer fetching all labs until a building is actually selected in the filter
   const { data: allLabs = [] } = useQuery<Lab[]>({
     queryKey: ['labs'],
     queryFn: () => labsApi.list().then(r => r.data),
@@ -184,19 +223,19 @@ export default function ReportsPage() {
     return allLabs.filter(l => l.floor_id === selectedFloor);
   }, [allLabs, selectedFloor]);
 
-  // ── Derive report query params from admin filter selection ───────────────
+  // ── Derive report query params ───────────────────────────────────────────
   const reportParams = useMemo<ReportFilterParams | undefined>(() => {
     if (isRestricted) {
       return selectedRestrictedLab ? { lab_id: selectedRestrictedLab as number } : undefined;
     }
     if (!isAdmin) return undefined;
-    if (selectedLab)      return { lab_id: selectedLab as number };
-    if (selectedFloor)    return { floor_id: selectedFloor as number };
+    if (selectedLab) return { lab_id: selectedLab as number };
+    if (selectedFloor) return { floor_id: selectedFloor as number };
     if (selectedBuilding) return { building_id: selectedBuilding as number };
     return undefined;
   }, [isAdmin, isRestricted, selectedBuilding, selectedFloor, selectedLab, selectedRestrictedLab]);
 
-  // ── Scope label shown in the header description ─────────────────────────
+  // ── Scope label ─────────────────────────────────────────────────────────
   const scopeLabel = useMemo(() => {
     if (isRestricted) {
       if (selectedRestrictedLab) {
@@ -222,42 +261,38 @@ export default function ReportsPage() {
     return parts.length ? parts.join(' › ') : null;
   }, [isAdmin, isRestricted, selectedBuilding, selectedFloor, selectedLab, selectedRestrictedLab, buildings, floors, labsForFloor, myLabs]);
 
-  const gridStroke   = dark ? '#334155' : '#cbd5e1';
-  const tickFill     = dark ? '#64748b' : '#94a3b8';
+  const gridStroke = dark ? '#334155' : '#e2e8f0';
+  const tickFill = dark ? '#64748b' : '#94a3b8';
   const tooltipStyle = {
-    fontSize: 12, borderRadius: 8,
-    boxShadow: '0 4px 20px rgba(0,0,0,.18)',
+    fontSize: 12, borderRadius: 10,
+    boxShadow: '0 8px 30px rgba(0,0,0,.12)',
     backgroundColor: dark ? '#1e293b' : '#ffffff',
     color: dark ? '#f1f5f9' : '#0f172a',
     border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`,
+    padding: '10px 14px',
   };
-  const tooltipLabelStyle = { color: dark ? '#cbd5e1' : '#374151', fontWeight: 600 };
-  const tooltipItemStyle  = { color: dark ? '#94a3b8' : '#475569' };
-  const tooltipCursor     = { fill: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' };
+  const tooltipLabelStyle = { color: dark ? '#cbd5e1' : '#374151', fontWeight: 600, marginBottom: 4 };
+  const tooltipItemStyle = { color: dark ? '#94a3b8' : '#475569' };
+  const tooltipCursor = { fill: dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' };
   const tooltipProps = {
-    contentStyle:  tooltipStyle,
-    labelStyle:    tooltipLabelStyle,
-    itemStyle:     tooltipItemStyle,
-    cursor:        tooltipCursor,
+    contentStyle: tooltipStyle,
+    labelStyle: tooltipLabelStyle,
+    itemStyle: tooltipItemStyle,
+    cursor: tooltipCursor,
   };
-  const legendStyle = (size: number) => ({
-    fontSize: size,
-    color: dark ? '#94a3b8' : '#475569',
-  });
+  const legendStyle = { fontSize: 11, color: dark ? '#94a3b8' : '#64748b' };
 
   const { data, isLoading, isError, refetch } = useQuery<ReportsData>({
     queryKey: ['reports', reportParams],
     queryFn: () => reportsApi.get(reportParams).then(r => r.data),
-    // Match backend cache TTL — don't re-fetch data that's still fresh
     staleTime: 5 * 60 * 1000,
-    // Keep the previous result visible while a new filter selection loads
     placeholderData: keepPreviousData,
   });
 
   if (isError) return <ErrorState message="Failed to load reports data." onRetry={refetch} />;
 
   const skeletonChart = (
-    <div className={`h-48 rounded-xl animate-pulse ${dark ? 'bg-slate-700' : 'bg-slate-100'}`} />
+    <div className={`h-52 rounded-xl animate-pulse ${dark ? 'bg-slate-700/50' : 'bg-slate-100'}`} />
   );
 
   const isFiltered = isRestricted
@@ -304,6 +339,12 @@ export default function ReportsPage() {
     : isRestricted
     ? 'assigned_labs'
     : 'all';
+
+  // Summary numbers
+  const totalFaults = Object.values(data?.fault_by_status ?? {}).reduce((a, b) => a + b, 0);
+  const resolvedFaults = data?.fault_by_status?.['resolved'] ?? 0;
+  const totalResources = Object.values(data?.resource_by_status ?? {}).reduce((a, b) => a + b, 0);
+  const totalSystems = Object.values(data?.system_by_status ?? {}).reduce((a, b) => a + b, 0);
 
   const fetchExportData = async (): Promise<ReportsDetailData> => {
     const res = await reportsApi.details(reportParams);
@@ -368,9 +409,9 @@ export default function ReportsPage() {
         subtitle: `Scope: ${scopeLabel ?? (isRestricted ? 'Assigned Labs' : 'All')}`,
         meta: [`Data as of: ${detail.generated_at ? new Date(detail.generated_at).toLocaleString() : new Date().toLocaleString()}`],
         stats: [
-          { label: 'Systems', value: String(detail.systems.length) },
-          { label: 'Faults', value: String(detail.faults.length) },
-          { label: 'Resource Requests', value: String(detail.resources.length) },
+          { label: 'Systems', value: String(detail.systems.length), color: 'violet' },
+          { label: 'Faults', value: String(detail.faults.length), color: 'red' },
+          { label: 'Resource Requests', value: String(detail.resources.length), color: 'blue' },
         ],
         tables: [
           {
@@ -378,7 +419,7 @@ export default function ReportsPage() {
             columns: [
               { header: 'ID', key: 'id', width: 35 },
               { header: 'Host Name', key: 'host' },
-              { header: 'Status', key: 'status', width: 80 },
+              { header: 'Status', key: 'status', width: 90, isStatus: true },
               { header: 'Building', key: 'building', width: 100 },
               { header: 'Room', key: 'room', width: 90 },
               { header: 'Lab', key: 'lab', width: 100 },
@@ -392,8 +433,8 @@ export default function ReportsPage() {
             title: `Faults (${detail.faults.length})`,
             columns: [
               { header: 'ID', key: 'id', width: 35 },
-              { header: 'Reported', key: 'date', width: 58 },
-              { header: 'Status', key: 'status', width: 68 },
+              { header: 'Reported', key: 'date', width: 62 },
+              { header: 'Status', key: 'status', width: 78, isStatus: true },
               { header: 'Type', key: 'type', width: 70 },
               { header: 'Risk', key: 'risk', align: 'center', width: 32 },
               { header: 'System', key: 'system', width: 80 },
@@ -408,8 +449,8 @@ export default function ReportsPage() {
             title: `Resource Requests (${detail.resources.length})`,
             columns: [
               { header: 'ID', key: 'id', width: 35 },
-              { header: 'Requested', key: 'date', width: 58 },
-              { header: 'Status', key: 'status', width: 60 },
+              { header: 'Requested', key: 'date', width: 62 },
+              { header: 'Status', key: 'status', width: 70, isStatus: true },
               { header: 'Resource', key: 'name', width: 110 },
               { header: 'System', key: 'system', width: 80 },
               { header: 'Description', key: 'desc' },
@@ -431,7 +472,7 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Reports & Analytics"
         description={
@@ -444,21 +485,25 @@ export default function ReportsPage() {
         actions={
           <div className="flex items-center gap-2">
             <button onClick={downloadDetailedCsv} className="btn-secondary" disabled={exportingCsv || exportingPdf}>
-              <Download className="w-4 h-4" /> {exportingCsv ? 'Downloading CSV...' : 'Download CSV'}
+              <Download className="w-4 h-4" /> {exportingCsv ? 'Exporting...' : 'CSV'}
             </button>
-            <button onClick={downloadDetailedPdf} className="btn-secondary" disabled={exportingCsv || exportingPdf}>
-              <FileText className="w-4 h-4" /> {exportingPdf ? 'Generating PDF...' : 'Download PDF'}
+            <button onClick={downloadDetailedPdf} className="btn-primary" disabled={exportingCsv || exportingPdf}>
+              <FileText className="w-4 h-4" /> {exportingPdf ? 'Generating...' : 'PDF Report'}
             </button>
-            <button onClick={() => refetch()} className="btn-secondary">
-              <RefreshCw className="w-4 h-4" /> Refresh
+            <button onClick={() => refetch()} className="btn-ghost" title="Refresh data">
+              <RefreshCw className="w-4 h-4" />
             </button>
           </div>
         }
       />
 
-      {/* Admin scope-filter bar */}
+      {/* ── Filter bar ─────────────────────────────────────────────────────── */}
       {isAdmin && (
         <div className={`card p-4 flex flex-wrap items-end gap-4`}>
+          <div className="flex items-center gap-2 mr-2">
+            <Filter className="w-4 h-4 text-slate-400" />
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Filter scope</span>
+          </div>
           <FilterSelect
             label="Building" icon={Building2}
             value={selectedBuilding}
@@ -488,18 +533,21 @@ export default function ReportsPage() {
           {isFiltered && (
             <button
               onClick={() => { setSelectedBuilding(''); setSelectedFloor(''); setSelectedLab(''); }}
-              className={`text-xs px-3 py-1.5 rounded-lg border transition self-end
-                ${dark ? 'border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-400' : 'border-slate-300 text-slate-500 hover:text-slate-700 hover:border-slate-400'}`}
+              className={`flex items-center gap-1 text-xs px-3 py-2 rounded-lg border transition self-end
+                ${dark ? 'border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-400' : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}
             >
-              Clear filter
+              <X className="w-3 h-3" /> Clear
             </button>
           )}
         </div>
       )}
 
-      {/* Incharge / Assistant lab-picker filter bar */}
       {isRestricted && myLabs.length > 0 && (
         <div className={`card p-4 flex flex-wrap items-end gap-4`}>
+          <div className="flex items-center gap-2 mr-2">
+            <Filter className="w-4 h-4 text-slate-400" />
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Filter scope</span>
+          </div>
           <FilterSelect
             label="Lab" icon={BookOpen}
             value={selectedRestrictedLab}
@@ -511,19 +559,19 @@ export default function ReportsPage() {
           {isFiltered && (
             <button
               onClick={() => setSelectedRestrictedLab('')}
-              className={`text-xs px-3 py-1.5 rounded-lg border transition self-end
-                ${dark ? 'border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-400' : 'border-slate-300 text-slate-500 hover:text-slate-700 hover:border-slate-400'}`}
+              className={`flex items-center gap-1 text-xs px-3 py-2 rounded-lg border transition self-end
+                ${dark ? 'border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-400' : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}
             >
-              Clear filter
+              <X className="w-3 h-3" /> Clear
             </button>
           )}
         </div>
       )}
 
-      {/* Info banner for incharge/assistant showing scope */}
+      {/* Scope info banner */}
       {isRestricted && (
-        <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm
-          ${dark ? 'bg-blue-950 text-blue-300 border border-blue-800' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+        <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm
+          ${dark ? 'bg-blue-950/50 text-blue-300 border border-blue-800/50' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>
           <LayoutDashboard className="w-4 h-4 shrink-0" />
           <span>
             {selectedRestrictedLab
@@ -533,135 +581,162 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Fault Monthly Trend */}
-        <Card title="Monthly Fault Trend by Type" dark={dark}>
+      {/* ── Summary stat cards ─────────────────────────────────────────────── */}
+      {!isLoading && data && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            label="Total Faults"
+            value={totalFaults}
+            icon={AlertTriangle}
+            color="bg-red-50 dark:bg-red-950/40 text-red-500"
+            subtext={`${resolvedFaults} resolved`}
+          />
+          <StatCard
+            label="Open Faults"
+            value={totalFaults - resolvedFaults}
+            icon={TrendingUp}
+            color="bg-amber-50 dark:bg-amber-950/40 text-amber-500"
+          />
+          <StatCard
+            label="Resource Requests"
+            value={totalResources}
+            icon={Package}
+            color="bg-blue-50 dark:bg-blue-950/40 text-blue-500"
+          />
+          <StatCard
+            label="Total Systems"
+            value={totalSystems}
+            icon={Monitor}
+            color="bg-violet-50 dark:bg-violet-950/40 text-violet-500"
+          />
+        </div>
+      )}
+
+      {/* ── Charts Row 1: Trends ───────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <ChartSection
+          icon={TrendingUp}
+          title="Monthly Fault Trend"
+          subtitle="Breakdown by fault type"
+        >
           {isLoading ? skeletonChart : (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={faultTrendData} barSize={14}>
-                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: tickFill }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: tickFill }} tickLine={false} axisLine={false} />
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={faultTrendData} barSize={16} barGap={2}>
+                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: tickFill }} tickLine={false} axisLine={false} dy={6} />
+                <YAxis tick={{ fontSize: 11, fill: tickFill }} tickLine={false} axisLine={false} dx={-4} allowDecimals={false} />
                 <Tooltip {...tooltipProps} />
-                <Legend iconType="circle" iconSize={8} wrapperStyle={legendStyle(12)} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={legendStyle} />
                 {types.map((t, i) => (
                   <Bar key={t} dataKey={t} name={t} fill={COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]} />
                 ))}
               </BarChart>
             </ResponsiveContainer>
           )}
-        </Card>
+        </ChartSection>
 
-        {/* Resource Monthly Trend */}
-        <Card title="Monthly Resource Requests" dark={dark}>
+        <ChartSection
+          icon={Package}
+          title="Resource Requests Trend"
+          subtitle="Monthly request volume"
+        >
           {isLoading ? skeletonChart : (
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={resourceTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: tickFill }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: tickFill }} tickLine={false} axisLine={false} />
+            <ResponsiveContainer width="100%" height={240}>
+              <AreaChart data={resourceTrend}>
+                <defs>
+                  <linearGradient id="resourceGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: tickFill }} tickLine={false} axisLine={false} dy={6} />
+                <YAxis tick={{ fontSize: 11, fill: tickFill }} tickLine={false} axisLine={false} dx={-4} allowDecimals={false} />
                 <Tooltip {...tooltipProps} />
-                <Line type="monotone" dataKey="count" name="Requests" stroke="#3b82f6" strokeWidth={2} dot={false} />
-              </LineChart>
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  name="Requests"
+                  stroke="#3b82f6"
+                  strokeWidth={2.5}
+                  fill="url(#resourceGradient)"
+                  dot={{ r: 3, fill: '#3b82f6', strokeWidth: 0 }}
+                  activeDot={{ r: 5, fill: '#3b82f6', stroke: '#fff', strokeWidth: 2 }}
+                />
+              </AreaChart>
             </ResponsiveContainer>
           )}
-        </Card>
+        </ChartSection>
       </div>
 
-      {/* Row 2 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Fault by Status */}
-        <Card title="Faults by Status" dark={dark}>
+      {/* ── Charts Row 2: Distribution pies ────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <ChartSection icon={AlertTriangle} title="Faults by Status">
           {isLoading ? skeletonChart : (
-            <ResponsiveContainer width="100%" height={180}>
+            <ResponsiveContainer width="100%" height={190}>
               <PieChart>
-                <Pie data={faultByStatusData} cx="50%" cy="50%" innerRadius={45} outerRadius={65}
-                  paddingAngle={3} dataKey="value">
-                  {faultByStatusData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                <Pie data={faultByStatusData} cx="50%" cy="50%" innerRadius={48} outerRadius={70}
+                  paddingAngle={3} dataKey="value" strokeWidth={0}>
+                  {faultByStatusData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                 </Pie>
                 <Tooltip {...tooltipProps} />
-                <Legend iconType="circle" iconSize={7} wrapperStyle={legendStyle(11)} />
+                <Legend iconType="circle" iconSize={7} wrapperStyle={legendStyle} />
               </PieChart>
             </ResponsiveContainer>
           )}
-        </Card>
+        </ChartSection>
 
-        {/* Fault by Type */}
-        <Card title="Faults by Type" dark={dark}>
+        <ChartSection icon={AlertTriangle} title="Faults by Type">
           {isLoading ? skeletonChart : (
-            <ResponsiveContainer width="100%" height={180}>
+            <ResponsiveContainer width="100%" height={190}>
               <PieChart>
-                <Pie data={faultByTypeData} cx="50%" cy="50%" innerRadius={45} outerRadius={65}
-                  paddingAngle={3} dataKey="value">
-                  {faultByTypeData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                <Pie data={faultByTypeData} cx="50%" cy="50%" innerRadius={48} outerRadius={70}
+                  paddingAngle={3} dataKey="value" strokeWidth={0}>
+                  {faultByTypeData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                 </Pie>
                 <Tooltip {...tooltipProps} />
-                <Legend iconType="circle" iconSize={7} wrapperStyle={legendStyle(11)} />
+                <Legend iconType="circle" iconSize={7} wrapperStyle={legendStyle} />
               </PieChart>
             </ResponsiveContainer>
           )}
-        </Card>
+        </ChartSection>
 
-        {/* Resource by Status */}
-        <Card title="Resources by Status" dark={dark}>
+        <ChartSection icon={Package} title="Resources by Status">
           {isLoading ? skeletonChart : (
-            <ResponsiveContainer width="100%" height={180}>
+            <ResponsiveContainer width="100%" height={190}>
               <PieChart>
-                <Pie data={resourceByStatusData} cx="50%" cy="50%" innerRadius={45} outerRadius={65}
-                  paddingAngle={3} dataKey="value">
-                  {resourceByStatusData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                <Pie data={resourceByStatusData} cx="50%" cy="50%" innerRadius={48} outerRadius={70}
+                  paddingAngle={3} dataKey="value" strokeWidth={0}>
+                  {resourceByStatusData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                 </Pie>
                 <Tooltip {...tooltipProps} />
-                <Legend iconType="circle" iconSize={7} wrapperStyle={legendStyle(11)} />
+                <Legend iconType="circle" iconSize={7} wrapperStyle={legendStyle} />
               </PieChart>
             </ResponsiveContainer>
           )}
-        </Card>
+        </ChartSection>
 
-        {/* System by Status */}
-        <Card title="Systems by Status" dark={dark}>
+        <ChartSection icon={Monitor} title="Systems by Status">
           {isLoading ? skeletonChart : (
-            <ResponsiveContainer width="100%" height={180}>
+            <ResponsiveContainer width="100%" height={190}>
               <PieChart>
-                <Pie data={systemByStatusData} cx="50%" cy="50%" innerRadius={45} outerRadius={65}
-                  paddingAngle={3} dataKey="value">
-                  {systemByStatusData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                <Pie data={systemByStatusData} cx="50%" cy="50%" innerRadius={48} outerRadius={70}
+                  paddingAngle={3} dataKey="value" strokeWidth={0}>
+                  {systemByStatusData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                 </Pie>
                 <Tooltip {...tooltipProps} />
-                <Legend iconType="circle" iconSize={7} wrapperStyle={legendStyle(11)} />
+                <Legend iconType="circle" iconSize={7} wrapperStyle={legendStyle} />
               </PieChart>
             </ResponsiveContainer>
           )}
-        </Card>
+        </ChartSection>
       </div>
 
-      {/* Summary Table */}
-      {!isLoading && data && (
-        <div className="card p-5">
-          <p className={`text-sm font-semibold mb-4 ${dark ? 'text-slate-200' : 'text-slate-700'}`}>Summary Table</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {[
-              { label: 'Total Faults', value: Object.values(data.fault_by_status).reduce((a, b) => a + b, 0), color: 'text-red-500' },
-              { label: 'Resolved Faults', value: data.fault_by_status['resolved'] ?? 0, color: 'text-emerald-500' },
-              { label: 'Total Resource Requests', value: Object.values(data.resource_by_status).reduce((a, b) => a + b, 0), color: 'text-blue-500' },
-              { label: 'Total Systems', value: Object.values(data.system_by_status).reduce((a, b) => a + b, 0), color: 'text-violet-500' },
-            ].map(item => (
-              <div key={item.label} className={`p-4 rounded-xl text-center ${dark ? 'bg-slate-800' : 'bg-slate-50'}`}>
-                <p className={`text-2xl font-bold ${item.color}`}>{item.value}</p>
-                <p className={`text-xs mt-1 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>{item.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Maintenance summaries, PC status overview, and printable replacement-cost report */}
-      <MaintenanceSection />
-
-      {/* Oversight tools (merged from Admin Oversight): staff activity + budget for admin,
-          self task-sheet generation for assistants. */}
-      <OversightSection />
+      {/* ── Oversight section ──────────────────────────────────────────────── */}
+      <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Oversight & Budgeting</h2>
+        <OversightSection />
+      </div>
     </div>
   );
 }
