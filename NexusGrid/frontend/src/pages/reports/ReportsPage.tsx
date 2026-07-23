@@ -1,18 +1,18 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import {
   BarChart, Bar, PieChart, Pie, Cell, Legend, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart,
 } from 'recharts';
 import {
-  RefreshCw, Building2, Layers, LayoutDashboard, BookOpen, Download,
-  FileText, TrendingUp, AlertTriangle, Package, Monitor, Filter, X,
+  RefreshCw, Building2, Layers, Calendar, LayoutDashboard, BookOpen,
+  FileText, TrendingUp, AlertTriangle, Package, Monitor, Filter, X, Search,
 } from 'lucide-react';
 import { reportsApi, layoutApi, labsApi, privilegesApi } from '@/lib/api';
 import PageHeader from '@/components/common/PageHeader';
 import ErrorState from '@/components/common/ErrorState';
 import OversightSection from '@/pages/reports/OversightSection';
-import { generatePdfReport } from '@/lib/pdfReport';
+import { generateHierarchicalPdfReport } from '@/lib/hierarchicalPdfReport';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuthStore } from '@/store/authStore';
 import toast from 'react-hot-toast';
@@ -21,35 +21,13 @@ import type { LayoutItem, Lab, ReportsData, ReportsDetailData } from '@/types';
 const COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#06b6d4', '#ec4899'];
 const PIE_COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#06b6d4'];
 
-type ReportFilterParams = { building_id?: number; floor_id?: number; lab_id?: number };
-
-function csvEscape(value: unknown): string {
-  const raw = String(value ?? '').replace(/\r?\n/g, ' ').trim();
-  if (raw.includes(',') || raw.includes('"')) {
-    return `"${raw.replace(/"/g, '""')}"`;
-  }
-  return raw;
-}
-
-function buildCsvSection(title: string, headers: string[], rows: unknown[][]): string {
-  const lines = [title, headers.join(',')];
-  rows.forEach((row) => {
-    lines.push(row.map(csvEscape).join(','));
-  });
-  lines.push('');
-  return lines.join('\n');
-}
-
-function triggerDownload(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
+type ReportFilterParams = {
+  building_id?: number;
+  floor_id?: number;
+  lab_id?: number;
+  start_date?: string;
+  end_date?: string;
+};
 
 // ─── Section wrapper with icon header ─────────────────────────────────────────
 function ChartSection({ icon: Icon, title, subtitle, children, className }: {
@@ -71,44 +49,6 @@ function ChartSection({ icon: Icon, title, subtitle, children, className }: {
         </div>
       </div>
       <div className="px-5 pb-5">{children}</div>
-    </div>
-  );
-}
-
-// ─── Filter select ────────────────────────────────────────────────────────────
-function FilterSelect({
-  label, icon: Icon, value, onChange, disabled, placeholder, options, dark,
-}: {
-  label: string;
-  icon: React.ElementType;
-  value: number | '';
-  onChange: (v: number | '') => void;
-  disabled?: boolean;
-  placeholder: string;
-  options: { id: number; name: string }[];
-  dark: boolean;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5 min-w-[170px]">
-      <label className={`text-xs font-medium flex items-center gap-1.5 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
-        <Icon className="w-3.5 h-3.5" />
-        {label}
-      </label>
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value === '' ? '' : Number(e.target.value))}
-        disabled={disabled}
-        className={`text-sm rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition
-          ${dark
-            ? 'bg-slate-800 border-slate-600 text-slate-200 disabled:text-slate-600'
-            : 'bg-white border-slate-200 text-slate-700 disabled:text-slate-400'
-          } disabled:cursor-not-allowed`}
-      >
-        <option value="">{placeholder}</option>
-        {options.map(o => (
-          <option key={o.id} value={o.id}>{o.name}</option>
-        ))}
-      </select>
     </div>
   );
 }
@@ -165,14 +105,22 @@ export default function ReportsPage() {
     );
   }
 
-  // ── Admin filter state ──────────────────────────────────────────────────
-  const [selectedBuilding, setSelectedBuilding] = useState<number | ''>('');
-  const [selectedFloor, setSelectedFloor] = useState<number | ''>('');
-  const [selectedLab, setSelectedLab] = useState<number | ''>('');
+  // ── Draft filter state (not applied until Apply is clicked) ──────────────
+  const [draftBuilding, setDraftBuilding] = useState<number | ''>('');
+  const [draftFloor, setDraftFloor] = useState<number | ''>('');
+  const [draftLab, setDraftLab] = useState<number | ''>('');
+  const [draftStartDate, setDraftStartDate] = useState('');
+  const [draftEndDate, setDraftEndDate] = useState('');
+
+  // ── Applied filter state (used for queries) ─────────────────────────────
+  const [appliedBuilding, setAppliedBuilding] = useState<number | ''>('');
+  const [appliedFloor, setAppliedFloor] = useState<number | ''>('');
+  const [appliedLab, setAppliedLab] = useState<number | ''>('');
+  const [appliedStartDate, setAppliedStartDate] = useState('');
+  const [appliedEndDate, setAppliedEndDate] = useState('');
 
   // ── Incharge/Assistant filter state ────────────────────────────────────
   const [selectedRestrictedLab, setSelectedRestrictedLab] = useState<number | ''>('');
-  const [exportingCsv, setExportingCsv] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
 
   // ── Fetch this user's own active assignments (incharge / assistant) ─────
@@ -203,37 +151,63 @@ export default function ReportsPage() {
   });
 
   const { data: floors = [] } = useQuery<LayoutItem[]>({
-    queryKey: ['layout-floors', selectedBuilding],
-    queryFn: () => layoutApi.getItems({ parent_id: selectedBuilding as number }).then(r =>
+    queryKey: ['layout-floors', draftBuilding],
+    queryFn: () => layoutApi.getItems({ parent_id: draftBuilding as number }).then(r =>
       (r.data as LayoutItem[]).filter(i => i.item_type === 'floor'),
     ),
-    enabled: isAdmin && !!selectedBuilding,
+    enabled: isAdmin && !!draftBuilding,
     staleTime: 10 * 60 * 1000,
   });
 
   const { data: allLabs = [] } = useQuery<Lab[]>({
     queryKey: ['labs'],
     queryFn: () => labsApi.list().then(r => r.data),
-    enabled: isAdmin && !!selectedBuilding,
+    enabled: isAdmin && !!draftBuilding,
     staleTime: 10 * 60 * 1000,
   });
 
   const labsForFloor = useMemo((): Lab[] => {
-    if (!selectedFloor) return [];
-    return allLabs.filter(l => l.floor_id === selectedFloor);
-  }, [allLabs, selectedFloor]);
+    if (!draftFloor) return [];
+    return allLabs.filter(l => l.floor_id === draftFloor);
+  }, [allLabs, draftFloor]);
 
-  // ── Derive report query params ───────────────────────────────────────────
+  // ── Derive report query params from APPLIED filters ─────────────────────
   const reportParams = useMemo<ReportFilterParams | undefined>(() => {
     if (isRestricted) {
       return selectedRestrictedLab ? { lab_id: selectedRestrictedLab as number } : undefined;
     }
     if (!isAdmin) return undefined;
-    if (selectedLab) return { lab_id: selectedLab as number };
-    if (selectedFloor) return { floor_id: selectedFloor as number };
-    if (selectedBuilding) return { building_id: selectedBuilding as number };
-    return undefined;
-  }, [isAdmin, isRestricted, selectedBuilding, selectedFloor, selectedLab, selectedRestrictedLab]);
+    const params: ReportFilterParams = {};
+    if (appliedLab) params.lab_id = appliedLab as number;
+    else if (appliedFloor) params.floor_id = appliedFloor as number;
+    else if (appliedBuilding) params.building_id = appliedBuilding as number;
+    if (appliedStartDate) params.start_date = appliedStartDate;
+    if (appliedEndDate) params.end_date = appliedEndDate;
+    return Object.keys(params).length > 0 ? params : undefined;
+  }, [isAdmin, isRestricted, appliedBuilding, appliedFloor, appliedLab, appliedStartDate, appliedEndDate, selectedRestrictedLab]);
+
+  // ── Apply filter handler ────────────────────────────────────────────────
+  const handleApplyFilter = useCallback(() => {
+    setAppliedBuilding(draftBuilding);
+    setAppliedFloor(draftFloor);
+    setAppliedLab(draftLab);
+    setAppliedStartDate(draftStartDate);
+    setAppliedEndDate(draftEndDate);
+  }, [draftBuilding, draftFloor, draftLab, draftStartDate, draftEndDate]);
+
+  // ── Clear filter handler ────────────────────────────────────────────────
+  const handleClearFilter = useCallback(() => {
+    setDraftBuilding('');
+    setDraftFloor('');
+    setDraftLab('');
+    setDraftStartDate('');
+    setDraftEndDate('');
+    setAppliedBuilding('');
+    setAppliedFloor('');
+    setAppliedLab('');
+    setAppliedStartDate('');
+    setAppliedEndDate('');
+  }, []);
 
   // ── Scope label ─────────────────────────────────────────────────────────
   const scopeLabel = useMemo(() => {
@@ -246,20 +220,24 @@ export default function ReportsPage() {
     }
     if (!isAdmin) return null;
     const parts: string[] = [];
-    if (selectedBuilding) {
-      const b = buildings.find(b => b.id === selectedBuilding);
+    if (appliedBuilding) {
+      const b = buildings.find(b => b.id === appliedBuilding);
       if (b) parts.push(b.name);
     }
-    if (selectedFloor) {
-      const f = floors.find(f => f.id === selectedFloor);
+    if (appliedFloor) {
+      const f = floors.find(f => f.id === appliedFloor);
       if (f) parts.push(f.name);
     }
-    if (selectedLab) {
-      const l = labsForFloor.find(l => l.id === selectedLab);
+    if (appliedLab) {
+      const l = labsForFloor.find(l => l.id === appliedLab);
       if (l) parts.push(l.lab_name);
     }
+    if (appliedStartDate || appliedEndDate) {
+      const dateRange = [appliedStartDate, appliedEndDate].filter(Boolean).join(' → ');
+      if (dateRange) parts.push(dateRange);
+    }
     return parts.length ? parts.join(' › ') : null;
-  }, [isAdmin, isRestricted, selectedBuilding, selectedFloor, selectedLab, selectedRestrictedLab, buildings, floors, labsForFloor, myLabs]);
+  }, [isAdmin, isRestricted, appliedBuilding, appliedFloor, appliedLab, appliedStartDate, appliedEndDate, buildings, floors, labsForFloor, myLabs, selectedRestrictedLab]);
 
   const gridStroke = dark ? '#334155' : '#e2e8f0';
   const tickFill = dark ? '#64748b' : '#94a3b8';
@@ -297,7 +275,7 @@ export default function ReportsPage() {
 
   const isFiltered = isRestricted
     ? !!selectedRestrictedLab
-    : !!(selectedBuilding || selectedFloor || selectedLab);
+    : !!(appliedBuilding || appliedFloor || appliedLab || appliedStartDate || appliedEndDate);
 
   // Pivot fault_monthly into chart series
   const faultMonthly = data?.fault_monthly ?? [];
@@ -340,136 +318,49 @@ export default function ReportsPage() {
     ? 'assigned_labs'
     : 'all';
 
-  // Summary numbers
-  const totalFaults = Object.values(data?.fault_by_status ?? {}).reduce((a, b) => a + b, 0);
-  const resolvedFaults = data?.fault_by_status?.['resolved'] ?? 0;
-  const totalResources = Object.values(data?.resource_by_status ?? {}).reduce((a, b) => a + b, 0);
-  const totalSystems = Object.values(data?.system_by_status ?? {}).reduce((a, b) => a + b, 0);
+  // Summary numbers from backend
+  const summary = data?.summary;
 
   const fetchExportData = async (): Promise<ReportsDetailData> => {
     const res = await reportsApi.details(reportParams);
     return res.data as ReportsDetailData;
   };
 
-  const downloadDetailedCsv = async () => {
-    setExportingCsv(true);
-    try {
-      const detail = await fetchExportData();
-      const now = new Date();
-      const generatedAt = detail.generated_at ? new Date(detail.generated_at).toLocaleString() : now.toLocaleString();
-      const chunks: string[] = [
-        `NexusGrid Detailed Report`,
-        `Scope,${csvEscape(scopeLabel ?? (isRestricted ? 'Assigned Labs' : 'All'))}`,
-        `Generated At,${csvEscape(generatedAt)}`,
-        '',
-      ];
-
-      chunks.push(buildCsvSection(
-        'Systems',
-        ['ID', 'Host Name', 'Status', 'Building', 'Floor', 'Room', 'Lab', 'Updated At'],
-        detail.systems.map(s => [s.id, s.host_name, s.status, s.building_name, s.floor_name, s.room_name, s.lab_name, s.updated_at]),
-      ));
-
-      chunks.push(buildCsvSection(
-        'Faults',
-        ['Fault ID', 'Reported At', 'Status', 'Type', 'Risk', 'System', 'Building', 'Floor', 'Room', 'Lab', 'Reported By', 'Description', 'Resolution Summary', 'Resolved At', 'Resolved By'],
-        detail.faults.map(f => [
-          f.fault_id, f.reported_at, f.status, f.fault_type, f.risk_factor, f.system_name,
-          f.building_name, f.floor_name, f.room_name, f.lab_name, f.reported_by,
-          f.description, f.resolution_summary, f.resolved_at, f.resolved_by,
-        ]),
-      ));
-
-      chunks.push(buildCsvSection(
-        'Resource Requests',
-        ['Resource ID', 'Requested At', 'Status', 'Resource Name', 'System', 'Building', 'Floor', 'Room', 'Lab', 'Requested By', 'Description', 'Provision Summary', 'Provided At', 'Provided By'],
-        detail.resources.map(r => [
-          r.resource_id, r.requested_at, r.status, r.resource_name, r.system_name,
-          r.building_name, r.floor_name, r.room_name, r.lab_name, r.requested_by,
-          r.description, r.provision_summary, r.provided_at, r.provided_by,
-        ]),
-      ));
-
-      const csv = chunks.join('\n');
-      triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `nexusgrid_detailed_report_${fileScope}.csv`);
-      toast.success('Detailed CSV downloaded.');
-    } catch {
-      toast.error('Failed to download CSV report.');
-    } finally {
-      setExportingCsv(false);
-    }
-  };
-
   const downloadDetailedPdf = async () => {
     setExportingPdf(true);
     try {
       const detail = await fetchExportData();
-      generatePdfReport({
-        title: 'Detailed Infrastructure Report',
-        subtitle: `Scope: ${scopeLabel ?? (isRestricted ? 'Assigned Labs' : 'All')}`,
-        meta: [`Data as of: ${detail.generated_at ? new Date(detail.generated_at).toLocaleString() : new Date().toLocaleString()}`],
+      generateHierarchicalPdfReport({
+        title: 'Infrastructure Report',
+        subtitle: `Scope: ${scopeLabel ?? (isRestricted ? 'Assigned Labs' : 'All Buildings')}`,
+        meta: [
+          `Generated: ${detail.generated_at ? new Date(detail.generated_at).toLocaleString() : new Date().toLocaleString()}`,
+          ...(appliedStartDate || appliedEndDate
+            ? [`Date Range: ${appliedStartDate || 'Start'} → ${appliedEndDate || 'End'}`]
+            : []),
+        ],
         stats: [
-          { label: 'Systems', value: String(detail.systems.length), color: 'violet' },
-          { label: 'Faults', value: String(detail.faults.length), color: 'red' },
-          { label: 'Resource Requests', value: String(detail.resources.length), color: 'blue' },
+          { label: 'Active Systems', value: String(summary?.active_systems ?? 0), color: 'emerald' },
+          { label: 'Faulty Systems', value: String(summary?.non_functional_systems ?? 0), color: 'red' },
+          { label: 'Fault Reports', value: String(summary?.total_faults ?? 0), color: 'amber' },
+          { label: 'Resource Requests', value: String(summary?.total_resources ?? 0), color: 'blue' },
         ],
-        tables: [
-          {
-            title: `Systems (${detail.systems.length})`,
-            columns: [
-              { header: 'ID', key: 'id', width: 35 },
-              { header: 'Host Name', key: 'host' },
-              { header: 'Status', key: 'status', width: 90, isStatus: true },
-              { header: 'Building', key: 'building', width: 100 },
-              { header: 'Room', key: 'room', width: 90 },
-              { header: 'Lab', key: 'lab', width: 100 },
-            ],
-            rows: detail.systems.map((s) => ({
-              id: s.id, host: s.host_name, status: s.status,
-              building: s.building_name, room: s.room_name, lab: s.lab_name,
-            })),
-          },
-          {
-            title: `Faults (${detail.faults.length})`,
-            columns: [
-              { header: 'ID', key: 'id', width: 35 },
-              { header: 'Reported', key: 'date', width: 62 },
-              { header: 'Status', key: 'status', width: 78, isStatus: true },
-              { header: 'Type', key: 'type', width: 70 },
-              { header: 'Risk', key: 'risk', align: 'center', width: 32 },
-              { header: 'System', key: 'system', width: 80 },
-              { header: 'Description', key: 'desc' },
-            ],
-            rows: detail.faults.map((f) => ({
-              id: f.fault_id, date: f.reported_at.slice(0, 10), status: f.status,
-              type: f.fault_type, risk: f.risk_factor, system: f.system_name, desc: f.description,
-            })),
-          },
-          {
-            title: `Resource Requests (${detail.resources.length})`,
-            columns: [
-              { header: 'ID', key: 'id', width: 35 },
-              { header: 'Requested', key: 'date', width: 62 },
-              { header: 'Status', key: 'status', width: 70, isStatus: true },
-              { header: 'Resource', key: 'name', width: 110 },
-              { header: 'System', key: 'system', width: 80 },
-              { header: 'Description', key: 'desc' },
-            ],
-            rows: detail.resources.map((r) => ({
-              id: r.resource_id, date: r.requested_at.slice(0, 10), status: r.status,
-              name: r.resource_name, system: r.system_name, desc: r.description,
-            })),
-          },
-        ],
-        fileName: `nexusgrid_detailed_report_${fileScope}.pdf`,
+        data: detail,
+        fileName: `nexusgrid_report_${fileScope}.pdf`,
       });
-      toast.success('Detailed PDF downloaded.');
+      toast.success('PDF report downloaded.');
     } catch {
       toast.error('Failed to download PDF report.');
     } finally {
       setExportingPdf(false);
     }
   };
+
+  const inputClasses = `text-sm rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition
+    ${dark
+      ? 'bg-slate-800 border-slate-600 text-slate-200'
+      : 'bg-white border-slate-200 text-slate-700'
+    }`;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -484,78 +375,163 @@ export default function ReportsPage() {
         }
         actions={
           <div className="flex items-center gap-2">
-            <button onClick={downloadDetailedCsv} className="btn-secondary" disabled={exportingCsv || exportingPdf}>
-              <Download className="w-4 h-4" /> {exportingCsv ? 'Exporting...' : 'CSV'}
+            <button
+              onClick={downloadDetailedPdf}
+              className="btn-primary"
+              disabled={exportingPdf}
+            >
+              <FileText className="w-4 h-4" />
+              {exportingPdf ? 'Generating...' : 'Download PDF'}
             </button>
-            <button onClick={downloadDetailedPdf} className="btn-primary" disabled={exportingCsv || exportingPdf}>
-              <FileText className="w-4 h-4" /> {exportingPdf ? 'Generating...' : 'PDF Report'}
-            </button>
-            <button onClick={() => refetch()} className="btn-ghost" title="Refresh data">
+            <button
+              onClick={() => refetch()}
+              className="btn-ghost"
+            >
               <RefreshCw className="w-4 h-4" />
             </button>
           </div>
         }
       />
 
-      {/* ── Filter bar ─────────────────────────────────────────────────────── */}
+      {/* ── Filter bar (Admin) ─────────────────────────────────────────────── */}
       {isAdmin && (
-        <div className={`card p-4 flex flex-wrap items-end gap-4`}>
-          <div className="flex items-center gap-2 mr-2">
+        <div className={`card p-4`}>
+          <div className="flex items-center gap-2 mb-3">
             <Filter className="w-4 h-4 text-slate-400" />
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Filter scope</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Filter Reports</span>
           </div>
-          <FilterSelect
-            label="Building" icon={Building2}
-            value={selectedBuilding}
-            onChange={v => { setSelectedBuilding(v); setSelectedFloor(''); setSelectedLab(''); }}
-            placeholder="All buildings"
-            options={buildings.map(b => ({ id: b.id, name: b.name }))}
-            dark={dark}
-          />
-          <FilterSelect
-            label="Floor" icon={Layers}
-            value={selectedFloor}
-            onChange={v => { setSelectedFloor(v); setSelectedLab(''); }}
-            disabled={!selectedBuilding}
-            placeholder={selectedBuilding ? 'All floors' : 'Select building first'}
-            options={floors.map(f => ({ id: f.id, name: f.name }))}
-            dark={dark}
-          />
-          <FilterSelect
-            label="Lab" icon={BookOpen}
-            value={selectedLab}
-            onChange={setSelectedLab}
-            disabled={!selectedFloor}
-            placeholder={selectedFloor ? 'All labs' : 'Select floor first'}
-            options={labsForFloor.map(l => ({ id: l.id, name: l.lab_name }))}
-            dark={dark}
-          />
-          {isFiltered && (
+          <div className="flex flex-wrap items-end gap-4">
+            {/* Building selector */}
+            <div className="flex flex-col gap-1.5 min-w-[160px]">
+              <label className={`text-xs font-medium flex items-center gap-1.5 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+                <Building2 className="w-3.5 h-3.5" />
+                Building
+              </label>
+              <select
+                value={draftBuilding}
+                onChange={e => { setDraftBuilding(e.target.value === '' ? '' : Number(e.target.value)); setDraftFloor(''); setDraftLab(''); }}
+                className={inputClasses}
+              >
+                <option value="">All Buildings</option>
+                {buildings.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Floor selector */}
+            <div className="flex flex-col gap-1.5 min-w-[140px]">
+              <label className={`text-xs font-medium flex items-center gap-1.5 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+                <Layers className="w-3.5 h-3.5" />
+                Floor
+              </label>
+              <select
+                value={draftFloor}
+                onChange={e => { setDraftFloor(e.target.value === '' ? '' : Number(e.target.value)); setDraftLab(''); }}
+                disabled={!draftBuilding}
+                className={`${inputClasses} disabled:cursor-not-allowed disabled:opacity-50`}
+              >
+                <option value="">{draftBuilding ? 'All Floors' : 'Select building'}</option>
+                {floors.map(f => (
+                  <option key={f.id} value={f.id}>{f.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Lab selector */}
+            <div className="flex flex-col gap-1.5 min-w-[140px]">
+              <label className={`text-xs font-medium flex items-center gap-1.5 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+                <BookOpen className="w-3.5 h-3.5" />
+                Lab
+              </label>
+              <select
+                value={draftLab}
+                onChange={e => setDraftLab(e.target.value === '' ? '' : Number(e.target.value))}
+                disabled={!draftFloor}
+                className={`${inputClasses} disabled:cursor-not-allowed disabled:opacity-50`}
+              >
+                <option value="">{draftFloor ? 'All Labs' : 'Select floor'}</option>
+                {labsForFloor.map(l => (
+                  <option key={l.id} value={l.id}>{l.lab_name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Start Date */}
+            <div className="flex flex-col gap-1.5 min-w-[150px]">
+              <label className={`text-xs font-medium flex items-center gap-1.5 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+                <Calendar className="w-3.5 h-3.5" />
+                Start Date
+              </label>
+              <input
+                type="date"
+                value={draftStartDate}
+                onChange={e => setDraftStartDate(e.target.value)}
+                className={inputClasses}
+              />
+            </div>
+
+            {/* End Date */}
+            <div className="flex flex-col gap-1.5 min-w-[150px]">
+              <label className={`text-xs font-medium flex items-center gap-1.5 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+                <Calendar className="w-3.5 h-3.5" />
+                End Date
+              </label>
+              <input
+                type="date"
+                value={draftEndDate}
+                onChange={e => setDraftEndDate(e.target.value)}
+                className={inputClasses}
+              />
+            </div>
+
+            {/* Apply button */}
             <button
-              onClick={() => { setSelectedBuilding(''); setSelectedFloor(''); setSelectedLab(''); }}
-              className={`flex items-center gap-1 text-xs px-3 py-2 rounded-lg border transition self-end
-                ${dark ? 'border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-400' : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}
+              onClick={handleApplyFilter}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium
+                hover:bg-blue-700 transition shadow-sm self-end"
             >
-              <X className="w-3 h-3" /> Clear
+              <Search className="w-4 h-4" />
+              Apply
             </button>
-          )}
+
+            {/* Clear button */}
+            {isFiltered && (
+              <button
+                onClick={handleClearFilter}
+                className={`flex items-center gap-1 text-xs px-3 py-2 rounded-lg border transition self-end
+                  ${dark ? 'border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-400' : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}
+              >
+                <X className="w-3 h-3" /> Clear
+              </button>
+            )}
+          </div>
         </div>
       )}
 
+      {/* ── Filter bar (Restricted users) ──────────────────────────────────── */}
       {isRestricted && myLabs.length > 0 && (
         <div className={`card p-4 flex flex-wrap items-end gap-4`}>
-          <div className="flex items-center gap-2 mr-2">
+          <div className="flex items-center gap-2 mr-2 self-end pb-2">
             <Filter className="w-4 h-4 text-slate-400" />
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Filter scope</span>
           </div>
-          <FilterSelect
-            label="Lab" icon={BookOpen}
-            value={selectedRestrictedLab}
-            onChange={setSelectedRestrictedLab}
-            placeholder="All my assigned labs"
-            options={myLabs.map(a => ({ id: a.lab, name: a.lab_name }))}
-            dark={dark}
-          />
+          <div className="flex flex-col gap-1.5 min-w-[200px]">
+            <label className={`text-xs font-medium flex items-center gap-1.5 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+              <BookOpen className="w-3.5 h-3.5" />
+              Lab
+            </label>
+            <select
+              value={selectedRestrictedLab}
+              onChange={e => setSelectedRestrictedLab(e.target.value === '' ? '' : Number(e.target.value))}
+              className={inputClasses}
+            >
+              <option value="">All my assigned labs</option>
+              {myLabs.map(a => (
+                <option key={a.lab} value={a.lab}>{a.lab_name}</option>
+              ))}
+            </select>
+          </div>
           {isFiltered && (
             <button
               onClick={() => setSelectedRestrictedLab('')}
@@ -585,29 +561,32 @@ export default function ReportsPage() {
       {!isLoading && data && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            label="Total Faults"
-            value={totalFaults}
-            icon={AlertTriangle}
-            color="bg-red-50 dark:bg-red-950/40 text-red-500"
-            subtext={`${resolvedFaults} resolved`}
+            label="Active Systems"
+            value={summary?.active_systems ?? 0}
+            icon={Monitor}
+            color="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500"
+            subtext={`of ${summary?.total_systems ?? 0} total`}
           />
           <StatCard
-            label="Open Faults"
-            value={totalFaults - resolvedFaults}
+            label="Faulty Systems"
+            value={summary?.non_functional_systems ?? 0}
+            icon={AlertTriangle}
+            color="bg-red-50 dark:bg-red-950/40 text-red-500"
+            subtext={`${summary?.inactive_systems ?? 0} inactive`}
+          />
+          <StatCard
+            label="Fault Reports"
+            value={summary?.total_faults ?? 0}
             icon={TrendingUp}
             color="bg-amber-50 dark:bg-amber-950/40 text-amber-500"
+            subtext={`${summary?.open_faults ?? 0} open`}
           />
           <StatCard
             label="Resource Requests"
-            value={totalResources}
+            value={summary?.total_resources ?? 0}
             icon={Package}
             color="bg-blue-50 dark:bg-blue-950/40 text-blue-500"
-          />
-          <StatCard
-            label="Total Systems"
-            value={totalSystems}
-            icon={Monitor}
-            color="bg-violet-50 dark:bg-violet-950/40 text-violet-500"
+            subtext={`${summary?.pending_resources ?? 0} pending`}
           />
         </div>
       )}
