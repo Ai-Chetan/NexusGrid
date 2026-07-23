@@ -355,16 +355,25 @@ def get_dashboard_metrics(
 
 # ── Reports ───────────────────────────────────────────────────────────────────
 
-def get_report_metrics(lab_ids: list[int] | None = None) -> dict:
+def get_report_metrics(
+    lab_ids: list[int] | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict:
     """
-    Return the full reports payload, optionally scoped to specific labs.
+    Return the full reports payload, optionally scoped to specific labs
+    and/or a date range.
 
     Runs 3 combined DB queries in parallel (one per table) instead of 6
     sequential ones, reducing cold-cache latency by ~60-70%.
-    Filtered results (lab_ids set) are NOT cached to avoid polluting the
-    shared global cache.
+    Filtered results (lab_ids set or date range) are NOT cached to avoid
+    polluting the shared global cache.
     """
-    use_cache = not lab_ids
+    start_date_obj = _safe_parse_date(start_date)
+    end_date_obj = _safe_parse_date(end_date)
+    has_filters = bool(lab_ids or start_date_obj or end_date_obj)
+
+    use_cache = not has_filters
     if use_cache:
         cached = cache.get(REPORTS_CACHE_KEY)
         if cached is not None:
@@ -383,6 +392,14 @@ def get_report_metrics(lab_ids: list[int] | None = None) -> dict:
         system_qs   = System.objects.all()
         fault_qs    = FaultReport.objects.all()
         resource_qs = ResourceRequest.objects.all()
+
+    # Apply date range filters to faults and resources
+    if start_date_obj:
+        fault_qs = fault_qs.filter(reported_at__date__gte=start_date_obj)
+        resource_qs = resource_qs.filter(requested_at__date__gte=start_date_obj)
+    if end_date_obj:
+        fault_qs = fault_qs.filter(reported_at__date__lte=end_date_obj)
+        resource_qs = resource_qs.filter(requested_at__date__lte=end_date_obj)
 
     # ── One scan per table, called in parallel ────────────────────────────
     # Each worker derives multiple aggregations from a single GROUP BY query
@@ -456,6 +473,11 @@ def get_report_metrics(lab_ids: list[int] | None = None) -> dict:
         for k, v in sorted(resource_monthly_map.items())
     ]
 
+    total_faults = sum(fault_by_status.values())
+    open_faults = fault_by_status.get('unaddressed', 0) + fault_by_status.get('in-progress', 0)
+    total_resources = sum(resource_by_status.values())
+    pending_resources = resource_by_status.get('Pending', 0)
+
     payload = {
         'fault_by_status':    dict(fault_by_status),
         'fault_by_type':      dict(fault_by_type),
@@ -463,6 +485,16 @@ def get_report_metrics(lab_ids: list[int] | None = None) -> dict:
         'system_by_status':   system_by_status,
         'fault_monthly':      fault_monthly,
         'resource_monthly':   resource_monthly,
+        'summary': {
+            'total_systems':           sum(system_by_status.values()),
+            'active_systems':          system_by_status.get('active', 0),
+            'inactive_systems':        system_by_status.get('inactive', 0),
+            'non_functional_systems':  system_by_status.get('non-functional', 0),
+            'total_faults':            total_faults,
+            'open_faults':             open_faults,
+            'total_resources':         total_resources,
+            'pending_resources':       pending_resources,
+        },
     }
 
     if use_cache:

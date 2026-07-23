@@ -128,9 +128,9 @@ export const resourcesApi = {
 
 // ─── Reports ──────────────────────────────────────────────────────────────────
 export const reportsApi = {
-  get: (params?: { building_id?: number; floor_id?: number; lab_id?: number }) =>
+  get: (params?: { building_id?: number; floor_id?: number; lab_id?: number; start_date?: string; end_date?: string }) =>
     apiClient.get('/reports/', { params }),
-  details: (params?: { building_id?: number; floor_id?: number; lab_id?: number; room_id?: number }) =>
+  details: (params?: { building_id?: number; floor_id?: number; lab_id?: number; room_id?: number; start_date?: string; end_date?: string }) =>
     apiClient.get('/reports/details/', { params }),
   maintenanceSummary: (params?: { period?: 'weekly' | 'monthly'; start?: string; end?: string; user_id?: number; lab_id?: number }) =>
     apiClient.get('/reports/maintenance-summary/', { params }),

@@ -279,6 +279,17 @@ export interface PaginatedResponse<T> {
 }
 
 // ─── Reports ─────────────────────────────────────────────────────────────────
+export interface ReportsSummary {
+  total_systems: number;
+  active_systems: number;
+  inactive_systems: number;
+  non_functional_systems: number;
+  total_faults: number;
+  open_faults: number;
+  total_resources: number;
+  pending_resources: number;
+}
+
 export interface ReportsData {
   fault_by_status: Record<string, number>;
   fault_by_type: Record<string, number>;
@@ -286,6 +297,7 @@ export interface ReportsData {
   system_by_status: Record<string, number>;
   fault_monthly: { month: string; type: string; count: number }[];
   resource_monthly: { month: string; count: number }[];
+  summary: ReportsSummary;
 }
 
 export interface ReportDetailSystem {
