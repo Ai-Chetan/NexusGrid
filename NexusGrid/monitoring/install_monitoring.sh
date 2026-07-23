@@ -18,7 +18,7 @@ echo ""
 # To switch to hosted Render backend, set NEXUSGRID_BASE_URL:
 # NEXUSGRID_BASE_URL="https://nexusgrid.onrender.com"
 # =======================================================
-NEXUSGRID_BASE_URL="${NEXUSGRID_BASE_URL:-http://127.0.0.1:8000}"
+NEXUSGRID_BASE_URL="${NEXUSGRID_BASE_URL:-https://nexusgrid.onrender.com}"
 NEXUSGRID_BASE_URL="${NEXUSGRID_BASE_URL%/}"
 UPDATE_URL="${NEXUSGRID_BASE_URL}/api/agent/script.py?format=raw"
 export NEXUSGRID_INGEST_URL="${NEXUSGRID_BASE_URL}/api/ingest/"

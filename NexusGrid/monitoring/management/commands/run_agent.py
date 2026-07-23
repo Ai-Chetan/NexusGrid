@@ -32,7 +32,7 @@ import requests
 from django.core.management.base import BaseCommand
 
 
-DEFAULT_INGEST_URL = "http://127.0.0.1:8000/api/ingest/"
+DEFAULT_INGEST_URL = "https://nexusgrid.onrender.com/api/ingest/"
 
 
 def collect_metrics() -> dict:
