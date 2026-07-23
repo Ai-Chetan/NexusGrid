@@ -465,9 +465,10 @@ def _notify_admins_layout_change(user, action, item):
 
 
 def _latest_monitored_hostname_set():
-    """Return all hostnames that have monitoring data in the current-state table."""
+    """Return hostnames that are currently ONLINE in the monitoring current-state table."""
     return set(
         SystemCurrent.objects
+        .filter(health_state=SystemCurrent.STATE_ONLINE)
         .values_list('hostname_key', flat=True)
     )
 

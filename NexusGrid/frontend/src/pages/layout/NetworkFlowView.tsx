@@ -82,7 +82,10 @@ const typeLabels: Record<string, string> = {
 };
 
 const statusColour: Record<string, string> = {
-  active: '#10b981', inactive: '#94a3b8', 'non-functional': '#ef4444',
+  active:           '#10b981',   // green
+  inactive:         '#94a3b8',   // gray
+  'non-functional': '#ef4444',   // red
+  'resource_pending': '#3b82f6', // blue
 };
 
 const NETWORK_HUB_TYPES = new Set(['network_switch', 'router']);
@@ -91,10 +94,22 @@ const CLUSTER_TYPES    = new Set(['building', 'floor', 'room']);
 function getItemAccentColor(item: LayoutItem, fallbackHeader: string): string {
   const isDevice = !CLUSTER_TYPES.has(item.item_type);
   if (!isDevice) return fallbackHeader;
-  if (item.alert_status === 'fault_active') return '#ef4444';
-  if (item.alert_status === 'resource_pending') return '#3b82f6';
-  if (item.monitoring_status === 'online' || item.alert_status === 'fault_resolved' || item.alert_status === 'resource_done') return '#10b981';
-  return '#94a3b8';
+
+  // 1. Alert states take highest priority
+  if (item.alert_status === 'fault_active')      return '#ef4444'; // red
+  if (item.alert_status === 'resource_pending')  return '#3b82f6'; // blue
+
+  // 2. Use the actual system status field (set by monitoring or manual update)
+  if (item.status === 'active')          return '#10b981'; // green
+  if (item.status === 'non-functional')  return '#ef4444'; // red
+  if (item.status === 'inactive')        return '#94a3b8'; // gray
+
+  // 3. Resolved-alert / monitoring-online fallback → green
+  if (item.monitoring_status === 'online'
+      || item.alert_status === 'fault_resolved'
+      || item.alert_status === 'resource_done') return '#10b981';
+
+  return '#94a3b8'; // default gray (unknown)
 }
 
 // ─── Node "shape" visual bodies ───────────────────────────────────────────────
@@ -631,10 +646,10 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
               <div className="space-y-1.5 pb-2 mb-2 border-b border-slate-200 dark:border-slate-700">
                 <p className={cn('text-[10px] font-semibold uppercase tracking-wide', isDark ? 'text-slate-500' : 'text-slate-400')}>Status</p>
                 {[
-                  { color: '#10b981', label: 'Online / Active' },
-                  { color: '#ef4444', label: 'Active Fault' },
-                  { color: '#3b82f6', label: 'Resource Pending' },
-                  { color: '#94a3b8', label: 'No Data / Offline' },
+                  { color: '#10b981', label: 'Active (On)' },
+                  { color: '#94a3b8', label: 'Inactive (Off)' },
+                  { color: '#ef4444', label: 'Non-Functional / Fault' },
+                  { color: '#3b82f6', label: 'Resource Requested' },
                 ].map((s) => (
                   <div key={s.label} className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: s.color }} />

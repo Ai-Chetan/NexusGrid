@@ -11,11 +11,11 @@ cd /d "%SCRIPT_DIR%"
 
 :: =========================================================================
 :: SERVER URL CONFIGURATION
-:: To switch to hosted Render backend, set NEXUSGRID_BASE_URL:
-:: set "NEXUSGRID_BASE_URL=https://nexusgrid.onrender.com"
+:: Default: Hosted Render backend (https://nexusgrid.onrender.com)
+:: To switch to local backend, set: set "NEXUSGRID_BASE_URL=http://127.0.0.1:8000"
 :: =========================================================================
 if "%NEXUSGRID_BASE_URL%"=="" (
-    set "NEXUSGRID_BASE_URL=http://127.0.0.1:8000"
+    set "NEXUSGRID_BASE_URL=https://nexusgrid.onrender.com"
 )
 
 :: Ensure URL doesn't end with trailing slash
@@ -76,7 +76,7 @@ echo.
 
 :: Step 4: Run monitoring script immediately after installation
 echo [4/5] Running monitoring script immediately...
-%PY_CMD% "%SCRIPT_DIR%script.py"
+%PY_CMD% "%SCRIPT_DIR%script.py" --once
 if %ERRORLEVEL% EQU 0 (
     echo [OK] Initial monitoring payload sent successfully.
 ) else (
@@ -84,71 +84,20 @@ if %ERRORLEVEL% EQU 0 (
 )
 echo.
 
-:: Step 5: Configure persistence for system restart
-echo [5/5] Setting up automatic run on system restart / logon...
+:: Step 5: Configure persistence for system restart and shutdown offline signal
+echo [5/5] Setting up automatic run on system restart / logon + shutdown offline signal...
 
-set "TASK_NAME=NexusGridMonitoring"
-set "LAUNCHER=%SCRIPT_DIR%run_monitoring.bat"
-set "TASK_XML=%SCRIPT_DIR%nexusgrid_task.xml"
-
-:: Generate Task Scheduler XML with proper WorkingDirectory
-echo ^<?xml version="1.0" encoding="UTF-16"?^> > "%TASK_XML%"
-echo ^<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task"^> >> "%TASK_XML%"
-echo   ^<Triggers^> >> "%TASK_XML%"
-echo     ^<TimeTrigger^> >> "%TASK_XML%"
-echo       ^<Repetition^> >> "%TASK_XML%"
-echo         ^<Interval^>PT1M^</Interval^> >> "%TASK_XML%"
-echo         ^<StopAtDurationEnd^>false^</StopAtDurationEnd^> >> "%TASK_XML%"
-echo       ^</Repetition^> >> "%TASK_XML%"
-echo       ^<StartBoundary^>2026-01-01T00:00:00^</StartBoundary^> >> "%TASK_XML%"
-echo       ^<Enabled^>true^</Enabled^> >> "%TASK_XML%"
-echo     ^</TimeTrigger^> >> "%TASK_XML%"
-echo     ^<BootTrigger^> >> "%TASK_XML%"
-echo       ^<Enabled^>true^</Enabled^> >> "%TASK_XML%"
-echo     ^</BootTrigger^> >> "%TASK_XML%"
-echo   ^</Triggers^> >> "%TASK_XML%"
-echo   ^<Settings^> >> "%TASK_XML%"
-echo     ^<MultipleInstancesPolicy^>IgnoreNew^</MultipleInstancesPolicy^> >> "%TASK_XML%"
-echo     ^<DisallowStartIfOnBatteries^>false^</DisallowStartIfOnBatteries^> >> "%TASK_XML%"
-echo     ^<StopIfGoingOnBatteries^>false^</StopIfGoingOnBatteries^> >> "%TASK_XML%"
-echo     ^<ExecutionTimeLimit^>PT10M^</ExecutionTimeLimit^> >> "%TASK_XML%"
-echo     ^<Hidden^>true^</Hidden^> >> "%TASK_XML%"
-echo   ^</Settings^> >> "%TASK_XML%"
-echo   ^<Actions^> >> "%TASK_XML%"
-echo     ^<Exec^> >> "%TASK_XML%"
-echo       ^<Command^>wscript.exe^</Command^> >> "%TASK_XML%"
-echo       ^<Arguments^>"%SCRIPT_DIR%run_silent.vbs"^</Arguments^> >> "%TASK_XML%"
-echo       ^<WorkingDirectory^>%SCRIPT_DIR%^</WorkingDirectory^> >> "%TASK_XML%"
-echo     ^</Exec^> >> "%TASK_XML%"
-echo   ^</Actions^> >> "%TASK_XML%"
-echo ^</Task^> >> "%TASK_XML%"
-
-:: Attempt 5a: Windows Task Scheduler with XML (Runs every 1 minute + on boot)
-schtasks /create /tn "%TASK_NAME%" /xml "%TASK_XML%" /f >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    echo [OK] Task Scheduler job '%TASK_NAME%' created successfully - Interval: Every 1 minute
-    del "%TASK_XML%" >nul 2>&1
-) else (
-    echo [NOTE] Task Scheduler creation required higher privileges. Falling back to Startup folder...
-    del "%TASK_XML%" >nul 2>&1
-)
-
-:: Attempt 5b: Windows Startup Folder fallback (Silent VBScript loop every 1 minute)
 set "STARTUP_FOLDER=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
-if exist "%STARTUP_FOLDER%" (
-    if exist "%STARTUP_FOLDER%\NexusGridMonitoring.bat" del "%STARTUP_FOLDER%\NexusGridMonitoring.bat" >nul 2>&1
-    echo Set WshShell = CreateObject("WScript.Shell") > "%STARTUP_FOLDER%\NexusGridMonitoring.vbs"
-    echo WshShell.Run "wscript.exe """ ^& "%SCRIPT_DIR%run_silent.vbs" ^& """", 0, False >> "%STARTUP_FOLDER%\NexusGridMonitoring.vbs"
-    echo [OK] Created Silent Startup entry in: %STARTUP_FOLDER%\NexusGridMonitoring.vbs - Interval: Every 1 minute (Hidden)
-)
+%PY_CMD% "%SCRIPT_DIR%setup_persistence.py" "%SCRIPT_DIR%" "%NEXUSGRID_BASE_URL%"
 
 echo.
 echo =======================================================
 echo   Installation Completed Successfully!
-echo   - Backend Server: %NEXUSGRID_BASE_URL%
-echo   - Script ran immediately: YES
-echo   - Runs on system restart: YES
-echo   - Execution Frequency: EVERY 1 MINUTE
+echo   - Backend Server : %NEXUSGRID_BASE_URL%
+echo   - Script ran immediately  : YES
+echo   - Runs on system restart  : YES (BootTrigger + Startup folder)
+echo   - Execution Frequency     : EVERY 1 MINUTE
+echo   - Offline signal on shutdown: YES (NexusGridOffline task)
 echo =======================================================
 
 echo.
