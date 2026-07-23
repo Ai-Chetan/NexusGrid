@@ -724,13 +724,15 @@ export default function LayoutPage() {
   const { data: rawItems = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['layout-items', parentId],
     queryFn: () => layoutApi.getItems({ parent_id: parentId }).then((r) => r.data),
+    staleTime: 3_000,
+    refetchInterval: 3_000,
   });
 
   const { data: systems = [] } = useQuery({
     queryKey: ['systems-list'],
     queryFn: () => layoutApi.getSystems().then((r) => r.data as SimpleSystem[]),
-    staleTime: 5_000,
-    refetchInterval: 5_000,
+    staleTime: 3_000,
+    refetchInterval: 3_000,
   });
 
   // Fetch this user's lab assignments — used to gate content for restricted roles

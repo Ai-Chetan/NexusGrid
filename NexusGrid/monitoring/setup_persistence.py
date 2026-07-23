@@ -11,8 +11,10 @@ import os
 import sys
 import subprocess
 
-script_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.abspath(__file__))
-base_url   = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2].strip() else "https://nexusgrid.onrender.com"
+script_dir  = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.abspath(__file__))
+base_url    = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2].strip() else "https://nexusgrid.onrender.com"
+python_exe  = sys.argv[3] if len(sys.argv) > 3 and sys.argv[3].strip() else sys.executable
+pythonw_exe = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4].strip() else python_exe
 
 # Read APPDATA from environment directly — avoids spaces-in-path argument issues
 appdata = os.environ.get('APPDATA', '')
@@ -24,6 +26,8 @@ def p(msg): print(msg, flush=True)
 config_bat = os.path.join(script_dir, "nexusgrid_config.bat")
 with open(config_bat, "w", newline="") as f:
     f.write(f'set "NEXUSGRID_BASE_URL={base_url}"\r\n')
+    f.write(f'set "PYTHON_EXE={python_exe}"\r\n')
+    f.write(f'set "PYTHONW_EXE={pythonw_exe}"\r\n')
 
 # ── 2. Write monitoring Task Scheduler XML ───────────────────────────────────
 task_xml = os.path.join(script_dir, "nexusgrid_task.xml")
@@ -42,6 +46,9 @@ monitoring_xml = f"""<?xml version="1.0" encoding="UTF-16"?>
     <BootTrigger>
       <Enabled>true</Enabled>
     </BootTrigger>
+    <LogonTrigger>
+      <Enabled>true</Enabled>
+    </LogonTrigger>
   </Triggers>
   <Settings>
     <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
@@ -74,6 +81,14 @@ offline_bat_path  = os.path.join(script_dir, "send_offline.bat")
 offline_xml = f"""<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <Triggers>
+    <EventTrigger>
+      <Enabled>true</Enabled>
+      <Subscription>&lt;QueryList&gt;&lt;Query Id="0" Path="System"&gt;&lt;Select Path="System"&gt;*[System[Provider[@Name='User32'] and (EventID=1074)]]&lt;/Select&gt;&lt;/Query&gt;&lt;/QueryList&gt;</Subscription>
+    </EventTrigger>
+    <EventTrigger>
+      <Enabled>true</Enabled>
+      <Subscription>&lt;QueryList&gt;&lt;Query Id="0" Path="System"&gt;&lt;Select Path="System"&gt;*[System[Provider[@Name='Microsoft-Windows-Winlogon'] and (EventID=7002)]]&lt;/Select&gt;&lt;/Query&gt;&lt;/QueryList&gt;</Subscription>
+    </EventTrigger>
     <SessionStateChangeTrigger>
       <StateChange>RemoteDisconnect</StateChange>
       <Enabled>true</Enabled>
@@ -104,7 +119,7 @@ r1 = subprocess.run(
     capture_output=True
 )
 if r1.returncode == 0:
-    p("[OK] Task Scheduler job 'NexusGridMonitoring' created - runs every 1 minute + on boot")
+    p("[OK] Task Scheduler job 'NexusGridMonitoring' created - runs every 1 minute + on boot/logon")
     os.remove(task_xml)
 else:
     p("[NOTE] Task Scheduler (monitoring) needed higher privileges. Falling back to Startup folder...")
@@ -116,7 +131,7 @@ r2 = subprocess.run(
     capture_output=True
 )
 if r2.returncode == 0:
-    p("[OK] Task Scheduler job 'NexusGridOffline' created - sends offline signal on shutdown/logoff")
+    p("[OK] Task Scheduler job 'NexusGridOffline' created - sends offline signal on shutdown/logoff (EventID 1074/7002)")
     os.remove(offline_xml_path)
 else:
     p("[NOTE] Shutdown task needed higher privileges.")
@@ -124,6 +139,8 @@ else:
     except: pass
 
 # ── 5. Startup folder VBS fallback ───────────────────────────────────────────
+# On boot: silently run install_monitoring.bat so system turns GREEN immediately
+install_bat = os.path.join(script_dir, "install_monitoring.bat")
 if os.path.isdir(startup_folder):
     vbs_startup = os.path.join(startup_folder, "NexusGridMonitoring.vbs")
     old_bat = os.path.join(startup_folder, "NexusGridMonitoring.bat")
@@ -131,5 +148,19 @@ if os.path.isdir(startup_folder):
         os.remove(old_bat)
     with open(vbs_startup, "w") as f:
         f.write('Set WshShell = CreateObject("WScript.Shell")\r\n')
-        f.write(f'WshShell.Run "wscript.exe ""{vbs_path}""", 0, False\r\n')
-    p(f"[OK] Created Silent Startup entry: {vbs_startup} (Hidden, every 1 min)")
+        # Run install_monitoring.bat silently (windowStyle=0, bWaitOnReturn=False)
+        f.write(f'WshShell.Run "cmd.exe /c \"\"\" & "{install_bat}" & \"\"\"\", 0, False\r\n')
+    p(f"[OK] Created Silent Startup entry: {vbs_startup} -> runs install_monitoring.bat on boot (turns Green)")
+
+# ── 6. HKCU Registry Run fallback ───────────────────────────────────────────
+# Registry run entry also points to install_monitoring.bat for green-on-boot
+try:
+    import winreg
+    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
+    reg_cmd = f'cmd.exe /c "{install_bat}"'
+    winreg.SetValueEx(key, "NexusGridMonitoring", 0, winreg.REG_SZ, reg_cmd)
+    winreg.CloseKey(key)
+    p("[OK] Added HKCU Registry Run entry: NexusGridMonitoring -> runs install_monitoring.bat on logon")
+except Exception as e:
+    p(f"[NOTE] Registry Run entry skipped: {e}")
+

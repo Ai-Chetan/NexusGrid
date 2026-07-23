@@ -81,11 +81,12 @@ class LayoutItemSerializer(serializers.ModelSerializer):
     def get_status(self, obj):
         if obj.item_type in SYSTEM_TYPES:
             system = getattr(obj, 'system', None)
-            if system is None:
-                return None
-            # Return the real database status — set to 'active' by ingest,
-            # 'inactive' by the offline signal / heartbeat timeout.
-            return system.status
+            if system is not None:
+                return system.status
+            monitored = self.context.get('monitored_hostnames', set())
+            if obj.name.lower() in monitored:
+                return 'active'
+            return 'inactive'
         return None
 
     def get_quick_info(self, obj):
