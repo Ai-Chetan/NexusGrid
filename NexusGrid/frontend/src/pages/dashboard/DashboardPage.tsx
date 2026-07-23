@@ -254,7 +254,7 @@ export default function DashboardPage() {
   const { data, isLoading, isError, refetch, isFetching } = useQuery<DashboardMetrics>({
     queryKey: ['dashboard-metrics', metricParams],
     queryFn: () => dashboardApi.metrics(metricParams).then((r) => r.data),
-    refetchInterval: 60_000,
+    refetchInterval: 3_000,
     enabled: !isNoRole,
   });
 
