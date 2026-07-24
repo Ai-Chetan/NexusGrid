@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
+import { useSearchParams } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -307,6 +308,8 @@ function ResourceRow({
   onDelete,
   canUpdateStatus,
   canEditDelete,
+  highlighted,
+  rowRef,
 }: {
   resource: ResourceRequest;
   onUpdate: (r: ResourceRequest) => void;
@@ -314,9 +317,19 @@ function ResourceRow({
   onDelete: (r: ResourceRequest) => void;
   canUpdateStatus: boolean;
   canEditDelete: boolean;
+  highlighted?: boolean;
+  rowRef?: React.Ref<HTMLTableRowElement>;
 }) {
   return (
-    <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+    <tr
+      ref={rowRef as React.RefObject<HTMLTableRowElement>}
+      className={cn(
+        'transition-colors',
+        highlighted
+          ? 'bg-amber-50 dark:bg-amber-900/20 ring-2 ring-inset ring-amber-400 dark:ring-amber-500 animate-highlight-pulse'
+          : 'hover:bg-slate-50 dark:hover:bg-slate-800/30',
+      )}
+    >
       <td className="px-4 py-3">
         <div>
           <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{resource.system_host_name}</p>
@@ -395,6 +408,11 @@ export default function ResourcesPage() {
   const isIncharge = user?.role === 'Lab Incharge';
   const isAssistant = user?.role === 'Lab Assistant';
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightId = searchParams.get('highlight') ? Number(searchParams.get('highlight')) : null;
+  const [activeHighlight, setActiveHighlight] = useState<number | null>(highlightId);
+  const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
+
   const [createOpen, setCreateOpen] = useState(false);
   const [updateResource, setUpdateResource] = useState<ResourceRequest | null>(null);
   const [editResource, setEditResource] = useState<ResourceRequest | null>(null);
@@ -412,6 +430,21 @@ export default function ResourcesPage() {
     queryFn: ({ signal }) => resourcesApi.list({ search, status, time, sort, page, page_size: 15 }, signal).then(r => r.data),
     placeholderData: prev => prev,
   });
+
+  // Scroll to + briefly highlight the row from a notification deep-link
+  useEffect(() => {
+    if (!activeHighlight || !data?.results) return;
+    const exists = data.results.some(r => r.resource_id === activeHighlight);
+    if (!exists) return;
+    const timer = setTimeout(() => {
+      highlightRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 120);
+    const clearTimer = setTimeout(() => {
+      setActiveHighlight(null);
+      setSearchParams(prev => { prev.delete('highlight'); return prev; }, { replace: true });
+    }, 4000);
+    return () => { clearTimeout(timer); clearTimeout(clearTimer); };
+  }, [activeHighlight, data]);
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => resourcesApi.delete(id),
@@ -499,17 +532,22 @@ export default function ResourcesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                  {data?.results.map(r => (
-                    <ResourceRow
-                      key={r.resource_id}
-                      resource={r}
-                      onUpdate={setUpdateResource}
-                      onEdit={setEditResource}
-                      onDelete={setDeleteResource}
-                      canUpdateStatus={canUpdateStatus}
-                      canEditDelete={canEditDelete && r.requested_by_username === user?.username}
-                    />
-                  ))}
+                  {data?.results.map(r => {
+                    const isHighlighted = activeHighlight === r.resource_id;
+                    return (
+                      <ResourceRow
+                        key={r.resource_id}
+                        resource={r}
+                        onUpdate={setUpdateResource}
+                        onEdit={setEditResource}
+                        onDelete={setDeleteResource}
+                        canUpdateStatus={canUpdateStatus}
+                        canEditDelete={canEditDelete && r.requested_by_username === user?.username}
+                        highlighted={isHighlighted}
+                        rowRef={isHighlighted ? highlightRowRef : undefined}
+                      />
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

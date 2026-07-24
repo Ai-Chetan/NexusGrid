@@ -18,7 +18,7 @@ echo ""
 # To switch to hosted Render backend, set NEXUSGRID_BASE_URL:
 # NEXUSGRID_BASE_URL="https://nexusgrid.onrender.com"
 # =======================================================
-NEXUSGRID_BASE_URL="${NEXUSGRID_BASE_URL:-http://127.0.0.1:8000}"
+NEXUSGRID_BASE_URL="${NEXUSGRID_BASE_URL:-https://nexusgrid.onrender.com}"
 NEXUSGRID_BASE_URL="${NEXUSGRID_BASE_URL%/}"
 UPDATE_URL="${NEXUSGRID_BASE_URL}/api/agent/script.py?format=raw"
 export NEXUSGRID_INGEST_URL="${NEXUSGRID_BASE_URL}/api/ingest/"
@@ -51,16 +51,36 @@ echo ""
 
 # Step 3: Install required Python dependencies
 echo "[3/5] Installing / verifying required dependencies..."
-$PY_CMD -m pip install --upgrade requests psutil GPUtil &>/dev/null || {
-    echo "[NOTE] Installing without upgrade flag..."
-    $PY_CMD -m pip install requests psutil GPUtil
-}
-echo "[OK] Dependencies verified (requests, psutil, GPUtil)."
+if $PY_CMD -m pip install --upgrade requests psutil &>/dev/null; then
+    echo "[OK] Dependencies verified (requests, psutil)."
+else
+    echo "[NOTE] Standard pip install failed. Trying with --break-system-packages..."
+    if $PY_CMD -m pip install --upgrade --break-system-packages requests psutil &>/dev/null; then
+        echo "[OK] Dependencies verified (requests, psutil) using --break-system-packages."
+    else
+        echo "[NOTE] Installing without upgrade flag..."
+        if $PY_CMD -m pip install requests psutil &>/dev/null; then
+            echo "[OK] Dependencies verified (requests, psutil)."
+        elif $PY_CMD -m pip install --break-system-packages requests psutil &>/dev/null; then
+            echo "[OK] Dependencies verified (requests, psutil) using --break-system-packages."
+        else
+            echo "[WARNING] pip install failed. Attempting fallback to system package manager..."
+            if command -v apt-get &>/dev/null; then
+                apt-get update -y && apt-get install -y python3-requests python3-psutil || true
+            elif command -v dnf &>/dev/null; then
+                dnf install -y python3-requests python3-psutil || true
+            elif command -v yum &>/dev/null; then
+                yum install -y python3-requests python3-psutil || true
+            fi
+            echo "[OK] Dependencies installation completed via system package manager or verified."
+        fi
+    fi
+fi
 echo ""
 
 # Step 4: Run monitoring script immediately after installation
 echo "[4/5] Running monitoring script immediately..."
-if $PY_CMD "$SCRIPT_DIR/script.py"; then
+if $PY_CMD "$SCRIPT_DIR/script.py" --once; then
     echo "[OK] Initial monitoring payload sent successfully."
 else
     echo "[WARNING] Monitoring script executed with non-zero status."
@@ -86,7 +106,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=$SCRIPT_DIR
 ExecStartPre=-/bin/bash -c "curl -s -f '$UPDATE_URL' -o '$SCRIPT_DIR/script.py.tmp' && mv '$SCRIPT_DIR/script.py.tmp' '$SCRIPT_DIR/script.py'"
-ExecStart=$(command -v $PY_CMD) $SCRIPT_DIR/script.py
+ExecStart=$(command -v $PY_CMD) $SCRIPT_DIR/script.py --once
 Environment=NEXUSGRID_BASE_URL=${NEXUSGRID_BASE_URL}
 Environment=NEXUSGRID_INGEST_URL=${NEXUSGRID_INGEST_URL}
 EOF
@@ -110,7 +130,7 @@ EOF
 else
     echo "[NOTE] Non-root user or systemd not active. Setting up user Crontab..."
     
-    CRON_CMD="@reboot export NEXUSGRID_BASE_URL=${NEXUSGRID_BASE_URL}; while true; do curl -s -f '${UPDATE_URL}' -o '${SCRIPT_DIR}/script.py.tmp' && mv '${SCRIPT_DIR}/script.py.tmp' '${SCRIPT_DIR}/script.py'; \$(command -v \$PY_CMD) \$SCRIPT_DIR/script.py; sleep 30; done"
+    CRON_CMD="@reboot export NEXUSGRID_BASE_URL=${NEXUSGRID_BASE_URL}; while true; do curl -s -f '${UPDATE_URL}' -o '${SCRIPT_DIR}/script.py.tmp' && mv '${SCRIPT_DIR}/script.py.tmp' '${SCRIPT_DIR}/script.py'; \$(command -v \$PY_CMD) \$SCRIPT_DIR/script.py --once; sleep 30; done"
     
     (crontab -l 2>/dev/null | grep -v "$SCRIPT_DIR/script.py"; echo "$CRON_CMD") | crontab -
     echo "[OK] Added @reboot loop (Runs every 30 seconds) to user crontab."

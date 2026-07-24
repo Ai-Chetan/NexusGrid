@@ -15,7 +15,7 @@ cd /d "%SCRIPT_DIR%"
 :: set "NEXUSGRID_BASE_URL=https://nexusgrid.onrender.com"
 :: =========================================================================
 if "%NEXUSGRID_BASE_URL%"=="" (
-    set "NEXUSGRID_BASE_URL=http://127.0.0.1:8000"
+    set "NEXUSGRID_BASE_URL=https://nexusgrid.onrender.com"
 )
 
 :: Ensure URL doesn't end with trailing slash

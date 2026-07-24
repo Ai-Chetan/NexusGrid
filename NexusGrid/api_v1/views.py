@@ -17,7 +17,7 @@ from faults.models import FaultReport
 from resources.models import ResourceRequest
 from monitoring.models import SystemInfo, SystemCurrent
 from api_v1.models import Notification
-from .services.notifications import create_notifications, admin_user_ids, create_system_alert_if_needed
+from .services.notifications import create_notifications, admin_user_ids, lab_assistant_ids_for_lab, create_system_alert_if_needed
 
 from .serializers import (
     UserSerializer, UserUpdateSerializer,
@@ -744,18 +744,24 @@ class FaultListView(APIView):
             return Response(ser.errors, status=400)
         fault = ser.save()
 
-        recipients = admin_user_ids()
-        if request.user.id not in recipients:
-            recipients.append(request.user.id)
+        # Notify: the active lab assistant for the PC's lab + the requester themselves
+        lab_id = fault.system_name.lab_id
+        lab_name = fault.system_name.lab.lab_name if fault.system_name.lab else 'Unknown Lab'
+        assistant_ids = lab_assistant_ids_for_lab(lab_id)
+
+        recipient_set = set(assistant_ids)
+        recipient_set.add(request.user.id)
+        recipients = list(recipient_set)
+
         create_notifications(
             recipient_ids=recipients,
             message=(
-                f"New fault report on {fault.system_name.host_name}: "
-                f"{fault.fault_type} (risk {fault.risk_factor})."
+                f"{request.user.username} reported a {fault.fault_type} fault on "
+                f"{fault.system_name.host_name} ({lab_name}). Risk level: {fault.risk_factor}/5."
             ),
             related_to='fault_report',
             related_id=fault.fault_id,
-            target_url='/app/faults',
+            target_url=f'/app/faults?highlight={fault.fault_id}',
             created_by_id=request.user.id,
         )
 
@@ -822,19 +828,25 @@ class FaultDetailView(APIView):
         fault.refresh_from_db()
 
         if old_status != new_status:
-            recipients = [fault.reported_by_id]
-            for admin_id in admin_user_ids():
-                if admin_id not in recipients:
-                    recipients.append(admin_id)
+            lab_id = fault.system_name.lab_id
+            lab_name = fault.system_name.lab.lab_name if fault.system_name.lab else 'Unknown Lab'
+            assistant_ids = lab_assistant_ids_for_lab(lab_id)
+
+            # Notify: the reporter + lab assistant(s)
+            recipient_set = set(assistant_ids)
+            recipient_set.add(fault.reported_by_id)
+            recipients = list(recipient_set)
+
+            status_label = new_status.replace('-', ' ').title()
             create_notifications(
                 recipient_ids=recipients,
                 message=(
-                    f"Fault status updated on {fault.system_name.host_name}: "
-                    f"{old_status} -> {new_status}."
+                    f"{user.username} updated fault #{fault.fault_id} on "
+                    f"{fault.system_name.host_name} ({lab_name}) to '{status_label}'."
                 ),
                 related_to='fault_status_update',
                 related_id=fault.fault_id,
-                target_url='/app/faults',
+                target_url=f'/app/faults?highlight={fault.fault_id}',
                 created_by_id=user.id,
             )
 
@@ -913,15 +925,24 @@ class ResourceListView(APIView):
             return Response(ser.errors, status=400)
         res = ser.save()
 
-        recipients = admin_user_ids()
-        if request.user.id not in recipients:
-            recipients.append(request.user.id)
+        # Notify: the active lab assistant for the PC's lab + the requester themselves
+        lab_id = res.system_name.lab_id
+        lab_name = res.system_name.lab.lab_name if res.system_name.lab else 'Unknown Lab'
+        assistant_ids = lab_assistant_ids_for_lab(lab_id)
+
+        recipient_set = set(assistant_ids)
+        recipient_set.add(request.user.id)
+        recipients = list(recipient_set)
+
         create_notifications(
             recipient_ids=recipients,
-            message=f"New resource request for {res.resource_name} on {res.system_name.host_name}.",
+            message=(
+                f"{request.user.username} requested '{res.resource_name}' "
+                f"(qty: {res.quantity}) for {res.system_name.host_name} ({lab_name})."
+            ),
             related_to='resource_request',
             related_id=res.resource_id,
-            target_url='/app/resources',
+            target_url=f'/app/resources?highlight={res.resource_id}',
             created_by_id=request.user.id,
         )
 
@@ -982,19 +1003,25 @@ class ResourceDetailView(APIView):
         resource.refresh_from_db()
 
         if old_status != new_status:
-            recipients = [resource.requested_by_id]
-            for admin_id in admin_user_ids():
-                if admin_id not in recipients:
-                    recipients.append(admin_id)
+            lab_id = resource.system_name.lab_id
+            lab_name = resource.system_name.lab.lab_name if resource.system_name.lab else 'Unknown Lab'
+            assistant_ids = lab_assistant_ids_for_lab(lab_id)
+
+            # Notify: the requester + lab assistant(s)
+            recipient_set = set(assistant_ids)
+            recipient_set.add(resource.requested_by_id)
+            recipients = list(recipient_set)
+
             create_notifications(
                 recipient_ids=recipients,
                 message=(
-                    f"Resource request status updated for {resource.resource_name}: "
-                    f"{old_status} -> {new_status}."
+                    f"{user.username} marked resource request #{resource.resource_id} "
+                    f"('{resource.resource_name}' for {resource.system_name.host_name}, {lab_name}) "
+                    f"as '{new_status}'."
                 ),
                 related_to='resource_status_update',
                 related_id=resource.resource_id,
-                target_url='/app/resources',
+                target_url=f'/app/resources?highlight={resource.resource_id}',
                 created_by_id=user.id,
             )
 
