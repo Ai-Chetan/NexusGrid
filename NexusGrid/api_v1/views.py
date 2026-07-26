@@ -1899,6 +1899,133 @@ class MonitoringHistoryView(APIView):
         })
 
 
+class UptimeMonthlyView(APIView):
+    """Return monthly uptime statistics for a system.
+
+    For each month, provides the average daily uptime (hours) and a breakdown
+    of each active day's uptime. Days with zero uptime are excluded.
+
+    Query params:
+      - item_id (required): LayoutItem ID
+      - months (optional): number of past months to return (default 6, max 12)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from datetime import datetime, timedelta
+        from collections import defaultdict
+
+        item_id = request.GET.get('item_id', '').strip()
+        if not item_id.isdigit():
+            return Response({'detail': 'item_id is required.'}, status=400)
+
+        months_limit = 6
+        months_raw = request.GET.get('months', '6').strip()
+        try:
+            months_limit = int(months_raw)
+        except ValueError:
+            pass
+        months_limit = max(1, min(months_limit, 12))
+
+        item = get_object_or_404(
+            LayoutItem.objects.select_related('system'),
+            pk=int(item_id),
+        )
+        system = getattr(item, 'system', None)
+        hostname = (system.host_name if system else item.name) or ''
+        hostname = hostname.strip()
+        if not hostname:
+            return Response({'detail': 'No hostname found for this item.'}, status=404)
+
+        # Fetch snapshots with uptime data from the last N months
+        cutoff = timezone.now() - timedelta(days=months_limit * 31)
+        snapshots = list(
+            SystemInfo.objects
+            .filter(hostname__iexact=hostname)
+            .filter(timestamp__gte=cutoff)
+            .filter(boot_time__isnull=False, uptime_seconds__isnull=False)
+            .order_by('timestamp')
+            .values('timestamp', 'boot_time', 'uptime_seconds')
+        )
+
+        if not snapshots:
+            return Response({
+                'item_id': item.id,
+                'hostname': hostname,
+                'months': [],
+            })
+
+        # ── Calculate daily uptime ──────────────────────────────────────────
+        # Group snapshots by calendar date
+        day_snapshots = defaultdict(list)
+        for snap in snapshots:
+            ts = snap['timestamp']
+            day_key = ts.strftime('%Y-%m-%d')
+            day_snapshots[day_key].append(snap)
+
+        daily_uptime = {}  # date_str -> hours
+        for day_key, snaps in day_snapshots.items():
+            # Group by boot_time to handle reboots within a day
+            sessions = defaultdict(list)
+            for s in snaps:
+                sessions[s['boot_time']].append(s['uptime_seconds'])
+
+            total_seconds = 0.0
+            day_start_ts = datetime.strptime(day_key, '%Y-%m-%d').replace(
+                tzinfo=snaps[0]['timestamp'].tzinfo
+            )
+            day_start_epoch = day_start_ts.timestamp()
+
+            for boot_time, uptime_list in sessions.items():
+                min_up = min(uptime_list)
+                max_up = max(uptime_list)
+                if boot_time >= day_start_epoch:
+                    # Session started today: total uptime from boot to last snapshot
+                    total_seconds += max_up
+                else:
+                    # Session was already running: elapsed time during this day
+                    total_seconds += (max_up - min_up)
+
+            hours = round(total_seconds / 3600.0, 2)
+            if hours > 0:
+                daily_uptime[day_key] = hours
+
+        # ── Group by month ──────────────────────────────────────────────────
+        month_data = defaultdict(list)
+        for day_key, hours in sorted(daily_uptime.items()):
+            month_key = day_key[:7]  # YYYY-MM
+            month_data[month_key].append({'date': day_key, 'uptime_hours': hours})
+
+        months_result = []
+        for month_key in sorted(month_data.keys()):
+            days = month_data[month_key]
+            active_days = len(days)
+            total_hours = round(sum(d['uptime_hours'] for d in days), 2)
+            avg_hours = round(total_hours / active_days, 2) if active_days > 0 else 0
+
+            # Parse month label
+            try:
+                dt = datetime.strptime(month_key, '%Y-%m')
+                month_label = dt.strftime('%b %Y')
+            except ValueError:
+                month_label = month_key
+
+            months_result.append({
+                'month': month_key,
+                'month_label': month_label,
+                'avg_daily_hours': avg_hours,
+                'total_hours': total_hours,
+                'active_days': active_days,
+                'days': days,
+            })
+
+        return Response({
+            'item_id': item.id,
+            'hostname': hostname,
+            'months': months_result,
+        })
+
+
 # ─── Users ───────────────────────────────────────────────────────────────────
 
 USER_LIST_CACHE_KEY = 'user_list_v1'

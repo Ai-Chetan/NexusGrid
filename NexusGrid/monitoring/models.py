@@ -49,6 +49,10 @@ class SystemInfo(models.Model):
     gpu_available = models.BooleanField(null=True, blank=True)
     gpu_stats = models.JSONField(null=True, blank=True)
     
+    # Uptime
+    boot_time = models.FloatField(null=True, blank=True, help_text="Unix timestamp of last system boot")
+    uptime_seconds = models.FloatField(null=True, blank=True, help_text="Seconds since last boot at snapshot time")
+    
     # Timestamp
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
 

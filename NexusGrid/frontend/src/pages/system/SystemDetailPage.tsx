@@ -13,11 +13,14 @@ import {
   PackageSearch,
   QrCode,
   Server,
+  Timer,
   Zap,
 } from 'lucide-react';
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   Line,
   LineChart,
@@ -31,7 +34,7 @@ import toast from 'react-hot-toast';
 import { faultsApi, layoutApi, resourcesApi } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { downloadQrPrintSheet } from '@/lib/qrPrint';
-import type { FaultReport, LayoutItem, MonitoringHistoryResponse, ResourceRequest, SimpleSystem, SystemInfo } from '@/types';
+import type { FaultReport, LayoutItem, MonitoringHistoryResponse, ResourceRequest, SimpleSystem, SystemInfo, UptimeMonthlyResponse } from '@/types';
 import ErrorState from '@/components/common/ErrorState';
 import EmptyState from '@/components/common/EmptyState';
 import Modal from '@/components/common/Modal';
@@ -51,6 +54,23 @@ function fmtNumber(value: number | null | undefined) {
 function fmtTimestamp(value: string | null | undefined) {
   if (!value) return 'N/A';
   return new Date(value).toLocaleString();
+}
+
+function fmtUptime(seconds: number | null | undefined) {
+  if (seconds == null) return 'N/A';
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function fmtHours(hours: number) {
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
 }
 
 function statusColor(value: number | null | undefined) {
@@ -165,6 +185,16 @@ export default function SystemDetailPage() {
   });
 
   const history = historyResponse?.history ?? [];
+
+  const { data: uptimeResponse } = useQuery<UptimeMonthlyResponse>({
+    queryKey: ['item-uptime-monthly', itemIdNum],
+    queryFn: () => layoutApi.getItemUptimeMonthly(itemIdNum, 6).then((r) => r.data as UptimeMonthlyResponse),
+    enabled: Number.isFinite(itemIdNum),
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+
+  const uptimeMonths = uptimeResponse?.months ?? [];
 
   const { data: faultsResponse } = useQuery<{ results: FaultReport[] }>({
     queryKey: ['system-fault-history', system?.host_name],
@@ -336,7 +366,7 @@ export default function SystemDetailPage() {
       </div>
 
       {/* Top Metric Cards */}
-      <div className={`grid grid-cols-2 ${hasGpu ? 'md:grid-cols-3 lg:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
+      <div className={`grid grid-cols-2 ${hasGpu ? 'md:grid-cols-3 lg:grid-cols-6' : 'lg:grid-cols-5'} gap-4`}>
         <MetricCard
           label="CPU Usage"
           value={fmtPct(latest?.cpu_usage)}
@@ -353,6 +383,7 @@ export default function SystemDetailPage() {
           />
         )}
         <MetricCard label="Disk Usage" value={fmtPct(latest?.disk_usage_percent)} sub={`${fmtGb(latest?.disk_used)} / ${fmtGb(latest?.disk_total)}`} icon={HardDrive} />
+        <MetricCard label="Uptime" value={fmtUptime(latest?.uptime_seconds)} sub={latest?.boot_time ? `Since ${new Date(latest.boot_time * 1000).toLocaleString()}` : undefined} icon={Timer} />
         <MetricCard label="Last Seen" value={latest ? new Date(latest.timestamp).toLocaleTimeString() : 'N/A'} sub={latest?.ip_address ?? undefined} icon={Clock} />
       </div>
 
@@ -424,7 +455,7 @@ export default function SystemDetailPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div className="grid gap-4">
         <div className="card p-5 xl:col-span-2">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Performance Trend</p>
@@ -451,7 +482,7 @@ export default function SystemDetailPage() {
           )}
         </div>
 
-        <div className="card p-5 space-y-4">
+        {/* <div className="card p-5 space-y-4">
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">System Overview</p>
           <div className="space-y-2 text-xs">
             <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800">
@@ -484,33 +515,73 @@ export default function SystemDetailPage() {
             <p className="text-xs text-slate-500">Disk</p>
             <p className={`text-xl font-semibold ${statusColor(latest?.disk_usage_percent)}`}>{fmtPct(latest?.disk_usage_percent)}</p>
           </div>
-          {system && canUpdateStatus && (
-            <div className={`rounded-lg border p-3 space-y-2 ${scannedCode ? 'border-blue-400 ring-2 ring-blue-200 dark:ring-blue-900/60' : 'border-slate-200'}`}>
-              <p className="text-xs text-slate-500">PC Status</p>
-              <select
-                className="input"
-                value={system.status}
-                onChange={(e) => statusMutation.mutate(e.target.value)}
-                disabled={statusMutation.isPending}
-              >
-                <option value="active">Active (Working)</option>
-                <option value="inactive">Inactive</option>
-                <option value="non-functional">Non-Functional</option>
-              </select>
-              {scannedCode && (
-                <p className="text-[11px] text-blue-600 dark:text-blue-400">
-                  Opened via QR scan ({scannedCode}) — update this PC's status here.
-                </p>
-              )}
-            </div>
-          )}
-          {latestError && (
-            <p className="text-xs text-amber-600">No live monitoring snapshot available right now.</p>
-          )}
-        </div>
+        </div> */}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      {/* Monthly Uptime Chart */}
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Monthly Average Uptime</p>
+          <Timer className="w-4 h-4 text-slate-400" />
+        </div>
+        {uptimeMonths.length === 0 ? (
+          <EmptyState
+            icon={<Timer className="w-6 h-6" />}
+            title="No uptime data"
+            description="Uptime data will appear once the monitoring agent reports boot time information."
+          />
+        ) : (
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart
+              data={uptimeMonths.map((m) => ({
+                name: m.month_label,
+                avg_hours: m.avg_daily_hours,
+                total_hours: m.total_hours,
+                active_days: m.active_days,
+                days: m.days,
+              }))}
+              margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#64748b' }} label={{ value: 'Avg Hours/Day', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#94a3b8' } }} />
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (!active || !payload || payload.length === 0) return null;
+                  const data = payload[0].payload as {
+                    name: string;
+                    avg_hours: number;
+                    total_hours: number;
+                    active_days: number;
+                    days: { date: string; uptime_hours: number }[];
+                  };
+                  return (
+                    <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 max-h-[320px] overflow-y-auto min-w-[220px]">
+                      <p className="text-sm font-semibold text-slate-800 mb-1">{data.name}</p>
+                      <p className="text-xs text-slate-500 mb-2">
+                        Avg: <span className="font-medium text-slate-700">{fmtHours(data.avg_hours)}</span>/day • Total: <span className="font-medium text-slate-700">{fmtHours(data.total_hours)}</span> • {data.active_days} active day{data.active_days !== 1 ? 's' : ''}
+                      </p>
+                      <div className="border-t border-slate-100 pt-2 space-y-1">
+                        {data.days.map((day) => (
+                          <div key={day.date} className="flex justify-between text-xs">
+                            <span className="text-slate-500">
+                              {new Date(day.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                            </span>
+                            <span className="font-medium text-emerald-600">{fmtHours(day.uptime_hours)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }}
+              />
+              <Bar dataKey="avg_hours" name="Avg Daily Uptime (hrs)" fill="#10b981" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      <div className="grid gap-4">
         <div className="card p-5">
           <p className="text-sm font-semibold text-slate-700 mb-3">Network Throughput History</p>
           {chartData.length === 0 ? (

@@ -171,6 +171,8 @@ def ingest_system_info(request):
             logged_in_users=data.get('logged_in_users'),
             gpu_available=as_bool(data.get('gpu_available')),
             gpu_stats=data.get('gpu_stats'),
+            boot_time=as_float(data.get('boot_time')),
+            uptime_seconds=as_float(data.get('uptime_seconds')),
         )
 
         SystemCurrent.objects.update_or_create(

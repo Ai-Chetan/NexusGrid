@@ -104,6 +104,8 @@ export const layoutApi = {
     apiClient.get('/monitoring/', { params: { item_id: itemId } }),
   getItemMonitoringHistory: (itemId: number, limit = 72) =>
     apiClient.get('/monitoring/history/', { params: { item_id: itemId, limit } }),
+  getItemUptimeMonthly: (itemId: number, months = 6) =>
+    apiClient.get('/monitoring/uptime/', { params: { item_id: itemId, months } }),
 };
 
 // ─── Faults ───────────────────────────────────────────────────────────────────

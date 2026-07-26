@@ -57,6 +57,7 @@ urlpatterns = [
     # Monitoring
     path('monitoring/', views.MonitoringView.as_view(), name='api-monitoring'),
     path('monitoring/history/', views.MonitoringHistoryView.as_view(), name='api-monitoring-history'),
+    path('monitoring/uptime/', views.UptimeMonthlyView.as_view(), name='api-monitoring-uptime'),
 
     # Users / Privileges
     path('users/', views.UserListView.as_view(), name='api-users-list'),

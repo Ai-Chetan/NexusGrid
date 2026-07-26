@@ -186,6 +186,9 @@ export interface SystemInfo {
   // GPU
   gpu_available?: boolean | null;
   gpu_stats?: GpuStat[] | null;
+  // Uptime
+  boot_time?: number | null;
+  uptime_seconds?: number | null;
   // Timestamp
   timestamp: string;
   // Legacy aliases kept for MonitoringPage compat
@@ -199,6 +202,27 @@ export interface MonitoringHistoryResponse {
   item_id: number;
   hostname: string;
   history: SystemInfo[];
+}
+
+// ─── Uptime ─────────────────────────────────────────────────────────────────
+export interface UptimeDayDetail {
+  date: string;
+  uptime_hours: number;
+}
+
+export interface UptimeMonthData {
+  month: string;
+  month_label: string;
+  avg_daily_hours: number;
+  total_hours: number;
+  active_days: number;
+  days: UptimeDayDetail[];
+}
+
+export interface UptimeMonthlyResponse {
+  item_id: number;
+  hostname: string;
+  months: UptimeMonthData[];
 }
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────

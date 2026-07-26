@@ -417,5 +417,6 @@ class SystemInfoSerializer(serializers.ModelSerializer):
             'disk_total', 'disk_used', 'disk_free', 'disk_usage_percent',
             'disk_read_bytes', 'disk_write_bytes',
             'bytes_sent', 'bytes_received', 'top_processes',
-            'users_count', 'logged_in_users', 'gpu_available', 'gpu_stats', 'timestamp'
+            'users_count', 'logged_in_users', 'gpu_available', 'gpu_stats',
+            'boot_time', 'uptime_seconds', 'timestamp'
         ]
