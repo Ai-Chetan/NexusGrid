@@ -262,6 +262,10 @@ def get_system_info():
             "users_count": len(logged_in_users),  # unit: count
             "logged_in_users": ", ".join(logged_in_users),  # unit: comma-separated usernames
 
+            # Uptime – populated by the main loop via _uptime_tick() (counter-based)
+            "boot_time": None,  # unit: unix timestamp – set by caller
+            "uptime_seconds": None,  # unit: seconds – set by caller
+
             # Timestamp (IST)
             "timestamp": get_ist_now().strftime("%Y-%m-%d %H:%M:%S")  # unit: datetime string in IST (YYYY-MM-DD HH:MM:SS)
         }
@@ -321,18 +325,103 @@ if platform.system() == "Windows":
 import sys
 import time
 
+# ── Uptime tracking (counter-based, persisted to disk) ────────────────────────
+SLEEP_INTERVAL = 60  # seconds between each reporting cycle
+INACTIVITY_THRESHOLD = 2.5  # if gap between runs exceeds this × SLEEP_INTERVAL, assume system was inactive
+
+UPTIME_STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uptime_state.json")
+
+
+def _load_uptime_state():
+    """Load persisted uptime state from disk. Returns dict or None."""
+    try:
+        if os.path.exists(UPTIME_STATE_FILE):
+            with open(UPTIME_STATE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return None
+
+
+def _save_uptime_state(state):
+    """Persist uptime state to disk so it survives process restarts."""
+    try:
+        with open(UPTIME_STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f)
+    except Exception:
+        pass
+
+
+def _uptime_tick():
+    """Call once per loop iteration. Returns (boot_time_unix, uptime_seconds).
+
+    Persists state to a JSON file so the counter survives across separate
+    process invocations (e.g. when launched via `script.py --once` from a
+    VBS wrapper every 60 seconds).
+
+    Detects system inactivity (sleep / hibernate) by comparing the real
+    elapsed time since the last tick against the expected SLEEP_INTERVAL.
+    When a gap is detected the counter resets so uptime reflects only
+    *active* monitoring time.
+    """
+    now_dt = get_ist_now()
+    now_ts = now_dt.timestamp()
+    state = _load_uptime_state()
+
+    if state is None:
+        # First ever run – start a fresh session
+        new_state = {
+            "session_start_ts": now_ts,
+            "run_count": 1,
+            "last_run_ts": now_ts,
+        }
+        _save_uptime_state(new_state)
+        return now_ts, float(SLEEP_INTERVAL)
+
+    session_start_ts = state.get("session_start_ts", now_ts)
+    run_count = state.get("run_count", 0)
+    last_run_ts = state.get("last_run_ts", now_ts)
+
+    elapsed = now_ts - last_run_ts
+
+    if elapsed > SLEEP_INTERVAL * INACTIVITY_THRESHOLD:
+        # System was likely sleeping / hibernating – reset session
+        log_event(
+            f"[INFO] Inactivity detected (gap {elapsed:.0f}s > threshold "
+            f"{SLEEP_INTERVAL * INACTIVITY_THRESHOLD:.0f}s). Resetting uptime counter."
+        )
+        session_start_ts = now_ts
+        run_count = 1
+    else:
+        run_count += 1
+
+    new_state = {
+        "session_start_ts": session_start_ts,
+        "run_count": run_count,
+        "last_run_ts": now_ts,
+    }
+    _save_uptime_state(new_state)
+
+    uptime_seconds = round(run_count * SLEEP_INTERVAL, 2)
+    return session_start_ts, uptime_seconds
+
+
 if __name__ == "__main__":
     run_once = "--once" in sys.argv
     while True:
         try:
+            boot_time_unix, uptime_secs = _uptime_tick()
             system_info = get_system_info()
             if system_info:
+                # Override the old psutil-based uptime with counter-based values
+                system_info["boot_time"] = boot_time_unix
+                system_info["uptime_seconds"] = uptime_secs
                 send_data_to_api(system_info)
         except Exception as e:
             pass
         if run_once:
             break
-        time.sleep(60)
+        time.sleep(SLEEP_INTERVAL)
 
 
 

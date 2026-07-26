@@ -28,10 +28,12 @@ schtasks /delete /tn "NexusGridMonitoring" /f >nul 2>&1
 schtasks /delete /tn "NexusGridOffline" /f >nul 2>&1
 
 :: Step 4: Remove Startup folder entry & Registry key
-echo [4/4] Removing Startup folder & Registry fallback entries...
+echo [4/4] Removing Startup folder ^& Registry fallback entries...
 set "STARTUP_FOLDER=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
+
 if exist "%STARTUP_FOLDER%\NexusGridMonitoring.vbs" del "%STARTUP_FOLDER%\NexusGridMonitoring.vbs" >nul 2>&1
 if exist "%STARTUP_FOLDER%\NexusGridMonitoring.bat" del "%STARTUP_FOLDER%\NexusGridMonitoring.bat" >nul 2>&1
+
 reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "NexusGridMonitoring" /f >nul 2>&1
 
 echo.

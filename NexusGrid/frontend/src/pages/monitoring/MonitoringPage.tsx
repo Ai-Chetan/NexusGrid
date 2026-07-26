@@ -1,13 +1,24 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Activity, RefreshCw, Clock, Search, ChevronDown, ChevronRight, Building2 } from 'lucide-react';
+import { Activity, RefreshCw, Clock, Search, ChevronDown, ChevronRight, Building2, Timer } from 'lucide-react';
 import { monitoringApi, layoutApi } from '@/lib/api';
 import { timeAgo, cn } from '@/lib/utils';
 import type { SystemInfo, SimpleSystem } from '@/types';
 import PageHeader from '@/components/common/PageHeader';
 import ErrorState from '@/components/common/ErrorState';
 import EmptyState from '@/components/common/EmptyState';
+
+// ─── Uptime formatter ─────────────────────────────────────────────────────────
+function fmtUptime(seconds: number | null | undefined): string {
+  if (seconds == null) return '—';
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
 
 // ─── Small usage pill ─────────────────────────────────────────────────────────
 function UsagePill({ label, value }: { label: string; value: number | null }) {
@@ -62,6 +73,9 @@ function SystemRow({
         )}
         <UsagePill label="Disk" value={diskUsage} />
       </div>
+      <span className="hidden md:flex items-center gap-1 text-xs text-slate-400 shrink-0 w-20 justify-end">
+        <Timer className="w-3 h-3" /> {fmtUptime(info.uptime_seconds)}
+      </span>
       <span className="hidden md:flex items-center gap-1 text-xs text-slate-400 shrink-0 w-24 justify-end">
         <Clock className="w-3 h-3" /> {timeAgo(info.timestamp)}
       </span>

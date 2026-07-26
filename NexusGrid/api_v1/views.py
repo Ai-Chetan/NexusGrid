@@ -559,10 +559,17 @@ class LayoutItemsView(APIView):
                         if aid in labs_by_item:
                             parent_lab = labs_by_item[aid]
                             break
+                # Default status is 'inactive'; promote to 'active' only if
+                # the hostname already exists in the monitoring current-state table.
+                hostname_key = item.name.strip().lower()
+                is_monitored = SystemCurrent.objects.filter(
+                    hostname_key=hostname_key
+                ).exists()
                 System.objects.create(
                     layout_item=item, lab=parent_lab,
                     host_name=item.name, updated_at=timezone.now(),
                     updated_by=request.user,
+                    status='active' if is_monitored else 'inactive',
                 )
         _notify_admins_layout_change(request.user, 'change (created)', item)
         return Response(LayoutItemSerializer(item, context=_layout_serializer_context()).data, status=201)
@@ -606,6 +613,16 @@ class LayoutItemDetailView(APIView):
         if request.user.role not in ('Administrator', 'Lab Assistant'):
             return Response({'detail': 'You do not have permission to edit the layout.'}, status=403)
         item = get_object_or_404(LayoutItem, pk=pk)
+
+        # If this layout item has an associated System, remove its monitoring
+        # records (SystemCurrent + SystemInfo) so stale data doesn't linger.
+        if item.item_type in SYSTEM_TYPES:
+            system = getattr(item, 'system', None)
+            if system and system.host_name:
+                hostname_key = system.host_name.strip().lower()
+                SystemCurrent.objects.filter(hostname_key=hostname_key).delete()
+                SystemInfo.objects.filter(hostname__iexact=system.host_name.strip()).delete()
+
         _notify_admins_layout_change(request.user, 'change (deleted)', item)
         item.delete()
         return Response(status=204)

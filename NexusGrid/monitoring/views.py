@@ -89,6 +89,8 @@ def system_status_api(request):
             'logged_in_users': info.logged_in_users,
             'gpu_available': info.gpu_available,
             'gpu_stats': info.gpu_stats,
+            'boot_time': info.boot_time,
+            'uptime_seconds': info.uptime_seconds,
             'timestamp': info.timestamp.isoformat(),
         }
         for info in infos
