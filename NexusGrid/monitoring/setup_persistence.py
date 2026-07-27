@@ -153,14 +153,20 @@ if os.path.isdir(startup_folder):
     p(f"[OK] Created Silent Startup entry: {vbs_startup} -> runs install_monitoring.bat on boot (turns Green)")
 
 # ── 6. HKCU Registry Run fallback ───────────────────────────────────────────
-# Registry run entry also points to install_monitoring.bat for green-on-boot
+# Registry run entry points to run_install_silent.vbs for silent green-on-boot
 try:
     import winreg
+    vbs_reg_runner = os.path.join(script_dir, "run_install_silent.vbs")
+    with open(vbs_reg_runner, "w") as f:
+        f.write('Set WshShell = CreateObject("WScript.Shell")\r\n')
+        f.write(f'WshShell.Run "cmd.exe /c \"\"\" & "{install_bat}" & \"\"\"\", 0, False\r\n')
+    
     key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
-    reg_cmd = f'cmd.exe /c "{install_bat}"'
+    reg_cmd = f'wscript.exe "{vbs_reg_runner}"'
     winreg.SetValueEx(key, "NexusGridMonitoring", 0, winreg.REG_SZ, reg_cmd)
     winreg.CloseKey(key)
-    p("[OK] Added HKCU Registry Run entry: NexusGridMonitoring -> runs install_monitoring.bat on logon")
+    p("[OK] Added HKCU Registry Run entry: NexusGridMonitoring -> runs run_install_silent.vbs on logon (silent)")
 except Exception as e:
     p(f"[NOTE] Registry Run entry skipped: {e}")
+
 
