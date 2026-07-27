@@ -52,6 +52,9 @@ class SystemInfo(models.Model):
     # Uptime
     boot_time = models.FloatField(null=True, blank=True, help_text="Unix timestamp of last system boot")
     uptime_seconds = models.FloatField(null=True, blank=True, help_text="Seconds since last boot at snapshot time")
+    today_uptime_seconds = models.FloatField(null=True, blank=True, help_text="Total seconds the PC has been ON today")
+    today_uptime_formatted = models.CharField(max_length=50, null=True, blank=True)
+    today_date = models.CharField(max_length=20, null=True, blank=True)
     
     # Timestamp
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)

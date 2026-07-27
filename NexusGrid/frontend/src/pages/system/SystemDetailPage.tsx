@@ -383,7 +383,20 @@ export default function SystemDetailPage() {
           />
         )}
         <MetricCard label="Disk Usage" value={fmtPct(latest?.disk_usage_percent)} sub={`${fmtGb(latest?.disk_used)} / ${fmtGb(latest?.disk_total)}`} icon={HardDrive} />
-        <MetricCard label="Uptime" value={fmtUptime(latest?.uptime_seconds)} sub={latest?.boot_time ? `Since ${new Date(latest.boot_time * 1000).toLocaleString()}` : undefined} icon={Timer} />
+        <MetricCard 
+          label="Uptime" 
+          value={fmtUptime(
+            latest?.today_uptime_seconds != null ? latest.today_uptime_seconds : 
+            (latest?.boot_time != null ? (() => {
+              const now = new Date();
+              const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+              const bootTs = latest.boot_time * 1000;
+              return Math.max(0, (now.getTime() - (bootTs >= midnight ? bootTs : midnight)) / 1000);
+            })() : latest?.uptime_seconds)
+          )} 
+          sub={latest?.today_uptime_seconds != null || latest?.boot_time != null ? 'Today' : undefined} 
+          icon={Timer} 
+        />
         <MetricCard label="Last Seen" value={latest ? new Date(latest.timestamp).toLocaleTimeString() : 'N/A'} sub={latest?.ip_address ?? undefined} icon={Clock} />
       </div>
 

@@ -189,6 +189,9 @@ export interface SystemInfo {
   // Uptime
   boot_time?: number | null;
   uptime_seconds?: number | null;
+  today_uptime_seconds?: number | null;
+  today_uptime_formatted?: string | null;
+  today_date?: string | null;
   // Timestamp
   timestamp: string;
   // Legacy aliases kept for MonitoringPage compat

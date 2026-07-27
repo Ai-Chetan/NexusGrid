@@ -406,6 +406,113 @@ def _uptime_tick():
     return session_start_ts, uptime_seconds
 
 
+# ── Daily Uptime Tracking ───────────────────────────────────────────────────
+
+DAILY_UPTIME_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "daily_uptime.json")
+
+def _get_daily_uptime():
+    """
+    Calculates the total time the PC has been ON during the current calendar day.
+    Resets at midnight local time. Handles sleep/resume and unexpected restarts.
+    Returns:
+        tuple: (current_uptime_seconds, today_uptime_seconds, today_uptime_formatted, today_date)
+    """
+    try:
+        now_dt = datetime.now()
+        now_ts = now_dt.timestamp()
+        today_date_str = now_dt.strftime("%Y-%m-%d")
+        boot_time_ts = psutil.boot_time()
+        
+        current_uptime_seconds = int(now_ts - boot_time_ts)
+        
+        midnight_dt = now_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        midnight_ts = midnight_dt.timestamp()
+        
+        state = None
+        if os.path.exists(DAILY_UPTIME_FILE):
+            try:
+                with open(DAILY_UPTIME_FILE, "r", encoding="utf-8") as f:
+                    state = json.load(f)
+            except Exception:
+                pass
+                
+        if state is None:
+            # First run ever (or corrupted file)
+            if boot_time_ts >= midnight_ts:
+                accumulated_uptime = now_ts - boot_time_ts
+            else:
+                accumulated_uptime = now_ts - midnight_ts
+        else:
+            saved_date = state.get("today_date", today_date_str)
+            accumulated_uptime = state.get("today_uptime_seconds", 0.0)
+            last_heartbeat_ts = state.get("last_heartbeat_timestamp", now_ts)
+            last_boot_ts = state.get("last_boot_time", boot_time_ts)
+            
+            # Check if we crossed midnight
+            if saved_date != today_date_str:
+                accumulated_uptime = 0.0
+                
+                if abs(last_boot_ts - boot_time_ts) < 5:
+                    # Same boot session, meaning PC was ON across midnight.
+                    elapsed_total = now_ts - last_heartbeat_ts
+                    if elapsed_total > 150: # Sleep detected across midnight
+                        accumulated_uptime = 60.0
+                    else:
+                        accumulated_uptime = now_ts - midnight_ts
+                else:
+                    # New boot session today
+                    if boot_time_ts >= midnight_ts:
+                        accumulated_uptime = now_ts - boot_time_ts
+                    else:
+                        accumulated_uptime = now_ts - midnight_ts
+            else:
+                # Same day
+                if abs(last_boot_ts - boot_time_ts) < 5:
+                    # Same boot session
+                    elapsed = now_ts - last_heartbeat_ts
+                    if elapsed > 0:
+                        if elapsed > 150:
+                            # Sleep detected. Only add a normal tick interval.
+                            accumulated_uptime += 60.0
+                        else:
+                            accumulated_uptime += elapsed
+                else:
+                    # New boot session today
+                    elapsed_since_boot = now_ts - boot_time_ts
+                    if elapsed_since_boot > 0:
+                        accumulated_uptime += elapsed_since_boot
+        
+        accumulated_uptime = max(0.0, accumulated_uptime)
+        
+        # Save state
+        new_state = {
+            "today_date": today_date_str,
+            "today_uptime_seconds": accumulated_uptime,
+            "last_heartbeat_timestamp": now_ts,
+            "last_boot_time": boot_time_ts
+        }
+        
+        try:
+            with open(DAILY_UPTIME_FILE, "w", encoding="utf-8") as f:
+                json.dump(new_state, f)
+        except Exception:
+            pass
+            
+        acc_sec = int(accumulated_uptime)
+        hours = acc_sec // 3600
+        minutes = (acc_sec % 3600) // 60
+        seconds = acc_sec % 60
+        formatted = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        
+        return current_uptime_seconds, acc_sec, formatted, today_date_str
+        
+    except Exception as e:
+        try:
+            log_event(f"[ERROR] Daily uptime calculation failed: {e}")
+        except Exception:
+            pass
+        return None, None, None, None
+
 if __name__ == "__main__":
     run_once = "--once" in sys.argv
     while True:
@@ -416,6 +523,15 @@ if __name__ == "__main__":
                 # Override the old psutil-based uptime with counter-based values
                 system_info["boot_time"] = boot_time_unix
                 system_info["uptime_seconds"] = uptime_secs
+                
+                # Add daily uptime fields
+                cur_up_sec, today_up_sec, today_up_fmt, today_date = _get_daily_uptime()
+                if cur_up_sec is not None:
+                    system_info["current_uptime_seconds"] = cur_up_sec
+                    system_info["today_uptime_seconds"] = today_up_sec
+                    system_info["today_uptime_formatted"] = today_up_fmt
+                    system_info["today_date"] = today_date
+                    
                 send_data_to_api(system_info)
         except Exception as e:
             pass
