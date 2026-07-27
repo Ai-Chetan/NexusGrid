@@ -2441,3 +2441,186 @@ class ProfileUpdateView(APIView):
             update_session_auth_hash(request, user)
 
         return Response({'user': UserSerializer(user).data})
+
+# ─── Analytics Drill-Down ──────────────────────────────────────────────────
+
+def _get_hostname(request):
+    item_id = request.GET.get('item_id', '').strip()
+    if not item_id.isdigit():
+        return None, Response({'detail': 'item_id is required.'}, status=400)
+    item = get_object_or_404(LayoutItem.objects.select_related('system'), pk=int(item_id))
+    system = getattr(item, 'system', None)
+    hostname = (system.host_name if system else item.name) or ''
+    hostname = hostname.strip()
+    if not hostname:
+        return None, Response({'detail': 'No hostname found for this item.'}, status=404)
+    return hostname, None
+
+def _calculate_daily_uptime(snapshots, day_start_ts=None):
+    from collections import defaultdict
+    from datetime import datetime
+    sessions = defaultdict(list)
+    for s in snapshots:
+        sessions[s['boot_time']].append(s['timestamp'].timestamp())
+    total_seconds = 0.0
+    for boot_time, timestamps in sessions.items():
+        min_seen = min(timestamps)
+        max_seen = max(timestamps)
+        if day_start_ts is None:
+            first_dt = datetime.fromtimestamp(min_seen, tz=snapshots[0]['timestamp'].tzinfo)
+            day_start = first_dt.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+        else:
+            day_start = day_start_ts
+        if boot_time >= day_start:
+            total_seconds += max(0, max_seen - boot_time)
+        else:
+            total_seconds += max(0, max_seen - min_seen)
+    return total_seconds
+
+class AnalyticsYearlyView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        from collections import defaultdict
+        hostname, err = _get_hostname(request)
+        if err: return err
+        snapshots = list(
+            SystemInfo.objects
+            .filter(hostname__iexact=hostname, boot_time__isnull=False)
+            .values('timestamp', 'boot_time')
+        )
+        yearly_data = defaultdict(lambda: defaultdict(list))
+        for snap in snapshots:
+            dt = snap['timestamp']
+            yearly_data[dt.year][dt.strftime('%Y-%m-%d')].append(snap)
+        results = []
+        from datetime import datetime
+        for year, days in sorted(yearly_data.items()):
+            active_days = len(days)
+            total_yearly_seconds = 0.0
+            for day_key, snaps in days.items():
+                day_start = datetime.strptime(day_key, '%Y-%m-%d').replace(tzinfo=snaps[0]['timestamp'].tzinfo).timestamp()
+                total_yearly_seconds += _calculate_daily_uptime(snaps, day_start)
+            total_hours = total_yearly_seconds / 3600.0
+            avg_hours = round(total_hours / active_days, 2) if active_days > 0 else 0
+            results.append({
+                'year': year,
+                'avg_daily_hours': avg_hours,
+                'active_days': active_days,
+                'total_hours': round(total_hours, 2)
+            })
+        return Response({'item_id': int(request.GET.get('item_id')), 'hostname': hostname, 'years': results})
+
+class AnalyticsMonthlyView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        from collections import defaultdict
+        hostname, err = _get_hostname(request)
+        if err: return err
+        year_str = request.GET.get('year', str(timezone.now().year))
+        try:
+            year = int(year_str)
+        except:
+            return Response({'detail': 'Invalid year'}, status=400)
+        snapshots = list(
+            SystemInfo.objects
+            .filter(hostname__iexact=hostname, timestamp__year=year, boot_time__isnull=False)
+            .values('timestamp', 'boot_time')
+        )
+        monthly_data = defaultdict(lambda: defaultdict(list))
+        for snap in snapshots:
+            dt = snap['timestamp']
+            monthly_data[dt.month][dt.strftime('%Y-%m-%d')].append(snap)
+        results = []
+        from datetime import datetime
+        for month in range(1, 13):
+            days = monthly_data.get(month, {})
+            active_days = len(days)
+            total_monthly_seconds = 0.0
+            for day_key, snaps in days.items():
+                day_start = datetime.strptime(day_key, '%Y-%m-%d').replace(tzinfo=snaps[0]['timestamp'].tzinfo).timestamp()
+                total_monthly_seconds += _calculate_daily_uptime(snaps, day_start)
+            total_hours = total_monthly_seconds / 3600.0
+            avg_hours = round(total_hours / active_days, 2) if active_days > 0 else 0
+            results.append({
+                'month': month,
+                'month_label': datetime(year, month, 1).strftime('%B'),
+                'avg_daily_hours': avg_hours,
+                'active_days': active_days,
+                'total_hours': round(total_hours, 2)
+            })
+        return Response({'item_id': int(request.GET.get('item_id')), 'hostname': hostname, 'year': year, 'months': results})
+
+class AnalyticsDailyView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        from collections import defaultdict
+        hostname, err = _get_hostname(request)
+        if err: return err
+        try:
+            year = int(request.GET.get('year', timezone.now().year))
+            month = int(request.GET.get('month', timezone.now().month))
+        except:
+            return Response({'detail': 'Invalid year or month'}, status=400)
+        snapshots = list(
+            SystemInfo.objects
+            .filter(hostname__iexact=hostname, timestamp__year=year, timestamp__month=month, boot_time__isnull=False)
+            .values('timestamp', 'boot_time')
+        )
+        daily_data = defaultdict(list)
+        for snap in snapshots:
+            daily_data[snap['timestamp'].day].append(snap)
+        import calendar
+        from datetime import datetime
+        _, num_days = calendar.monthrange(year, month)
+        results = []
+        for day in range(1, num_days + 1):
+            snaps = daily_data.get(day, [])
+            total_hours = 0.0
+            if snaps:
+                day_key = f"{year}-{month:02d}-{day:02d}"
+                day_start = datetime.strptime(day_key, '%Y-%m-%d').replace(tzinfo=snaps[0]['timestamp'].tzinfo).timestamp()
+                total_hours = _calculate_daily_uptime(snaps, day_start) / 3600.0
+            results.append({
+                'day': day,
+                'date': f"{year}-{month:02d}-{day:02d}",
+                'total_hours': round(total_hours, 2),
+                'active': len(snaps) > 0,
+                'boot_sessions': len(set(s['boot_time'] for s in snaps)) if snaps else 0
+            })
+        return Response({'item_id': int(request.GET.get('item_id')), 'hostname': hostname, 'year': year, 'month': month, 'days': results})
+
+class AnalyticsIntradayView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        hostname, err = _get_hostname(request)
+        if err: return err
+        date_str = request.GET.get('date')
+        if not date_str:
+            return Response({'detail': 'Date is required'}, status=400)
+        from datetime import datetime
+        try:
+            dt = datetime.strptime(date_str, '%Y-%m-%d')
+        except ValueError:
+            return Response({'detail': 'Invalid date format'}, status=400)
+        snapshots = list(
+            SystemInfo.objects
+            .filter(hostname__iexact=hostname, timestamp__date=dt.date(), boot_time__isnull=False)
+            .order_by('timestamp')
+            .values('timestamp', 'boot_time')
+        )
+        timeline = []
+        if snapshots:
+            current_block = None
+            for snap in snapshots:
+                ts = snap['timestamp'].timestamp()
+                if not current_block:
+                    current_block = {'start': ts, 'end': ts, 'boot_time': snap['boot_time']}
+                else:
+                    if snap['boot_time'] != current_block['boot_time'] or (ts - current_block['end']) > 150:
+                        timeline.append(current_block)
+                        current_block = {'start': ts, 'end': ts, 'boot_time': snap['boot_time']}
+                    else:
+                        current_block['end'] = ts
+            if current_block:
+                timeline.append(current_block)
+        return Response({'item_id': int(request.GET.get('item_id')), 'hostname': hostname, 'date': date_str, 'timeline': timeline})

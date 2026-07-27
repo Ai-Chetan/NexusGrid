@@ -431,3 +431,62 @@ export interface CurrentAssignment {
   start_date: string | null;
   end_date: string | null;
 }
+
+// ─── Analytics Drilldown ────────────────────────────────────────────────────────
+
+export interface AnalyticsYearData {
+  year: number;
+  avg_daily_hours: number;
+  active_days: number;
+  total_hours: number;
+}
+
+export interface AnalyticsYearlyResponse {
+  item_id: number;
+  hostname: string;
+  years: AnalyticsYearData[];
+}
+
+export interface AnalyticsMonthData {
+  month: number;
+  month_label: string;
+  avg_daily_hours: number;
+  active_days: number;
+  total_hours: number;
+}
+
+export interface AnalyticsMonthlyResponse {
+  item_id: number;
+  hostname: string;
+  year: number;
+  months: AnalyticsMonthData[];
+}
+
+export interface AnalyticsDayData {
+  day: number;
+  date: string;
+  total_hours: number;
+  active: boolean;
+  boot_sessions: number;
+}
+
+export interface AnalyticsDailyResponse {
+  item_id: number;
+  hostname: string;
+  year: number;
+  month: number;
+  days: AnalyticsDayData[];
+}
+
+export interface AnalyticsIntradayBlock {
+  start: number;
+  end: number;
+  boot_time: number;
+}
+
+export interface AnalyticsIntradayResponse {
+  item_id: number;
+  hostname: string;
+  date: string;
+  timeline: AnalyticsIntradayBlock[];
+}

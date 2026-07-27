@@ -58,6 +58,12 @@ urlpatterns = [
     path('monitoring/', views.MonitoringView.as_view(), name='api-monitoring'),
     path('monitoring/history/', views.MonitoringHistoryView.as_view(), name='api-monitoring-history'),
     path('monitoring/uptime/', views.UptimeMonthlyView.as_view(), name='api-monitoring-uptime'),
+    
+    # Analytics
+    path('monitoring/analytics/yearly/', views.AnalyticsYearlyView.as_view(), name='api-analytics-yearly'),
+    path('monitoring/analytics/monthly/', views.AnalyticsMonthlyView.as_view(), name='api-analytics-monthly'),
+    path('monitoring/analytics/daily/', views.AnalyticsDailyView.as_view(), name='api-analytics-daily'),
+    path('monitoring/analytics/intraday/', views.AnalyticsIntradayView.as_view(), name='api-analytics-intraday'),
 
     # Users / Privileges
     path('users/', views.UserListView.as_view(), name='api-users-list'),

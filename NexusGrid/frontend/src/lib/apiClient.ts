@@ -106,6 +106,15 @@ export const layoutApi = {
     apiClient.get('/monitoring/history/', { params: { item_id: itemId, limit } }),
   getItemUptimeMonthly: (itemId: number, months = 6) =>
     apiClient.get('/monitoring/uptime/', { params: { item_id: itemId, months } }),
+    
+  getAnalyticsYearly: (itemId: number) =>
+    apiClient.get('/monitoring/analytics/yearly/', { params: { item_id: itemId } }),
+  getAnalyticsMonthly: (itemId: number, year: number) =>
+    apiClient.get('/monitoring/analytics/monthly/', { params: { item_id: itemId, year } }),
+  getAnalyticsDaily: (itemId: number, year: number, month: number) =>
+    apiClient.get('/monitoring/analytics/daily/', { params: { item_id: itemId, year, month } }),
+  getAnalyticsIntraday: (itemId: number, date: string) =>
+    apiClient.get('/monitoring/analytics/intraday/', { params: { item_id: itemId, date } }),
 };
 
 // ─── Faults ───────────────────────────────────────────────────────────────────

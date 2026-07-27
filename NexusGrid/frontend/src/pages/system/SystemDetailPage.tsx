@@ -19,8 +19,6 @@ import {
 import {
   Area,
   AreaChart,
-  Bar,
-  BarChart,
   CartesianGrid,
   Line,
   LineChart,
@@ -34,10 +32,11 @@ import toast from 'react-hot-toast';
 import { faultsApi, layoutApi, resourcesApi } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { downloadQrPrintSheet } from '@/lib/qrPrint';
-import type { FaultReport, LayoutItem, MonitoringHistoryResponse, ResourceRequest, SimpleSystem, SystemInfo, UptimeMonthlyResponse } from '@/types';
+import type { FaultReport, LayoutItem, MonitoringHistoryResponse, ResourceRequest, SimpleSystem, SystemInfo } from '@/types';
 import ErrorState from '@/components/common/ErrorState';
 import EmptyState from '@/components/common/EmptyState';
 import Modal from '@/components/common/Modal';
+import { UptimeDrillDown } from '@/components/analytics/UptimeDrillDown';
 
 function fmtPct(value: number | null | undefined) {
   return value == null ? 'N/A' : `${value.toFixed(1)}%`;
@@ -111,6 +110,7 @@ export default function SystemDetailPage() {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [faultModalOpen, setFaultModalOpen] = useState(false);
   const [resourceModalOpen, setResourceModalOpen] = useState(false);
+  const [analyticsModalOpen, setAnalyticsModalOpen] = useState(false);
   const [faultType, setFaultType] = useState('Hardware');
   const [faultDesc, setFaultDesc] = useState('');
   const [resourceName, setResourceName] = useState('');
@@ -186,15 +186,7 @@ export default function SystemDetailPage() {
 
   const history = historyResponse?.history ?? [];
 
-  const { data: uptimeResponse } = useQuery<UptimeMonthlyResponse>({
-    queryKey: ['item-uptime-monthly', itemIdNum],
-    queryFn: () => layoutApi.getItemUptimeMonthly(itemIdNum, 6).then((r) => r.data as UptimeMonthlyResponse),
-    enabled: Number.isFinite(itemIdNum),
-    staleTime: 60_000,
-    refetchInterval: 60_000,
-  });
 
-  const uptimeMonths = uptimeResponse?.months ?? [];
 
   const { data: faultsResponse } = useQuery<{ results: FaultReport[] }>({
     queryKey: ['system-fault-history', system?.host_name],
@@ -531,67 +523,9 @@ export default function SystemDetailPage() {
         </div> */}
       </div>
 
-      {/* Monthly Uptime Chart */}
-      <div className="card p-5">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Monthly Average Uptime</p>
-          <Timer className="w-4 h-4 text-slate-400" />
-        </div>
-        {uptimeMonths.length === 0 ? (
-          <EmptyState
-            icon={<Timer className="w-6 h-6" />}
-            title="No uptime data"
-            description="Uptime data will appear once the monitoring agent reports boot time information."
-          />
-        ) : (
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart
-              data={uptimeMonths.map((m) => ({
-                name: m.month_label,
-                avg_hours: m.avg_daily_hours,
-                total_hours: m.total_hours,
-                active_days: m.active_days,
-                days: m.days,
-              }))}
-              margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#64748b' }} label={{ value: 'Avg Hours/Day', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#94a3b8' } }} />
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (!active || !payload || payload.length === 0) return null;
-                  const data = payload[0].payload as {
-                    name: string;
-                    avg_hours: number;
-                    total_hours: number;
-                    active_days: number;
-                    days: { date: string; uptime_hours: number }[];
-                  };
-                  return (
-                    <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 max-h-[320px] overflow-y-auto min-w-[220px]">
-                      <p className="text-sm font-semibold text-slate-800 mb-1">{data.name}</p>
-                      <p className="text-xs text-slate-500 mb-2">
-                        Avg: <span className="font-medium text-slate-700">{fmtHours(data.avg_hours)}</span>/day • Total: <span className="font-medium text-slate-700">{fmtHours(data.total_hours)}</span> • {data.active_days} active day{data.active_days !== 1 ? 's' : ''}
-                      </p>
-                      <div className="border-t border-slate-100 pt-2 space-y-1">
-                        {data.days.map((day) => (
-                          <div key={day.date} className="flex justify-between text-xs">
-                            <span className="text-slate-500">
-                              {new Date(day.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                            </span>
-                            <span className="font-medium text-emerald-600">{fmtHours(day.uptime_hours)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                }}
-              />
-              <Bar dataKey="avg_hours" name="Avg Daily Uptime (hrs)" fill="#10b981" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
+      {/* Analytics Uptime Drill Down */}
+      <div className="card p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+         <UptimeDrillDown itemId={itemIdNum} hostname={system?.host_name || ''} />
       </div>
 
       <div className="grid gap-4">
