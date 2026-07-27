@@ -74,7 +74,15 @@ function SystemRow({
         <UsagePill label="Disk" value={diskUsage} />
       </div>
       <span className="hidden md:flex items-center gap-1 text-xs text-slate-400 shrink-0 w-20 justify-end">
-        <Timer className="w-3 h-3" /> {fmtUptime(info.uptime_seconds)}
+        <Timer className="w-3 h-3" /> {fmtUptime(
+          info.today_uptime_seconds != null ? info.today_uptime_seconds :
+          (info.boot_time != null ? (() => {
+            const now = new Date();
+            const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+            const bootTs = info.boot_time * 1000;
+            return Math.max(0, (now.getTime() - (bootTs >= midnight ? bootTs : midnight)) / 1000);
+          })() : info.uptime_seconds)
+        )}
       </span>
       <span className="hidden md:flex items-center gap-1 text-xs text-slate-400 shrink-0 w-24 justify-end">
         <Clock className="w-3 h-3" /> {timeAgo(info.timestamp)}

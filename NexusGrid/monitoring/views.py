@@ -91,6 +91,9 @@ def system_status_api(request):
             'gpu_stats': info.gpu_stats,
             'boot_time': info.boot_time,
             'uptime_seconds': info.uptime_seconds,
+            'today_uptime_seconds': info.today_uptime_seconds,
+            'today_uptime_formatted': info.today_uptime_formatted,
+            'today_date': info.today_date,
             'timestamp': info.timestamp.isoformat(),
         }
         for info in infos
@@ -136,6 +139,31 @@ def ingest_system_info(request):
         hostname = data.get('hostname', '').strip()
         if not hostname:
             return JsonResponse({'error': 'hostname is required'}, status=400)
+            
+        boot_time = as_float(data.get('boot_time'))
+        today_uptime_seconds = as_float(data.get('today_uptime_seconds'))
+        today_uptime_formatted = data.get('today_uptime_formatted')
+        today_date = data.get('today_date')
+        
+        # Fallback for older agents or bugs: calculate daily uptime dynamically
+        if boot_time is not None and today_uptime_seconds is None:
+            from django.utils import timezone
+            now_dt = timezone.localtime()
+            now_ts = now_dt.timestamp()
+            midnight = now_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+            midnight_ts = midnight.timestamp()
+            
+            if boot_time >= midnight_ts:
+                today_uptime_seconds = max(0.0, now_ts - boot_time)
+            else:
+                today_uptime_seconds = max(0.0, now_ts - midnight_ts)
+                
+            today_date = now_dt.strftime('%Y-%m-%d')
+            acc_sec = int(today_uptime_seconds)
+            h = acc_sec // 3600
+            m = (acc_sec % 3600) // 60
+            s = acc_sec % 60
+            today_uptime_formatted = f"{h:02d}:{m:02d}:{s:02d}"
 
         info = SystemInfo.objects.create(
             hostname=hostname,
@@ -173,8 +201,11 @@ def ingest_system_info(request):
             logged_in_users=data.get('logged_in_users'),
             gpu_available=as_bool(data.get('gpu_available')),
             gpu_stats=data.get('gpu_stats'),
-            boot_time=as_float(data.get('boot_time')),
+            boot_time=boot_time,
             uptime_seconds=as_float(data.get('uptime_seconds')),
+            today_uptime_seconds=today_uptime_seconds,
+            today_uptime_formatted=today_uptime_formatted,
+            today_date=today_date,
         )
 
         SystemCurrent.objects.update_or_create(
