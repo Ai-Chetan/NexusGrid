@@ -158,24 +158,14 @@ def ingest_system_info(request):
             SystemInfo.objects.filter(
                 hostname__iexact=hostname,
                 timestamp__gte=midnight_dt,
-                boot_time__isnull=False
             ).values('boot_time', 'timestamp')
         )
+        today_snaps.append({'boot_time': boot_time, 'timestamp': now_dt})
 
-        sessions = defaultdict(list)
-        for s in today_snaps:
-            sessions[s['boot_time']].append(s['timestamp'].timestamp())
+        from api_v1.views import _calculate_daily_uptime
+        computed_today_uptime = _calculate_daily_uptime(today_snaps, midnight_ts)
 
-        if boot_time is not None:
-            sessions[boot_time].append(now_ts)
-
-        computed_today_uptime = 0.0
-        for b_time, timestamps in sessions.items():
-            max_seen = max(timestamps)
-            if b_time >= midnight_ts:
-                computed_today_uptime += max(0.0, max_seen - b_time)
-            else:
-                computed_today_uptime += max(0.0, max_seen - midnight_ts)
+        print(f"DEBUG: computed={computed_today_uptime}, payload={today_uptime_seconds}")
 
         if today_uptime_seconds is not None:
             today_uptime_seconds = max(today_uptime_seconds, computed_today_uptime)
@@ -278,7 +268,7 @@ def ingest_system_info(request):
                 Q(host_name__in=stale_hostnames) | Q(layout_item__name__in=stale_hostnames)
             ).update(status='inactive')
 
-        return JsonResponse({'status': 'ok'})
+        return JsonResponse({'status': 'ok', 'debug': computed_today_uptime})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
