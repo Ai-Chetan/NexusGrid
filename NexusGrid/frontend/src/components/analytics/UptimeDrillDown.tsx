@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
 import { layoutApi } from '../../lib/apiClient';
-import { ChevronRight, ArrowLeft, Loader2, Monitor } from 'lucide-react';
+import { ChevronRight, ArrowLeft, Loader2, Monitor, FileDown } from 'lucide-react';
+import { generatePdfReport } from '../../lib/pdfReport';
+import type { PdfReportOptions } from '../../lib/pdfReport';
 import type { 
   AnalyticsYearlyResponse, 
   AnalyticsMonthlyResponse, 
@@ -76,6 +78,83 @@ export function UptimeDrillDown({ itemId, hostname }: Props) {
       setSelectedDate(date);
       setLevel('intraday');
     }
+  };
+
+  const handleExportPdf = () => {
+    const opts: PdfReportOptions = {
+      title: 'Uptime Analytics Report',
+      subtitle: `System: ${hostname}`,
+      meta: [
+        `Report Level: ${level.charAt(0).toUpperCase() + level.slice(1)}`,
+      ],
+      fileName: `uptime-analytics-${hostname}-${level}.pdf`,
+      tables: [],
+    };
+
+    if (level === 'yearly' && yearlyData?.years) {
+      opts.tables.push({
+        title: 'Yearly Uptime Summary',
+        columns: [
+          { header: 'Year', key: 'year' },
+          { header: 'Avg Daily Uptime (hours)', key: 'avg_daily_hours', align: 'right' },
+        ],
+        rows: yearlyData.years.map(y => ({
+          year: y.year,
+          avg_daily_hours: y.avg_daily_hours.toFixed(2),
+        })),
+      });
+    } else if (level === 'monthly' && monthlyData?.months) {
+      if (selectedYear) opts.meta?.push(`Year: ${selectedYear}`);
+      opts.tables.push({
+        title: `Monthly Uptime Summary (${selectedYear})`,
+        columns: [
+          { header: 'Month', key: 'month_label' },
+          { header: 'Avg Daily Uptime (hours)', key: 'avg_daily_hours', align: 'right' },
+        ],
+        rows: monthlyData.months.map(m => ({
+          month_label: m.month_label,
+          avg_daily_hours: m.avg_daily_hours.toFixed(2),
+        })),
+      });
+    } else if (level === 'daily' && dailyData?.days) {
+      const monthName = new Date(selectedYear!, selectedMonth! - 1, 1).toLocaleString('default', { month: 'long' });
+      if (selectedYear && selectedMonth) opts.meta?.push(`Period: ${monthName} ${selectedYear}`);
+      opts.tables.push({
+        title: `Daily Uptime Summary (${monthName} ${selectedYear})`,
+        columns: [
+          { header: 'Day', key: 'day' },
+          { header: 'Total Uptime (hours)', key: 'total_hours', align: 'right' },
+          { header: 'Boot Sessions', key: 'boot_sessions', align: 'right' },
+        ],
+        rows: dailyData.days.map(d => ({
+          day: d.day,
+          total_hours: d.total_hours.toFixed(2),
+          boot_sessions: d.boot_sessions,
+        })),
+      });
+    } else if (level === 'intraday' && intradayData?.timeline) {
+      if (selectedDate) opts.meta?.push(`Date: ${selectedDate}`);
+      opts.tables.push({
+        title: `Intraday Activity (${selectedDate})`,
+        columns: [
+          { header: 'Session Start', key: 'start' },
+          { header: 'Session End', key: 'end' },
+          { header: 'Duration (hours)', key: 'duration', align: 'right' },
+          { header: 'Boot Time', key: 'boot_time' },
+        ],
+        rows: intradayData.timeline.map(t => {
+          const durationHrs = (t.end - t.start) / 3600;
+          return {
+            start: new Date(t.start * 1000).toLocaleTimeString(),
+            end: new Date(t.end * 1000).toLocaleTimeString(),
+            duration: durationHrs.toFixed(2),
+            boot_time: new Date(t.boot_time * 1000).toLocaleString(),
+          };
+        }),
+      });
+    }
+
+    generatePdfReport(opts);
   };
 
   const formatHrs = (val: number) => `${val.toFixed(1)}h`;
@@ -222,6 +301,13 @@ export function UptimeDrillDown({ itemId, hostname }: Props) {
           )}
           Uptime Analytics <span className="text-slate-400 font-normal text-lg">/ {hostname}</span>
         </h2>
+        <button
+          onClick={handleExportPdf}
+          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-slate-300"
+        >
+          <FileDown className="w-4 h-4" />
+          Export PDF
+        </button>
       </div>
 
       {renderBreadcrumbs()}
