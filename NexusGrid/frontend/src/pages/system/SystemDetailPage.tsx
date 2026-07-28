@@ -470,6 +470,59 @@ export default function SystemDetailPage() {
         )}
       </div>
 
+      {canReport && (
+        <div className="card p-5 space-y-4">
+          <p className="text-sm font-semibold text-slate-700">Quick Reporting</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="rounded-lg border border-slate-200 p-3 space-y-2">
+              <p className="text-xs font-semibold text-slate-700">Report Fault</p>
+              <select value={faultType} onChange={(e) => setFaultType(e.target.value)} className="input">
+                <option value="Hardware">Hardware</option>
+                <option value="Software">Software</option>
+                <option value="Network">Network</option>
+              </select>
+              <textarea
+                className="input min-h-[82px] resize-none"
+                value={faultDesc}
+                onChange={(e) => setFaultDesc(e.target.value)}
+                placeholder="Describe the issue..."
+              />
+              <button
+                onClick={() => system && faultMutation.mutate({ system_id: system.id, fault_type: faultType, description: faultDesc })}
+                disabled={!system || !faultDesc.trim() || faultMutation.isPending}
+                className="btn-danger w-full"
+              >
+                <AlertTriangle className="w-4 h-4" /> Submit Fault
+              </button>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 p-3 space-y-2">
+              <p className="text-xs font-semibold text-slate-700">Request Resource</p>
+              <input
+                className="input"
+                value={resourceName}
+                onChange={(e) => setResourceName(e.target.value)}
+                placeholder="Resource name"
+              />
+              <textarea
+                className="input min-h-[82px] resize-none"
+                value={resourceDesc}
+                onChange={(e) => setResourceDesc(e.target.value)}
+                placeholder="Describe resource needed..."
+              />
+              <button
+                onClick={() => system && resourceMutation.mutate({ system_id: system.id, resource_name: resourceName, description: resourceDesc })}
+                disabled={!system || !resourceName.trim() || !resourceDesc.trim() || resourceMutation.isPending}
+                className="btn-primary w-full"
+              >
+                <PackageSearch className="w-4 h-4" /> Request Resource
+              </button>
+            </div>
+          </div>
+          {!system && <p className="text-xs text-amber-600">System record is missing for this layout item, so reporting is disabled.</p>}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* CPU */}
         <div className="card p-5">
@@ -580,59 +633,6 @@ export default function SystemDetailPage() {
             </ResponsiveContainer>
           )}
         </div>
-
-        {canReport && (
-        <div className="card p-5 space-y-4">
-          <p className="text-sm font-semibold text-slate-700">Quick Reporting</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="rounded-lg border border-slate-200 p-3 space-y-2">
-              <p className="text-xs font-semibold text-slate-700">Report Fault</p>
-              <select value={faultType} onChange={(e) => setFaultType(e.target.value)} className="input">
-                <option value="Hardware">Hardware</option>
-                <option value="Software">Software</option>
-                <option value="Network">Network</option>
-              </select>
-              <textarea
-                className="input min-h-[82px] resize-none"
-                value={faultDesc}
-                onChange={(e) => setFaultDesc(e.target.value)}
-                placeholder="Describe the issue..."
-              />
-              <button
-                onClick={() => system && faultMutation.mutate({ system_id: system.id, fault_type: faultType, description: faultDesc })}
-                disabled={!system || !faultDesc.trim() || faultMutation.isPending}
-                className="btn-danger w-full"
-              >
-                <AlertTriangle className="w-4 h-4" /> Submit Fault
-              </button>
-            </div>
-
-            <div className="rounded-lg border border-slate-200 p-3 space-y-2">
-              <p className="text-xs font-semibold text-slate-700">Request Resource</p>
-              <input
-                className="input"
-                value={resourceName}
-                onChange={(e) => setResourceName(e.target.value)}
-                placeholder="Resource name"
-              />
-              <textarea
-                className="input min-h-[82px] resize-none"
-                value={resourceDesc}
-                onChange={(e) => setResourceDesc(e.target.value)}
-                placeholder="Describe resource needed..."
-              />
-              <button
-                onClick={() => system && resourceMutation.mutate({ system_id: system.id, resource_name: resourceName, description: resourceDesc })}
-                disabled={!system || !resourceName.trim() || !resourceDesc.trim() || resourceMutation.isPending}
-                className="btn-primary w-full"
-              >
-                <PackageSearch className="w-4 h-4" /> Request Resource
-              </button>
-            </div>
-          </div>
-          {!system && <p className="text-xs text-amber-600">System record is missing for this layout item, so reporting is disabled.</p>}
-        </div>
-        )}
       </div>
 
       <div className="card p-5">
