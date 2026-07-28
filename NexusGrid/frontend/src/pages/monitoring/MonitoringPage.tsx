@@ -80,7 +80,7 @@ function SystemRow({
             const now = new Date();
             const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
             const bootTs = info.boot_time * 1000;
-            return Math.max(0, (now.getTime() - (bootTs >= midnight ? bootTs : midnight)) / 1000);
+            return Math.max(0, (now.getTime() - Math.min(bootTs, midnight)) / 1000);
           })() : info.uptime_seconds)
         )}
       </span>

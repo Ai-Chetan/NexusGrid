@@ -383,7 +383,7 @@ export default function SystemDetailPage() {
               const now = new Date();
               const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
               const bootTs = latest.boot_time * 1000;
-              return Math.max(0, (now.getTime() - (bootTs >= midnight ? bootTs : midnight)) / 1000);
+              return Math.max(0, (now.getTime() - Math.min(bootTs, midnight)) / 1000);
             })() : latest?.uptime_seconds)
           )} 
           sub={latest?.today_uptime_seconds != null || latest?.boot_time != null ? 'Today' : undefined} 

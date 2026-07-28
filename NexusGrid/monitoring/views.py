@@ -145,25 +145,49 @@ def ingest_system_info(request):
         today_uptime_formatted = data.get('today_uptime_formatted')
         today_date = data.get('today_date')
         
-        # Fallback for older agents or bugs: calculate daily uptime dynamically
-        if boot_time is not None and today_uptime_seconds is None:
-            from django.utils import timezone
-            now_dt = timezone.localtime()
-            now_ts = now_dt.timestamp()
-            midnight = now_dt.replace(hour=0, minute=0, second=0, microsecond=0)
-            midnight_ts = midnight.timestamp()
-            
-            if boot_time >= midnight_ts:
-                today_uptime_seconds = max(0.0, now_ts - boot_time)
+        # Calculate cumulative daily active uptime across all boot sessions recorded today
+        from collections import defaultdict
+        from django.utils import timezone
+        now_dt = timezone.localtime()
+        today_date_str = now_dt.strftime('%Y-%m-%d')
+        midnight_dt = now_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        midnight_ts = midnight_dt.timestamp()
+        now_ts = now_dt.timestamp()
+
+        today_snaps = list(
+            SystemInfo.objects.filter(
+                hostname__iexact=hostname,
+                timestamp__gte=midnight_dt,
+                boot_time__isnull=False
+            ).values('boot_time', 'timestamp')
+        )
+
+        sessions = defaultdict(list)
+        for s in today_snaps:
+            sessions[s['boot_time']].append(s['timestamp'].timestamp())
+
+        if boot_time is not None:
+            sessions[boot_time].append(now_ts)
+
+        computed_today_uptime = 0.0
+        for b_time, timestamps in sessions.items():
+            max_seen = max(timestamps)
+            if b_time >= midnight_ts:
+                computed_today_uptime += max(0.0, max_seen - b_time)
             else:
-                today_uptime_seconds = max(0.0, now_ts - midnight_ts)
-                
-            today_date = now_dt.strftime('%Y-%m-%d')
-            acc_sec = int(today_uptime_seconds)
-            h = acc_sec // 3600
-            m = (acc_sec % 3600) // 60
-            s = acc_sec % 60
-            today_uptime_formatted = f"{h:02d}:{m:02d}:{s:02d}"
+                computed_today_uptime += max(0.0, max_seen - midnight_ts)
+
+        if today_uptime_seconds is not None:
+            today_uptime_seconds = max(today_uptime_seconds, computed_today_uptime)
+        else:
+            today_uptime_seconds = computed_today_uptime
+
+        today_date = today_date or today_date_str
+        acc_sec = int(today_uptime_seconds)
+        h = acc_sec // 3600
+        m = (acc_sec % 3600) // 60
+        s = acc_sec % 60
+        today_uptime_formatted = f"{h:02d}:{m:02d}:{s:02d}"
 
         info = SystemInfo.objects.create(
             hostname=hostname,
