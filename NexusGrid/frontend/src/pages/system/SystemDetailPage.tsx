@@ -15,6 +15,7 @@ import {
   Server,
   Timer,
   Zap,
+  ChevronDown,
 } from 'lucide-react';
 import {
   Area,
@@ -232,12 +233,21 @@ export default function SystemDetailPage() {
         time: `${hh}:${mm}`,
         cpu: h.cpu_usage,
         ram: h.memory_usage_percent,
+        ramUsed: h.memory_used,
+        ramTotal: h.memory_total,
         disk: h.disk_usage_percent,
         sent: h.bytes_sent,
         received: h.bytes_received,
       };
     });
   }, [history]);
+
+  const ramCapacity = useMemo(() => {
+    if (latest?.memory_total) return Math.ceil(latest.memory_total);
+    if (chartData.length === 0) return 16;
+    const max = Math.max(...chartData.map(d => d.ramTotal || 0));
+    return max > 0 ? Math.ceil(max) : 16;
+  }, [latest?.memory_total, chartData]);
 
   const faultMutation = useMutation({
     mutationFn: (payload: { system_id: number; fault_type: string; description: string }) => faultsApi.create(payload),
@@ -460,67 +470,81 @@ export default function SystemDetailPage() {
         )}
       </div>
 
-      <div className="grid gap-4">
-        <div className="card p-5 xl:col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* CPU */}
+        <div className="card p-5">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Performance Trend</p>
-            <Activity className="w-4 h-4 text-slate-400" />
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">CPU Usage</p>
+            <Cpu className="w-4 h-4 text-slate-400" />
           </div>
           {chartData.length === 0 ? (
             <EmptyState
               icon={<Server className="w-6 h-6" />}
-              title="No historical data"
-              description="Waiting for monitoring snapshots for this system."
+              title="No data"
+              description="Waiting for snapshots."
             />
           ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={chartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="time" tick={{ fontSize: 11, fill: '#64748b' }} />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#64748b' }} />
-                <Tooltip />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(val) => `${val}%`} />
+                <Tooltip formatter={(val: number) => [`${val.toFixed(1)}%`, 'CPU Usage']} />
                 <Line type="monotone" dataKey="cpu" name="CPU" stroke="#ef4444" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="ram" name="RAM" stroke="#3b82f6" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="disk" name="Disk" stroke="#8b5cf6" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           )}
         </div>
 
-        {/* <div className="card p-5 space-y-4">
-          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">System Overview</p>
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800">
-              <span className="text-slate-500">Operational Status</span>
-              <span className={`px-2 py-0.5 rounded-md font-semibold ${system?.status === 'non-functional' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'}`}>
-                {system?.status === 'non-functional' ? 'Non-Functional' : 'Active'}
-              </span>
-            </div>
-            <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800">
-              <span className="text-slate-500">GPU Hardware</span>
-              <span className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[150px]">
-                {hasGpu && gpuStats.length > 0 ? gpuStats[0].gpu_name : (hasGpu ? 'Detected' : 'Not Available')}
-              </span>
-            </div>
-            <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800">
-              <span className="text-slate-500">Network IP</span>
-              <span className="font-mono text-slate-800 dark:text-slate-200">{latest?.ip_address || 'N/A'}</span>
-            </div>
+        {/* RAM */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Memory Usage</p>
+            <MemoryStick className="w-4 h-4 text-slate-400" />
           </div>
+          {chartData.length === 0 ? (
+            <EmptyState
+              icon={<Server className="w-6 h-6" />}
+              title="No data"
+              description="Waiting for snapshots."
+            />
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={chartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="time" tick={{ fontSize: 11, fill: '#64748b' }} />
+                <YAxis domain={[0, ramCapacity]} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(val) => `${val}GB`} />
+                <Tooltip formatter={(val: number) => [`${val.toFixed(2)} GB`, 'RAM Used']} />
+                <Line type="monotone" dataKey="ramUsed" name="RAM" stroke="#3b82f6" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
 
-          <div className="pt-2 space-y-2">
-            <button onClick={() => setFaultModalOpen(true)} className="w-full btn-secondary text-xs flex items-center justify-center gap-1.5 py-2">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> Report Hardware Fault
-            </button>
-            <button onClick={() => setResourceModalOpen(true)} className="w-full btn-secondary text-xs flex items-center justify-center gap-1.5 py-2">
-              <PackageSearch className="w-3.5 h-3.5 text-blue-500" /> Request Resource
-            </button>
+        {/* Disk */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Disk Usage</p>
+            <HardDrive className="w-4 h-4 text-slate-400" />
           </div>
-          <div className="rounded-lg border border-slate-200 p-3">
-            <p className="text-xs text-slate-500">Disk</p>
-            <p className={`text-xl font-semibold ${statusColor(latest?.disk_usage_percent)}`}>{fmtPct(latest?.disk_usage_percent)}</p>
-          </div>
-        </div> */}
+          {chartData.length === 0 ? (
+            <EmptyState
+              icon={<Server className="w-6 h-6" />}
+              title="No data"
+              description="Waiting for snapshots."
+            />
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={chartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="time" tick={{ fontSize: 11, fill: '#64748b' }} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(val) => `${val}%`} />
+                <Tooltip formatter={(val: number) => [`${val.toFixed(1)}%`, 'Disk Usage']} />
+                <Line type="monotone" dataKey="disk" name="Disk" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
       </div>
 
       {/* Analytics Uptime Drill Down */}
@@ -612,35 +636,44 @@ export default function SystemDetailPage() {
       </div>
 
       <div className="card p-5">
-        <p className="text-sm font-semibold text-slate-700 mb-3">Recent Snapshots</p>
-        {history.length === 0 ? (
-          <p className="text-sm text-slate-500">No historical snapshots yet.</p>
-        ) : (
-          <div className="overflow-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-slate-500 border-b border-slate-200">
-                  <th className="py-2 pr-3">Timestamp</th>
-                  <th className="py-2 pr-3">CPU</th>
-                  <th className="py-2 pr-3">RAM</th>
-                  <th className="py-2 pr-3">Disk</th>
-                  <th className="py-2 pr-3">Users</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.slice().reverse().slice(0, 20).map((h) => (
-                  <tr key={`${h.hostname}-${h.timestamp}`} className="border-b border-slate-100">
-                    <td className="py-2 pr-3 text-slate-600">{new Date(h.timestamp).toLocaleString()}</td>
-                    <td className="py-2 pr-3">{fmtPct(h.cpu_usage)}</td>
-                    <td className="py-2 pr-3">{fmtPct(h.memory_usage_percent)}</td>
-                    <td className="py-2 pr-3">{fmtPct(h.disk_usage_percent)}</td>
-                    <td className="py-2 pr-3">{h.users_count ?? 0}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <details className="group">
+          <summary className="text-sm font-semibold text-slate-700 cursor-pointer list-none flex items-center justify-between outline-none">
+            Recent Snapshots
+            <span className="transition group-open:rotate-180">
+              <ChevronDown className="w-4 h-4 text-slate-400" />
+            </span>
+          </summary>
+          <div className="mt-4">
+            {history.length === 0 ? (
+              <p className="text-sm text-slate-500">No historical snapshots yet.</p>
+            ) : (
+              <div className="overflow-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-slate-500 border-b border-slate-200">
+                      <th className="py-2 pr-3">Timestamp</th>
+                      <th className="py-2 pr-3">CPU</th>
+                      <th className="py-2 pr-3">RAM</th>
+                      <th className="py-2 pr-3">Disk</th>
+                      <th className="py-2 pr-3">Users</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.slice().reverse().slice(0, 5).map((h) => (
+                      <tr key={`${h.hostname}-${h.timestamp}`} className="border-b border-slate-100">
+                        <td className="py-2 pr-3 text-slate-600">{new Date(h.timestamp).toLocaleString()}</td>
+                        <td className="py-2 pr-3">{fmtPct(h.cpu_usage)}</td>
+                        <td className="py-2 pr-3">{fmtPct(h.memory_usage_percent)}</td>
+                        <td className="py-2 pr-3">{fmtPct(h.disk_usage_percent)}</td>
+                        <td className="py-2 pr-3">{h.users_count ?? 0}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
+        </details>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">

@@ -80,6 +80,15 @@ export function UptimeDrillDown({ itemId, hostname }: Props) {
     }
   };
 
+  const formatHrs = (val: number) => {
+    const hrs = Math.floor(val);
+    const mins = Math.round((val - hrs) * 60);
+    if (hrs === 0 && mins === 0) return '0m';
+    if (hrs > 0 && mins > 0) return `${hrs}h ${mins}m`;
+    if (hrs > 0) return `${hrs}h`;
+    return `${mins}m`;
+  };
+
   const handleExportPdf = () => {
     const opts: PdfReportOptions = {
       title: 'Uptime Analytics Report',
@@ -96,11 +105,11 @@ export function UptimeDrillDown({ itemId, hostname }: Props) {
         title: 'Yearly Uptime Summary',
         columns: [
           { header: 'Year', key: 'year' },
-          { header: 'Avg Daily Uptime (hours)', key: 'avg_daily_hours', align: 'right' },
+          { header: 'Avg Daily Uptime', key: 'avg_daily_hours', align: 'right' },
         ],
         rows: yearlyData.years.map(y => ({
           year: y.year,
-          avg_daily_hours: y.avg_daily_hours.toFixed(2),
+          avg_daily_hours: formatHrs(y.avg_daily_hours),
         })),
       });
     } else if (level === 'monthly' && monthlyData?.months) {
@@ -109,11 +118,11 @@ export function UptimeDrillDown({ itemId, hostname }: Props) {
         title: `Monthly Uptime Summary (${selectedYear})`,
         columns: [
           { header: 'Month', key: 'month_label' },
-          { header: 'Avg Daily Uptime (hours)', key: 'avg_daily_hours', align: 'right' },
+          { header: 'Avg Daily Uptime', key: 'avg_daily_hours', align: 'right' },
         ],
         rows: monthlyData.months.map(m => ({
           month_label: m.month_label,
-          avg_daily_hours: m.avg_daily_hours.toFixed(2),
+          avg_daily_hours: formatHrs(m.avg_daily_hours),
         })),
       });
     } else if (level === 'daily' && dailyData?.days) {
@@ -123,12 +132,12 @@ export function UptimeDrillDown({ itemId, hostname }: Props) {
         title: `Daily Uptime Summary (${monthName} ${selectedYear})`,
         columns: [
           { header: 'Day', key: 'day' },
-          { header: 'Total Uptime (hours)', key: 'total_hours', align: 'right' },
+          { header: 'Total Uptime', key: 'total_hours', align: 'right' },
           { header: 'Boot Sessions', key: 'boot_sessions', align: 'right' },
         ],
         rows: dailyData.days.map(d => ({
           day: d.day,
-          total_hours: d.total_hours.toFixed(2),
+          total_hours: formatHrs(d.total_hours),
           boot_sessions: d.boot_sessions,
         })),
       });
@@ -139,7 +148,7 @@ export function UptimeDrillDown({ itemId, hostname }: Props) {
         columns: [
           { header: 'Session Start', key: 'start' },
           { header: 'Session End', key: 'end' },
-          { header: 'Duration (hours)', key: 'duration', align: 'right' },
+          { header: 'Duration', key: 'duration', align: 'right' },
           { header: 'Boot Time', key: 'boot_time' },
         ],
         rows: intradayData.timeline.map(t => {
@@ -147,7 +156,7 @@ export function UptimeDrillDown({ itemId, hostname }: Props) {
           return {
             start: new Date(t.start * 1000).toLocaleTimeString(),
             end: new Date(t.end * 1000).toLocaleTimeString(),
-            duration: durationHrs.toFixed(2),
+            duration: formatHrs(durationHrs),
             boot_time: new Date(t.boot_time * 1000).toLocaleString(),
           };
         }),
@@ -156,8 +165,6 @@ export function UptimeDrillDown({ itemId, hostname }: Props) {
 
     generatePdfReport(opts);
   };
-
-  const formatHrs = (val: number) => `${val.toFixed(1)}h`;
 
   const renderBreadcrumbs = () => {
     return (
@@ -325,7 +332,7 @@ export function UptimeDrillDown({ itemId, hostname }: Props) {
                   <Tooltip 
                     cursor={{fill: 'rgba(99, 102, 241, 0.1)'}}
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(val: number) => [`${val.toFixed(2)} hours`, 'Avg Daily Uptime']}
+                    formatter={(val: number) => [formatHrs(val), 'Avg Daily Uptime']}
                     labelFormatter={(label) => `Year ${label}`}
                   />
                   <Bar dataKey="avg_daily_hours" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={60} />
@@ -347,7 +354,7 @@ export function UptimeDrillDown({ itemId, hostname }: Props) {
                   <Tooltip 
                     cursor={{fill: 'rgba(16, 185, 129, 0.1)'}}
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(val: number) => [`${val.toFixed(2)} hours`, 'Avg Daily Uptime']}
+                    formatter={(val: number) => [formatHrs(val), 'Avg Daily Uptime']}
                     labelFormatter={(label) => `${label} ${selectedYear}`}
                   />
                   <Bar dataKey="avg_daily_hours" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={60} />
@@ -369,7 +376,7 @@ export function UptimeDrillDown({ itemId, hostname }: Props) {
                   <Tooltip 
                     cursor={{fill: 'rgba(14, 165, 233, 0.1)'}}
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(val: number, name: string, props: any) => [`${val.toFixed(2)} hours`, `Total Uptime (${props.payload.boot_sessions} boot sessions)`]}
+                    formatter={(val: number, name: string, props: any) => [formatHrs(val), `Total Uptime (${props.payload.boot_sessions} boot sessions)`]}
                     labelFormatter={(label) => `Date: ${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(label).padStart(2, '0')}`}
                   />
                   <ReferenceLine y={24} stroke="#cbd5e1" strokeDasharray="3 3" />
