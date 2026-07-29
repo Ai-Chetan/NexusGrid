@@ -34,6 +34,9 @@ def compute_canonical_device_status(
     if has_active_fault or explicit_status == 'non-functional':
         return 'fault'
 
+    if explicit_status == 'sleep' or health_state == 'sleep':
+        return 'sleep'
+
     if last_seen_at is not None:
         cutoff = _online_cutoff()
         if last_seen_at >= cutoff or health_state == 'online':
@@ -47,6 +50,8 @@ def compute_canonical_device_status(
 
     if health_state == 'online' or explicit_status == 'active':
         return 'online'
+    if health_state == 'sleep' or explicit_status == 'sleep':
+        return 'sleep'
     if health_state == 'offline' or explicit_status == 'inactive':
         return 'offline'
 
@@ -338,10 +343,10 @@ def ingest_system_info(request):
 @csrf_exempt
 @require_POST
 def mark_system_offline(request):
-    """Shutdown hook: immediately marks a machine as offline/inactive.
+    """Shutdown / sleep hook: immediately marks a machine as offline or sleep.
 
-    Called by send_offline.bat when the PC shuts down or logs off.
-    Expects JSON body: {"hostname": "<machine-hostname>"}
+    Called by send_offline.bat / agent when the PC shuts down, logs off, or sleeps.
+    Expects JSON body: {"hostname": "<machine-hostname>", "state": "offline" | "sleep"}
     """
     try:
         data = json.loads(request.body)
@@ -349,16 +354,19 @@ def mark_system_offline(request):
         if not hostname:
             return JsonResponse({'error': 'hostname is required'}, status=400)
 
+        requested_state = (data.get('state') or 'offline').strip().lower()
+        target_health = SystemCurrent.STATE_SLEEP if requested_state == 'sleep' else SystemCurrent.STATE_OFFLINE
+        target_status = 'sleep' if requested_state == 'sleep' else 'inactive'
+
         hostname_key = hostname.lower()
 
-        updated = SystemCurrent.objects.filter(hostname_key=hostname_key).update(
-            health_state=SystemCurrent.STATE_OFFLINE,
+        SystemCurrent.objects.filter(hostname_key=hostname_key).update(
+            health_state=target_health,
         )
 
-        # Mark the System layout entry as inactive immediately (grey color)
         System.objects.filter(
             Q(host_name__iexact=hostname) | Q(layout_item__name__iexact=hostname)
-        ).update(status='inactive')
+        ).update(status=target_status)
 
         # Invalidate monitoring cache so UI reflects new state immediately
         from django.core.cache import cache
@@ -367,7 +375,7 @@ def mark_system_offline(request):
         return JsonResponse({
             'status': 'ok',
             'hostname': hostname,
-            'marked_offline': True,
+            'state': target_status,
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)

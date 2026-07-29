@@ -84,35 +84,71 @@ export function getDeviceStatusColor(data: DeviceStatusData): {
   hex: string;
   bgClass: string;
   isOnline: boolean;
+  statusType: 'online' | 'offline' | 'sleep' | 'fault';
 } {
   const isOnline = data.health_state === 'online' || data.monitoring_status === 'online' || data.status === 'active';
 
   // 1. Alert states take highest priority (red for active fault, blue for pending resource)
   if (data.alert_status === 'fault_active') {
-    return { hex: '#ef4444', bgClass: 'bg-red-500', isOnline: false };
+    return { hex: '#ef4444', bgClass: 'bg-red-500', isOnline: false, statusType: 'fault' };
   }
   if (data.alert_status === 'resource_pending') {
-    return { hex: '#3b82f6', bgClass: 'bg-blue-500', isOnline: false };
+    return { hex: '#3b82f6', bgClass: 'bg-blue-500', isOnline: false, statusType: 'fault' };
   }
 
-  // 2. System status field (set by monitoring heartbeat or admin manual override)
+  // 2. Explicit System status & Sleep handling
   if (data.status === 'non-functional') {
-    return { hex: '#ef4444', bgClass: 'bg-red-500', isOnline: false };
+    return { hex: '#ef4444', bgClass: 'bg-red-500', isOnline: false, statusType: 'fault' };
+  }
+  if (data.status === 'sleep' || data.health_state === 'sleep') {
+    return { hex: '#64748b', bgClass: 'bg-slate-500', isOnline: false, statusType: 'sleep' };
   }
   if (data.status === 'active') {
-    return { hex: '#10b981', bgClass: 'bg-emerald-500', isOnline: true };
+    return { hex: '#10b981', bgClass: 'bg-emerald-500', isOnline: true, statusType: 'online' };
   }
   if (data.status === 'inactive') {
-    return { hex: '#94a3b8', bgClass: 'bg-slate-400', isOnline: false };
+    return { hex: '#94a3b8', bgClass: 'bg-slate-400', isOnline: false, statusType: 'offline' };
   }
 
   // 3. Heartbeat / Monitoring status fallback
   if (data.health_state === 'online' || data.monitoring_status === 'online') {
-    return { hex: '#10b981', bgClass: 'bg-emerald-500', isOnline: true };
+    return { hex: '#10b981', bgClass: 'bg-emerald-500', isOnline: true, statusType: 'online' };
+  }
+  if (data.health_state === 'sleep') {
+    return { hex: '#64748b', bgClass: 'bg-slate-500', isOnline: false, statusType: 'sleep' };
   }
 
   // 4. Default / unknown / offline
-  return { hex: '#94a3b8', bgClass: 'bg-slate-400', isOnline: false };
+  return { hex: '#94a3b8', bgClass: 'bg-slate-400', isOnline: false, statusType: 'offline' };
+}
+
+/**
+ * Returns a human-readable "why" tooltip explaining the device's status and telemetry freshness.
+ * e.g. "Online — last heartbeat 12s ago", "Offline — last seen 4h 12m ago", "Sleep — last seen 5m ago"
+ */
+export function getDeviceStatusTooltip(data: DeviceStatusData & { last_seen_at?: string | null }): string {
+  const { statusType } = getDeviceStatusColor(data);
+  const timeStr = data.last_seen_at ? timeAgo(data.last_seen_at) : null;
+
+  if (data.alert_status === 'fault_active') {
+    return `Fault — Active fault reported${timeStr ? ` (last seen ${timeStr})` : ''}`;
+  }
+  if (data.alert_status === 'resource_pending') {
+    return `Resource Pending — Request pending${timeStr ? ` (last seen ${timeStr})` : ''}`;
+  }
+
+  switch (statusType) {
+    case 'online':
+      return `Online — last heartbeat ${timeStr ?? 'just now'}`;
+    case 'sleep':
+      return `Sleep — last seen ${timeStr ?? 'recently'}`;
+    case 'fault':
+      return `Fault — Non-functional${timeStr ? ` (last seen ${timeStr})` : ''}`;
+    case 'offline':
+      return `Offline — last seen ${timeStr ?? 'never'}`;
+    default:
+      return timeStr ? `Unknown — last seen ${timeStr}` : 'Unknown — no monitoring telemetry';
+  }
 }
 
 export const itemTypeLabel: Record<string, string> = {

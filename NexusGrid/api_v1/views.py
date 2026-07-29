@@ -464,6 +464,17 @@ def _notify_admins_layout_change(user, action, item):
     )
 
 
+def _latest_monitored_hostname_map():
+    """Return dict mapping hostname_key -> dict with health_state and last_seen_at (ISO timestamp)."""
+    return {
+        sc.hostname_key: {
+            'health_state': sc.health_state,
+            'last_seen_at': sc.last_seen_at.isoformat() if sc.last_seen_at else None,
+        }
+        for sc in SystemCurrent.objects.all()
+    }
+
+
 def _latest_monitored_hostname_set():
     """Return hostnames that are currently ONLINE in the monitoring current-state table."""
     return set(
@@ -489,8 +500,11 @@ def _layout_alert_context():
 
 
 def _layout_serializer_context():
+    monitoring_map = _latest_monitored_hostname_map()
+    online_set = {k for k, v in monitoring_map.items() if v['health_state'] == 'online'}
     return {
-        'monitored_hostnames': _latest_monitored_hostname_set(),
+        'monitored_hostnames': online_set,
+        'monitoring_map': monitoring_map,
         **_layout_alert_context(),
     }
 

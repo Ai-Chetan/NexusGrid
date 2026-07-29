@@ -271,6 +271,7 @@ class System(models.Model):
     STATUS_CHOICES = [
         ('active', 'Active (System is turned on)'),
         ('inactive', 'Inactive (Turned off but functional)'),
+        ('sleep', 'Sleep (System is in standby mode)'),
         ('non-functional', 'Non-Functional (Needs repair or replacement)'),
     ]
 

@@ -69,13 +69,14 @@ class LayoutItemSerializer(serializers.ModelSerializer):
     parent_name = serializers.SerializerMethodField()
     monitoring_status = serializers.SerializerMethodField()
     alert_status = serializers.SerializerMethodField()
+    last_seen_at = serializers.SerializerMethodField()
 
     class Meta:
         model = LayoutItem
         fields = [
             'id', 'name', 'item_type', 'parent', 'parent_name',
             'position_x', 'position_y', 'width', 'height',
-            'created_at', 'updated_at', 'status', 'quick_info', 'monitoring_status', 'alert_status',
+            'created_at', 'updated_at', 'status', 'quick_info', 'monitoring_status', 'alert_status', 'last_seen_at',
         ]
 
     def get_status(self, obj):
@@ -127,6 +128,15 @@ class LayoutItemSerializer(serializers.ModelSerializer):
         if obj.id in pending_resource_ids:
             return 'resource_pending'
         return None
+
+    def get_last_seen_at(self, obj):
+        if obj.item_type not in SYSTEM_TYPES:
+            return None
+        system = getattr(obj, 'system', None)
+        h_name = (system.host_name if system and system.host_name else obj.name).lower()
+        monitoring_map = self.context.get('monitoring_map', {})
+        info = monitoring_map.get(h_name)
+        return info['last_seen_at'] if info else None
 
 
 class LayoutItemCreateSerializer(serializers.ModelSerializer):

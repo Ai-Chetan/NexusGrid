@@ -27,14 +27,14 @@ import '@xyflow/react/dist/style.css';
 import dagre from '@dagrejs/dagre';
 import {
   Building2, Layers, DoorOpen, Monitor, Server, Network,
-  Wifi, Printer, Zap, HardDrive, Package, Pencil, Trash2,
+  Wifi, Printer, Zap, HardDrive, Package, Pencil, Trash2, Moon,
 } from 'lucide-react';
 import type { LayoutItem } from '@/types';
 import {
   BuildingVector, FloorVector, RoomVector, ComputerVector, ServerVector,
   SwitchVector, RouterVector, PrinterVector, UPSVector, RackVector,
 } from './NodeVectors';
-import { cn, getDeviceStatusColor } from '@/lib/utils';
+import { cn, getDeviceStatusColor, getDeviceStatusTooltip } from '@/lib/utils';
 import { layoutApi } from '@/lib/api';
 import { useTheme } from '@/hooks/useTheme';
 import toast from 'react-hot-toast';
@@ -168,18 +168,32 @@ function ItemNode({ data }: NodeProps<ItemFlowNode>) {
     }
   }, [editMode, isNavigable, onEnter, onMonitorClick, item]);
 
+  const statusTooltip = isDevice ? getDeviceStatusTooltip(item) : null;
+
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={handleClick}
       style={{ width: nodeSize(item.item_type).w }}
+      title={statusTooltip ?? undefined}
       className={cn(
         'relative select-none',
         !editMode && 'cursor-pointer',
         editMode && 'cursor-grab',
       )}
     >
+      {/* Sleek hover status reasoning tooltip pill */}
+      {hovered && isDevice && statusTooltip && (
+        <div
+          className={cn(
+            'absolute -top-8 left-1/2 -translate-x-1/2 z-30 px-2.5 py-1 rounded-md text-[10px] font-medium shadow-md whitespace-nowrap border pointer-events-none transition-all duration-150',
+            isDark ? 'bg-slate-900/95 border-slate-700 text-slate-200 shadow-slate-950/60' : 'bg-slate-900/90 border-slate-800 text-white shadow-slate-900/20'
+          )}
+        >
+          {statusTooltip}
+        </div>
+      )}
       <Handle type="target" position={Position.Top}
         style={editMode ? { background: col.header, borderColor: col.header, width: 8, height: 8 } : { opacity: 0 }}
       />
@@ -226,14 +240,24 @@ function ItemNode({ data }: NodeProps<ItemFlowNode>) {
       <div className="flex items-center justify-center gap-1 mt-0.5 px-1">
         {(() => { const Icon = typeIcons[item.item_type] ?? Package; return <Icon className="w-3 h-3 shrink-0" style={{ color: cardHeaderColor }} />; })()}
         <span className={cn('text-[10px] font-semibold truncate', isDark ? 'text-slate-200' : 'text-slate-700')}>{item.name}</span>
-        {item.status && (
-          <span
-            className="w-1.5 h-1.5 rounded-full shrink-0"
-            style={{
-              background: getDeviceStatusColor(item).hex,
-            }}
-          />
-        )}
+        {item.status && (() => {
+          const statusInfo = getDeviceStatusColor(item);
+          if (statusInfo.statusType === 'sleep') {
+            return (
+              <span title="Sleep / Standby" className="shrink-0 flex items-center justify-center">
+                <Moon className="w-2.5 h-2.5 text-slate-400 fill-slate-400/40" />
+              </span>
+            );
+          }
+          return (
+            <span
+              className="w-1.5 h-1.5 rounded-full shrink-0"
+              style={{
+                background: statusInfo.hex,
+              }}
+            />
+          );
+        })()}
       </div>
 
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
@@ -636,11 +660,16 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
                 {[
                   { color: '#10b981', label: 'Active (On)' },
                   { color: '#94a3b8', label: 'Inactive (Off)' },
+                  { color: '#64748b', label: 'Sleep (Standby)', isMoon: true },
                   { color: '#ef4444', label: 'Non-Functional / Fault' },
                   { color: '#3b82f6', label: 'Resource Requested' },
                 ].map((s) => (
                   <div key={s.label} className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: s.color }} />
+                    {s.isMoon ? (
+                      <Moon className="w-2.5 h-2.5 shrink-0 text-slate-400 fill-slate-400/40" />
+                    ) : (
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: s.color }} />
+                    )}
                     <span className={isDark ? 'text-slate-300' : 'text-slate-600'}>{s.label}</span>
                   </div>
                 ))}

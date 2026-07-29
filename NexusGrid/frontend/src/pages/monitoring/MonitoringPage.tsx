@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Activity, RefreshCw, Clock, Search, ChevronDown, ChevronRight, Building2, Timer } from 'lucide-react';
+import { Activity, RefreshCw, Clock, Search, ChevronDown, ChevronRight, Building2, Timer, Moon } from 'lucide-react';
 import { monitoringApi, layoutApi } from '@/lib/api';
 import { timeAgo, cn, getDeviceStatusColor } from '@/lib/utils';
 import type { SystemInfo, SimpleSystem } from '@/types';
@@ -49,7 +49,7 @@ function SystemRow({
   const ramUsage = info.memory_usage_percent ?? info.ram_usage ?? null;
   const diskUsage = info.disk_usage_percent ?? info.disk_usage ?? null;
 
-  const { bgClass, isOnline } = getDeviceStatusColor({
+  const { bgClass, isOnline, statusType } = getDeviceStatusColor({
     status: info.status ?? mappedSystem?.status ?? null,
     alert_status: info.alert_status ?? null,
     health_state: info.health_state ?? null,
@@ -67,14 +67,20 @@ function SystemRow({
           : 'cursor-default',
       )}
     >
-      {/* Status dot — 100% matched with Layout view color & pulse */}
-      <span
-        className={cn(
-          'w-2 h-2 rounded-full shrink-0',
-          bgClass,
-          isOnline && 'animate-pulse',
-        )}
-      />
+      {/* Status indicator — green pulse for online, moon for sleep, solid dot for offline/fault */}
+      {statusType === 'sleep' ? (
+        <span className="shrink-0 flex items-center justify-center w-3 h-3 text-slate-400" title="Sleep / Standby">
+          <Moon className="w-3 h-3 text-slate-400 fill-slate-400/30" />
+        </span>
+      ) : (
+        <span
+          className={cn(
+            'w-2 h-2 rounded-full shrink-0',
+            bgClass,
+            isOnline && 'animate-pulse',
+          )}
+        />
+      )}
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{info.hostname}</p>
         <p className="text-xs text-slate-400 font-mono truncate">{info.ip_address ?? ''}</p>

@@ -75,10 +75,12 @@ class SystemCurrent(models.Model):
 
     STATE_ONLINE = 'online'
     STATE_OFFLINE = 'offline'
+    STATE_SLEEP = 'sleep'
     STATE_UNKNOWN = 'unknown'
     HEALTH_CHOICES = [
         (STATE_ONLINE, 'Online'),
         (STATE_OFFLINE, 'Offline'),
+        (STATE_SLEEP, 'Sleep'),
         (STATE_UNKNOWN, 'Unknown'),
     ]
 

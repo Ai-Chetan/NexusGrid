@@ -44,6 +44,8 @@ export interface LayoutItem {
   monitoring_status: 'online' | null;
   /** fault/resource alert state for device nodes */
   alert_status: 'fault_active' | 'resource_pending' | 'fault_resolved' | 'resource_done' | null;
+  /** ISO timestamp of last telemetry heartbeat, or null if never seen */
+  last_seen_at?: string | null;
 }
 
 export interface System {
