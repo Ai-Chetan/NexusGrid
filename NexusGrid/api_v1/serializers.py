@@ -405,6 +405,10 @@ class ResourceStatusUpdateSerializer(serializers.Serializer):
 # ─── Monitoring ──────────────────────────────────────────────────────────────
 
 class SystemInfoSerializer(serializers.ModelSerializer):
+    health_state = serializers.CharField(read_only=True, required=False)
+    status = serializers.CharField(read_only=True, required=False)
+    alert_status = serializers.CharField(read_only=True, required=False)
+
     class Meta:
         model = SystemInfo
         fields = [
@@ -420,5 +424,6 @@ class SystemInfoSerializer(serializers.ModelSerializer):
             'users_count', 'logged_in_users', 'gpu_available', 'gpu_stats',
             'boot_time', 'uptime_seconds', 
             'today_uptime_seconds', 'today_uptime_formatted', 'today_date',
-            'timestamp'
+            'timestamp',
+            'health_state', 'status', 'alert_status',
         ]

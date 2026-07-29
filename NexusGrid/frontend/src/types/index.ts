@@ -194,6 +194,9 @@ export interface SystemInfo {
   today_date?: string | null;
   // Timestamp
   timestamp: string;
+  health_state?: 'online' | 'offline' | 'unknown' | null;
+  status?: SystemStatus | null;
+  alert_status?: 'fault_active' | 'resource_pending' | 'fault_resolved' | 'resource_done' | null;
   // Legacy aliases kept for MonitoringPage compat
   os_name?: string | null;
   os_version?: string | null;

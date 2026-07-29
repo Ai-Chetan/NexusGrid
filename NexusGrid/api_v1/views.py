@@ -1773,21 +1773,32 @@ class MonitoringView(APIView):
         if request.user.role not in ('Administrator', 'Lab Assistant'):
             return Response({'detail': 'Monitoring is not available for your role.'}, status=403)
 
-        from django.core.cache import cache
+        from monitoring.views import sync_host_health_states
+        from faults.models import FaultReport
+        from resources.models import ResourceRequest
+
+        # Synchronize online/offline health states based on configurable threshold
+        sync_host_health_states()
+
+        # Build lookups for active faults, pending resources, and system status
+        active_fault_hosts = set(
+            (h or '').strip().lower()
+            for h in FaultReport.objects.filter(status__in=['unaddressed', 'in-progress', 'scheduled'])
+            .values_list('system_name__host_name', flat=True) if h
+        )
+        pending_resource_hosts = set(
+            (h or '').strip().lower()
+            for h in ResourceRequest.objects.filter(status='Pending')
+            .values_list('system_name__host_name', flat=True) if h
+        )
+        system_status_map = {
+            (s.host_name or '').strip().lower(): s.status
+            for s in System.objects.all() if s.host_name
+        }
+
+        current_rows = list(SystemCurrent.objects.select_related('latest_info').order_by('hostname'))
+
         is_assistant = request.user.role == 'Lab Assistant'
-        cache_key = MONITORING_CACHE_KEY if not is_assistant else None
-        if cache_key:
-            cached = cache.get(cache_key)
-            if cached is not None:
-                return Response(cached)
-
-        systems = [
-            row.latest_info
-            for row in SystemCurrent.objects.select_related('latest_info').order_by('hostname')
-            if row.latest_info_id
-        ]
-
-        # Lab Assistants only see devices in their assigned labs.
         if is_assistant:
             assigned_hostnames = {
                 (h or '').strip().lower()
@@ -1795,16 +1806,31 @@ class MonitoringView(APIView):
                 .filter(lab_id__in=_assigned_lab_ids(request.user))
                 .values_list('host_name', flat=True)
             }
-            systems = [s for s in systems if (s.hostname or '').strip().lower() in assigned_hostnames]
+            current_rows = [r for r in current_rows if (r.hostname or '').strip().lower() in assigned_hostnames]
 
-        for info in systems:
-            create_system_alert_if_needed(
-                hostname=info.hostname,
-                memory_usage_percent=info.memory_usage_percent,
-            )
+        systems = []
+        for row in current_rows:
+            if row.latest_info_id and row.latest_info:
+                info = row.latest_info
+                info.health_state = row.health_state
+                h_key = (info.hostname or '').strip().lower()
+                
+                info.status = system_status_map.get(h_key, 'active' if row.health_state == 'online' else 'inactive')
+                
+                if h_key in active_fault_hosts:
+                    info.alert_status = 'fault_active'
+                elif h_key in pending_resource_hosts:
+                    info.alert_status = 'resource_pending'
+                else:
+                    info.alert_status = None
+                
+                create_system_alert_if_needed(
+                    hostname=info.hostname,
+                    memory_usage_percent=info.memory_usage_percent,
+                )
+                systems.append(info)
+
         data = {'systems': SystemInfoSerializer(systems, many=True).data}
-        if cache_key:
-            cache.set(cache_key, data, MONITORING_CACHE_TTL)
         return Response(data)
 
 

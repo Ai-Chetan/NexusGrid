@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
@@ -10,11 +11,15 @@ class Command(BaseCommand):
     help = 'Mark hosts offline when last_seen_at is older than the configured threshold.'
 
     def add_arguments(self, parser):
+        _default = getattr(settings, 'MONITORING_ONLINE_THRESHOLD_MINUTES', 2) * 60
         parser.add_argument(
             '--timeout-seconds',
             type=int,
-            default=90,
-            help='Seconds after last_seen_at to mark a host as offline (default: 90).',
+            default=_default,
+            help=(
+                f'Seconds after last_seen_at to mark a host as offline '
+                f'(default: {_default}s from MONITORING_ONLINE_THRESHOLD_MINUTES setting).'
+            ),
         )
 
     def handle(self, *args, **options):

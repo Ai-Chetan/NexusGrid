@@ -34,7 +34,7 @@ import {
   BuildingVector, FloorVector, RoomVector, ComputerVector, ServerVector,
   SwitchVector, RouterVector, PrinterVector, UPSVector, RackVector,
 } from './NodeVectors';
-import { cn } from '@/lib/utils';
+import { cn, getDeviceStatusColor } from '@/lib/utils';
 import { layoutApi } from '@/lib/api';
 import { useTheme } from '@/hooks/useTheme';
 import toast from 'react-hot-toast';
@@ -81,35 +81,14 @@ const typeLabels: Record<string, string> = {
   router: 'Router', printer: 'Printer', ups: 'UPS', rack: 'Rack',
 };
 
-const statusColour: Record<string, string> = {
-  active:           '#10b981',   // green
-  inactive:         '#94a3b8',   // gray
-  'non-functional': '#ef4444',   // red
-  'resource_pending': '#3b82f6', // blue
-};
-
-const NETWORK_HUB_TYPES = new Set(['network_switch', 'router']);
 const CLUSTER_TYPES    = new Set(['building', 'floor', 'room']);
+const NETWORK_HUB_TYPES = new Set(['network_switch', 'router']);
 
 function getItemAccentColor(item: LayoutItem, fallbackHeader: string): string {
   const isDevice = !CLUSTER_TYPES.has(item.item_type);
   if (!isDevice) return fallbackHeader;
 
-  // 1. Alert states take highest priority
-  if (item.alert_status === 'fault_active')      return '#ef4444'; // red
-  if (item.alert_status === 'resource_pending')  return '#3b82f6'; // blue
-
-  // 2. Use the actual system status field (set by monitoring or manual update)
-  if (item.status === 'active')          return '#10b981'; // green
-  if (item.status === 'non-functional')  return '#ef4444'; // red
-  if (item.status === 'inactive')        return '#94a3b8'; // gray
-
-  // 3. Resolved-alert / monitoring-online fallback → green
-  if (item.monitoring_status === 'online'
-      || item.alert_status === 'fault_resolved'
-      || item.alert_status === 'resource_done') return '#10b981';
-
-  return '#94a3b8'; // default gray (unknown)
+  return getDeviceStatusColor(item).hex;
 }
 
 // ─── Node "shape" visual bodies ───────────────────────────────────────────────
@@ -248,7 +227,12 @@ function ItemNode({ data }: NodeProps<ItemFlowNode>) {
         {(() => { const Icon = typeIcons[item.item_type] ?? Package; return <Icon className="w-3 h-3 shrink-0" style={{ color: cardHeaderColor }} />; })()}
         <span className={cn('text-[10px] font-semibold truncate', isDark ? 'text-slate-200' : 'text-slate-700')}>{item.name}</span>
         {item.status && (
-          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: statusColour[item.status] ?? '#94a3b8' }} />
+          <span
+            className="w-1.5 h-1.5 rounded-full shrink-0"
+            style={{
+              background: getDeviceStatusColor(item).hex,
+            }}
+          />
         )}
       </div>
 

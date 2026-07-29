@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Activity, RefreshCw, Clock, Search, ChevronDown, ChevronRight, Building2, Timer } from 'lucide-react';
 import { monitoringApi, layoutApi } from '@/lib/api';
-import { timeAgo, cn } from '@/lib/utils';
+import { timeAgo, cn, getDeviceStatusColor } from '@/lib/utils';
 import type { SystemInfo, SimpleSystem } from '@/types';
 import PageHeader from '@/components/common/PageHeader';
 import ErrorState from '@/components/common/ErrorState';
@@ -35,18 +35,25 @@ function UsagePill({ label, value }: { label: string; value: number | null }) {
   );
 }
 
-// ─── Compact system row ───────────────────────────────────────────────────────
 function SystemRow({
   info,
+  mappedSystem,
   onOpen,
   clickable,
 }: {
   info: SystemInfo;
+  mappedSystem?: SimpleSystem;
   onOpen?: () => void;
   clickable?: boolean;
 }) {
   const ramUsage = info.memory_usage_percent ?? info.ram_usage ?? null;
   const diskUsage = info.disk_usage_percent ?? info.disk_usage ?? null;
+
+  const { bgClass, isOnline } = getDeviceStatusColor({
+    status: info.status ?? mappedSystem?.status ?? null,
+    alert_status: info.alert_status ?? null,
+    health_state: info.health_state ?? null,
+  });
 
   return (
     <button
@@ -60,7 +67,14 @@ function SystemRow({
           : 'cursor-default',
       )}
     >
-      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+      {/* Status dot — 100% matched with Layout view color & pulse */}
+      <span
+        className={cn(
+          'w-2 h-2 rounded-full shrink-0',
+          bgClass,
+          isOnline && 'animate-pulse',
+        )}
+      />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{info.hostname}</p>
         <p className="text-xs text-slate-400 font-mono truncate">{info.ip_address ?? ''}</p>
@@ -268,14 +282,19 @@ export default function MonitoringPage() {
                 </button>
                 {!isCollapsed && (
                   <div className="divide-y divide-slate-100 dark:divide-slate-800 p-1">
-                    {list.map(info => (
-                      <SystemRow
-                        key={`${info.hostname ?? info.ip_address}-${info.timestamp}`}
-                        info={info}
-                        clickable={!!systemByHostname[(info.hostname ?? '').trim().toLowerCase()]?.layout_item_id}
-                        onOpen={() => openSystemDetail(info)}
-                      />
-                    ))}
+                    {list.map(info => {
+                      const hostKey = (info.hostname ?? '').trim().toLowerCase();
+                      const mapped = systemByHostname[hostKey];
+                      return (
+                        <SystemRow
+                          key={`${info.hostname ?? info.ip_address}-${info.timestamp}`}
+                          info={info}
+                          mappedSystem={mapped}
+                          clickable={!!mapped?.layout_item_id}
+                          onOpen={() => openSystemDetail(info)}
+                        />
+                      );
+                    })}
                   </div>
                 )}
               </section>

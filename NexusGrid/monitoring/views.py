@@ -1,5 +1,6 @@
 import json
 from datetime import timedelta
+from django.conf import settings
 from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
@@ -10,10 +11,17 @@ from .models import SystemInfo, SystemCurrent
 from system_layout.models import System, LayoutItem, SYSTEM_TYPES
 
 
-@login_required(login_url="/login/")
-def system_status_api(request):
-    """Return latest snapshots from the current-state table."""
-    cutoff = timezone.now() - timedelta(minutes=2)
+def _online_cutoff():
+    """Return the datetime before which a host is considered offline.
+    Threshold is controlled by MONITORING_ONLINE_THRESHOLD_MINUTES in settings.
+    """
+    minutes = getattr(settings, 'MONITORING_ONLINE_THRESHOLD_MINUTES', 2)
+    return timezone.now() - timedelta(minutes=minutes)
+
+
+def sync_host_health_states():
+    """Evaluate heartbeat staleness for all hosts and sync health_state + System status."""
+    cutoff = _online_cutoff()
     
     # Mark systems offline
     offline_hostnames = list(SystemCurrent.objects.filter(
@@ -21,12 +29,12 @@ def system_status_api(request):
         health_state=SystemCurrent.STATE_ONLINE,
     ).values_list('hostname', flat=True))
     
-    SystemCurrent.objects.filter(
-        last_seen_at__lt=cutoff,
-        health_state=SystemCurrent.STATE_ONLINE,
-    ).update(health_state=SystemCurrent.STATE_OFFLINE)
-    
     if offline_hostnames:
+        SystemCurrent.objects.filter(
+            last_seen_at__lt=cutoff,
+            health_state=SystemCurrent.STATE_ONLINE,
+        ).update(health_state=SystemCurrent.STATE_OFFLINE)
+        
         System.objects.filter(
             Q(host_name__in=offline_hostnames) | Q(layout_item__name__in=offline_hostnames)
         ).update(status='inactive')
@@ -36,24 +44,33 @@ def system_status_api(request):
         last_seen_at__gte=cutoff,
     ).exclude(health_state=SystemCurrent.STATE_ONLINE).values_list('hostname', flat=True))
     
-    SystemCurrent.objects.filter(
-        last_seen_at__gte=cutoff,
-    ).exclude(health_state=SystemCurrent.STATE_ONLINE).update(health_state=SystemCurrent.STATE_ONLINE)
-    
     if online_hostnames:
+        SystemCurrent.objects.filter(
+            last_seen_at__gte=cutoff,
+        ).exclude(health_state=SystemCurrent.STATE_ONLINE).update(health_state=SystemCurrent.STATE_ONLINE)
+        
         System.objects.filter(
             Q(host_name__in=online_hostnames) | Q(layout_item__name__in=online_hostnames)
         ).update(status='active')
 
 
-    infos = [
-        row.latest_info
+@login_required(login_url="/login/")
+def system_status_api(request):
+    """Return latest snapshots from the current-state table."""
+    sync_host_health_states()
+
+
+    # Build a map of hostname_key → health_state for fast lookup
+    current_rows = {
+        row.hostname_key: row
         for row in SystemCurrent.objects.select_related('latest_info').order_by('hostname')
-        if row.latest_info_id
-    ]
+    }
 
     data = [
         {
+            # ── Online/offline status (canonical field) ──────────────────────
+            'health_state': row.health_state,
+            # ── Snapshot metrics ─────────────────────────────────────────────
             'hostname': info.hostname,
             'ip_address': info.ip_address,
             'system': info.system,
@@ -96,7 +113,8 @@ def system_status_api(request):
             'today_date': info.today_date,
             'timestamp': info.timestamp.isoformat(),
         }
-        for info in infos
+        for row in current_rows.values()
+        if row.latest_info_id and (info := row.latest_info) is not None
     ]
     return JsonResponse({'systems': data})
 
@@ -261,8 +279,8 @@ def ingest_system_info(request):
                 updated_at=timezone.now()
             )
 
-        # ── Auto-sweep stale hosts (2-minute timeout) ───────────────────────
-        stale_cutoff = info.timestamp - timedelta(minutes=2)
+        # ── Auto-sweep stale hosts (configurable threshold) ────────────────
+        stale_cutoff = info.timestamp - timedelta(minutes=getattr(settings, 'MONITORING_ONLINE_THRESHOLD_MINUTES', 2))
         stale_hostnames = list(
             SystemCurrent.objects
             .filter(last_seen_at__lt=stale_cutoff, health_state=SystemCurrent.STATE_ONLINE)
