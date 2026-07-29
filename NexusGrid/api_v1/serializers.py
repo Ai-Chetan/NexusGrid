@@ -81,12 +81,19 @@ class LayoutItemSerializer(serializers.ModelSerializer):
     def get_status(self, obj):
         if obj.item_type in SYSTEM_TYPES:
             system = getattr(obj, 'system', None)
-            if system is not None:
-                return system.status
+            explicit_status = system.status if system else None
             monitored = self.context.get('monitored_hostnames', set())
-            if obj.name.lower() in monitored:
-                return 'active'
-            return 'inactive'
+            active_faults = self.context.get('active_fault_layout_ids', set())
+            has_fault = obj.id in active_faults
+            
+            is_monitored = (system.host_name.lower() in monitored) if (system and system.host_name) else (obj.name.lower() in monitored)
+            
+            from monitoring.views import compute_canonical_device_status
+            return compute_canonical_device_status(
+                health_state='online' if is_monitored else 'offline',
+                explicit_status=explicit_status,
+                has_active_fault=has_fault,
+            )
         return None
 
     def get_quick_info(self, obj):

@@ -386,6 +386,7 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
 
   const [pendingPositions, setPendingPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [pinnedLegend, setPinnedLegend] = useState(false);
 
   // Stable refs so imperative handles never go stale
   const pendingPositionsRef = useRef(pendingPositions);
@@ -603,26 +604,29 @@ const NetworkFlowView = forwardRef<NetworkFlowViewRef, Props>(function NetworkFl
           <div className="group relative flex items-start justify-end">
             {/* Circular trigger button */}
             <button
+              type="button"
+              onClick={() => setPinnedLegend((prev) => !prev)}
               className={cn(
-                'w-8 h-8 rounded-full flex items-center justify-center shadow-md border transition-colors z-10 select-none',
-                isDark
-                  ? 'bg-slate-800 border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-400'
-                  : 'bg-white border-slate-200 text-slate-400 hover:text-slate-700 hover:border-slate-400',
+                'w-8 h-8 rounded-full flex items-center justify-center shadow-md border transition-all z-10 select-none cursor-pointer',
+                pinnedLegend
+                  ? (isDark ? 'bg-brand-900/80 border-brand-500 text-brand-300 ring-2 ring-brand-500/50' : 'bg-brand-50 border-brand-400 text-brand-600 ring-2 ring-brand-400/50')
+                  : (isDark
+                      ? 'bg-slate-800 border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-400'
+                      : 'bg-white border-slate-200 text-slate-400 hover:text-slate-700 hover:border-slate-400'),
               )}
-              tabIndex={-1}
-              aria-label="Show legend"
+              title={pinnedLegend ? 'Click to unpin legend' : 'Click to pin legend'}
+              aria-label="Toggle legend"
             >
               <span style={{ fontFamily: 'serif', fontStyle: 'italic', fontWeight: 700, fontSize: 15, lineHeight: 1, display: 'block' }}>i</span>
             </button>
 
-            {/* Legend popover — visible on group hover */}
+            {/* Legend popover — stays visible when pinnedLegend is true, or on hover when not pinned */}
             <div
               className={cn(
-                'absolute top-10 right-0 rounded-xl p-3 shadow-lg text-[11px] space-y-1.5 border w-40',
-                'pointer-events-none',
-                'opacity-0 scale-95 translate-y-[-4px]',
-                'transition-all duration-200 ease-out',
-                'group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0',
+                'absolute top-10 right-0 rounded-xl p-3 shadow-lg text-[11px] space-y-1.5 border w-40 z-20 transition-all duration-200 ease-out',
+                pinnedLegend
+                  ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
+                  : 'opacity-0 scale-95 translate-y-[-4px] pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0 group-hover:pointer-events-auto',
                 isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200',
               )}
             >

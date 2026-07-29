@@ -13,10 +13,44 @@ from system_layout.models import System, LayoutItem, SYSTEM_TYPES
 
 def _online_cutoff():
     """Return the datetime before which a host is considered offline.
-    Threshold is controlled by MONITORING_ONLINE_THRESHOLD_MINUTES in settings.
+    Threshold is controlled by DEVICE_ONLINE_THRESHOLD_SECONDS (or MONITORING_ONLINE_THRESHOLD_MINUTES) in settings.
     """
-    minutes = getattr(settings, 'MONITORING_ONLINE_THRESHOLD_MINUTES', 2)
-    return timezone.now() - timedelta(minutes=minutes)
+    seconds = getattr(settings, 'DEVICE_ONLINE_THRESHOLD_SECONDS', None)
+    if seconds is None:
+        minutes = getattr(settings, 'MONITORING_ONLINE_THRESHOLD_MINUTES', 2)
+        seconds = minutes * 60
+    return timezone.now() - timedelta(seconds=seconds)
+
+
+def compute_canonical_device_status(
+    last_seen_at=None,
+    health_state=None,
+    explicit_status=None,
+    has_active_fault=False,
+):
+    """Compute the single canonical device status server-side.
+    Returns one of: 'online', 'offline', 'sleep', 'fault', 'unknown'.
+    """
+    if has_active_fault or explicit_status == 'non-functional':
+        return 'fault'
+
+    if last_seen_at is not None:
+        cutoff = _online_cutoff()
+        if last_seen_at >= cutoff or health_state == 'online':
+            return 'online'
+        # Extended threshold check for sleep state (silence between 1x and 5x cutoff threshold)
+        seconds = getattr(settings, 'DEVICE_ONLINE_THRESHOLD_SECONDS', 120)
+        sleep_cutoff = timezone.now() - timedelta(seconds=seconds * 5)
+        if last_seen_at >= sleep_cutoff:
+            return 'sleep'
+        return 'offline'
+
+    if health_state == 'online' or explicit_status == 'active':
+        return 'online'
+    if health_state == 'offline' or explicit_status == 'inactive':
+        return 'offline'
+
+    return 'unknown'
 
 
 def sync_host_health_states():

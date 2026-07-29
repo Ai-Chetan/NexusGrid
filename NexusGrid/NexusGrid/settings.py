@@ -30,9 +30,10 @@ ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost', '.o
 USE_REDIS = env.bool('USE_REDIS', default=False)
 
 # ── Monitoring heartbeat threshold ────────────────────────────────────────────
-# Minutes of silence after which a monitored host is considered offline.
-# Override in .env: MONITORING_ONLINE_THRESHOLD_MINUTES=5
+# Minutes / seconds of silence after which a monitored host is considered offline.
+# Override in .env: MONITORING_ONLINE_THRESHOLD_MINUTES=2 or DEVICE_ONLINE_THRESHOLD_SECONDS=120
 MONITORING_ONLINE_THRESHOLD_MINUTES = env.int('MONITORING_ONLINE_THRESHOLD_MINUTES', default=2)
+DEVICE_ONLINE_THRESHOLD_SECONDS = env.int('DEVICE_ONLINE_THRESHOLD_SECONDS', default=MONITORING_ONLINE_THRESHOLD_MINUTES * 60)
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

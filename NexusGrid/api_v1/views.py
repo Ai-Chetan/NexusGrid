@@ -1773,7 +1773,7 @@ class MonitoringView(APIView):
         if request.user.role not in ('Administrator', 'Lab Assistant'):
             return Response({'detail': 'Monitoring is not available for your role.'}, status=403)
 
-        from monitoring.views import sync_host_health_states
+        from monitoring.views import sync_host_health_states, compute_canonical_device_status
         from faults.models import FaultReport
         from resources.models import ResourceRequest
 
@@ -1814,10 +1814,17 @@ class MonitoringView(APIView):
                 info = row.latest_info
                 info.health_state = row.health_state
                 h_key = (info.hostname or '').strip().lower()
+                has_fault = h_key in active_fault_hosts
+                explicit = system_status_map.get(h_key)
                 
-                info.status = system_status_map.get(h_key, 'active' if row.health_state == 'online' else 'inactive')
+                info.status = compute_canonical_device_status(
+                    last_seen_at=row.last_seen_at,
+                    health_state=row.health_state,
+                    explicit_status=explicit,
+                    has_active_fault=has_fault,
+                )
                 
-                if h_key in active_fault_hosts:
+                if has_fault:
                     info.alert_status = 'fault_active'
                 elif h_key in pending_resource_hosts:
                     info.alert_status = 'resource_pending'
