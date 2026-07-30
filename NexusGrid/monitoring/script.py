@@ -292,15 +292,15 @@ def send_data_to_api(system_info):
     except Exception as e:
         log_event(f"[ERROR] Error sending data to {API_URL}: {e}")
 
-def send_offline_signal(state="offline"):
-    """Send immediate offline or sleep state signal to backend API on shutdown/logoff/suspend."""
+def send_offline_signal():
+    """Send immediate offline state signal to backend API on shutdown/logoff."""
     try:
         url = f"{DEFAULT_BASE_URL}/api/offline/"
         hostname = socket.gethostname()
-        requests.post(url, json={"hostname": hostname, "state": state}, timeout=3)
-        log_event(f"[INFO] Sent {state} signal to {url} for host {hostname}")
+        requests.post(url, json={"hostname": hostname}, timeout=3)
+        log_event(f"[INFO] Sent shutdown offline signal to {url} for host {hostname}")
     except Exception as e:
-        log_event(f"[ERROR] Error sending {state} signal to {DEFAULT_BASE_URL}: {e}")
+        log_event(f"[ERROR] Error sending offline signal to {DEFAULT_BASE_URL}: {e}")
 
 # Register Windows console control handler for shutdown/logoff events
 if platform.system() == "Windows":
