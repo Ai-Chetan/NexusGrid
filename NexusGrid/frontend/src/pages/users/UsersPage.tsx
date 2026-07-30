@@ -17,7 +17,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { usersApi } from '@/lib/api';
+import { labsApi, usersApi } from '@/lib/api';
 import { cn, formatDate } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 import type { User } from '@/types';
@@ -201,9 +201,9 @@ function DeleteUserModal({
   );
 }
 
-// ─── Edit Role Modal ──────────────────────────────────────────────────────────
+// ─── Edit User Modal (Role & Lab Assignments) ────────────────────────────────
 
-function EditRoleModal({
+function EditUserModal({
   user,
   open,
   onClose,
@@ -213,41 +213,69 @@ function EditRoleModal({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
-  const [role, setRole] = useState(user?.role ?? 'No Roles');
+  const [role, setRole] = useState<User['role']>(user?.role ?? 'No Roles');
+  const [selectedLabs, setSelectedLabs] = useState<string[]>(user?.assigned_labs ?? []);
   const [confirmRevoke, setConfirmRevoke] = useState(false);
+
+  const { data: labs = [], isLoading: isLoadingLabs } = useQuery<{ id: number; lab_name: string; lab_code: string }[]>({
+    queryKey: ['labs'],
+    queryFn: () => labsApi.list().then((r) => r.data),
+    enabled: open,
+  });
 
   useEffect(() => {
     if (user && open) {
       setRole(user.role);
+      setSelectedLabs(user.assigned_labs ?? []);
       setConfirmRevoke(false);
     }
   }, [user, open]);
 
+  const isAssignableRole = ASSIGNABLE_ROLES.includes(role);
+  const roleChanged = user ? role !== user.role : false;
+  const labsChanged = user
+    ? JSON.stringify([...(selectedLabs ?? [])].sort()) !== JSON.stringify([...(user.assigned_labs ?? [])].sort())
+    : false;
+  const isChanged = roleChanged || labsChanged;
+
+  const willRevoke = roleChanged && ASSIGNABLE_ROLES.includes(user?.role ?? '') && !isAssignableRole;
 
   const mutation = useMutation({
-    mutationFn: (newRole: string) => usersApi.update(user!.id, { role: newRole }),
+    mutationFn: (payload: { role: string; assigned_labs: string[] }) =>
+      usersApi.update(user!.id, payload),
     onSuccess: (res) => {
       invalidatePrivileges(qc);
       const revoked = res.data.revoked_assignments as number | undefined;
       toast.success(
         revoked && revoked > 0
-          ? `Role updated. ${revoked} assignment${revoked > 1 ? 's' : ''} revoked.`
-          : `Role updated to ${res.data.role}`,
+          ? `User privileges updated. ${revoked} assignment${revoked > 1 ? 's' : ''} revoked.`
+          : `User privileges updated successfully.`,
       );
       onClose();
     },
     onError: (err: unknown) => {
-      toast.error(errDetail(err, 'Failed to update role.'));
+      toast.error(errDetail(err, 'Failed to update user.'));
     },
   });
 
   if (!user) return null;
 
-  const changed = role !== user.role;
-  const willRevoke = changed && ASSIGNABLE_ROLES.includes(user.role);
+  const toggleLab = (labName: string) => {
+    setSelectedLabs((prev) =>
+      prev.includes(labName) ? prev.filter((l) => l !== labName) : [...prev, labName]
+    );
+  };
+
+  const selectAllLabs = () => {
+    setSelectedLabs(labs.map((l) => l.lab_name));
+  };
+
+  const clearAllLabs = () => {
+    setSelectedLabs([]);
+  };
 
   const save = () => {
-    if (!changed) {
+    if (!isChanged) {
       onClose();
       return;
     }
@@ -255,22 +283,35 @@ function EditRoleModal({
       setConfirmRevoke(true);
       return;
     }
-    mutation.mutate(role);
+    mutation.mutate({
+      role,
+      assigned_labs: isAssignableRole ? selectedLabs : [],
+    });
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Edit Role" size="sm">
+    <Modal open={open} onClose={onClose} title="Edit User Privileges" size="md">
       <div className="space-y-4">
-        <div className="flex items-center gap-3">
+        {/* User preview header */}
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
           <Avatar name={user.username} />
-          <div>
-            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{user.username}</p>
-            <p className="text-xs text-slate-500">{user.email}</p>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{user.username}</p>
+            <p className="text-xs text-slate-500 truncate">{user.email}</p>
+            <div className="mt-1 flex items-center gap-2">
+              <RoleBadge role={user.role} />
+              {user.assigned_labs && user.assigned_labs.length > 0 && (
+                <span className="text-xs text-slate-500">
+                  ({user.assigned_labs.length} lab{user.assigned_labs.length > 1 ? 's' : ''} assigned)
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
+        {/* Role dropdown */}
         <div>
-          <label className="label">Role</label>
+          <label className="label">User Role</label>
           <select
             className="input"
             value={role}
@@ -285,12 +326,84 @@ function EditRoleModal({
           </select>
         </div>
 
+        {/* Lab Multi-select Section */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="label mb-0">Assigned Labs</label>
+            {isAssignableRole && labs.length > 0 && (
+              <div className="flex items-center gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={selectAllLabs}
+                  className="text-brand-600 dark:text-brand-400 hover:underline font-medium"
+                >
+                  Select All
+                </button>
+                <span className="text-slate-300 dark:text-slate-600">•</span>
+                <button
+                  type="button"
+                  onClick={clearAllLabs}
+                  className="text-slate-500 hover:underline font-medium"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+          </div>
+
+          {!isAssignableRole ? (
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/80 text-xs text-slate-500">
+              Lab assignments are only available for <strong>Lab Incharge</strong> and <strong>Lab Assistant</strong> roles.
+            </div>
+          ) : isLoadingLabs ? (
+            <div className="p-4 flex items-center justify-center gap-2 text-xs text-slate-500 border border-slate-200 dark:border-slate-700 rounded-xl">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading labs…
+            </div>
+          ) : labs.length === 0 ? (
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/80 text-xs text-slate-500">
+              No labs found in system layout. Create labs in System Layout first.
+            </div>
+          ) : (
+            <div className="max-h-48 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 space-y-1 bg-white dark:bg-slate-800/50">
+              {labs.map((lab) => {
+                const isSelected = selectedLabs.includes(lab.lab_name);
+                return (
+                  <label
+                    key={lab.id}
+                    className={cn(
+                      'flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-colors border select-none',
+                      isSelected
+                        ? 'bg-brand-50/80 border-brand-200 dark:bg-brand-950/40 dark:border-brand-800 text-brand-900 dark:text-brand-200'
+                        : 'bg-transparent border-transparent hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleLab(lab.lab_name)}
+                        className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                      />
+                      <span className="font-medium truncate">{lab.lab_name}</span>
+                    </div>
+                    {lab.lab_code && (
+                      <span className="text-[10px] text-slate-400 font-mono uppercase bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded ml-2">
+                        {lab.lab_code}
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {willRevoke && (
           <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-300">
             <div className="flex gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
               <p>
-                Changing from <strong>{user.role}</strong> will revoke all lab assignments for this user
+                Changing from <strong>{user.role}</strong> to <strong>{role}</strong> will revoke all existing lab assignments for this user
                 {user.assigned_labs && user.assigned_labs.length > 0
                   ? `: ${user.assigned_labs.join(', ')}`
                   : ''}.
@@ -302,7 +415,7 @@ function EditRoleModal({
           </div>
         )}
 
-        <div className="flex justify-end gap-2 pt-1">
+        <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-secondary" onClick={onClose} disabled={mutation.isPending}>
             Cancel
           </button>
@@ -310,10 +423,10 @@ function EditRoleModal({
             type="button"
             className={cn(willRevoke && confirmRevoke ? 'btn-danger' : 'btn-primary')}
             onClick={save}
-            disabled={mutation.isPending || !changed}
+            disabled={mutation.isPending || !isChanged}
           >
             {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
-            {willRevoke && confirmRevoke ? 'Confirm Change' : 'Save Role'}
+            {willRevoke && confirmRevoke ? 'Confirm Revocation' : 'Save Changes'}
           </button>
         </div>
       </div>
@@ -456,12 +569,12 @@ function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void
 function UserActions({
   user,
   isSelf,
-  onEditRole,
+  onEdit,
   onDelete,
 }: {
   user: User;
   isSelf: boolean;
-  onEditRole: () => void;
+  onEdit: () => void;
   onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -472,12 +585,12 @@ function UserActions({
       <div className="hidden sm:flex items-center gap-1">
         <button
           type="button"
-          onClick={onEditRole}
+          onClick={onEdit}
           className="btn-ghost px-2 py-1.5 text-xs"
-          title="Edit role"
+          title="Edit user privileges"
         >
           <Pencil className="w-3.5 h-3.5" />
-          Role
+          Edit
         </button>
         {!isSelf && (
           <button
@@ -505,13 +618,13 @@ function UserActions({
         {open && (
           <>
             <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-            <div className="absolute right-0 top-full mt-1 z-20 w-40 card py-1 shadow-lg">
+            <div className="absolute right-0 top-full mt-1 z-20 w-44 card py-1 shadow-lg">
               <button
                 type="button"
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
-                onClick={() => { setOpen(false); onEditRole(); }}
+                onClick={() => { setOpen(false); onEdit(); }}
               >
-                <Pencil className="w-3.5 h-3.5" /> Edit role
+                <Pencil className="w-3.5 h-3.5" /> Edit privileges
               </button>
               {!isSelf && (
                 <button
@@ -538,7 +651,7 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState('all');
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
-  const [roleTarget, setRoleTarget] = useState<User | null>(null);
+  const [editTarget, setEditTarget] = useState<User | null>(null);
 
   const { data: stats } = useQuery({
     queryKey: ['privileges-stats'],
@@ -573,7 +686,7 @@ export default function UsersPage() {
     <div className="space-y-5 animate-fade-in">
       <PageHeader
         title="User Privileges"
-        description="Manage accounts and roles. Assign labs from System Layout."
+        description="Manage accounts, roles, and lab assignments."
         actions={
           <button onClick={() => setCreateOpen(true)} className="btn-primary">
             <PlusCircle className="w-4 h-4" />
@@ -664,10 +777,10 @@ export default function UsersPage() {
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
       />
-      <EditRoleModal
-        user={roleTarget}
-        open={!!roleTarget}
-        onClose={() => setRoleTarget(null)}
+      <EditUserModal
+        user={editTarget}
+        open={!!editTarget}
+        onClose={() => setEditTarget(null)}
       />
 
       {/* User list */}
@@ -756,7 +869,7 @@ export default function UsersPage() {
                           <UserActions
                             user={u}
                             isSelf={isSelf}
-                            onEditRole={() => setRoleTarget(u)}
+                            onEdit={() => setEditTarget(u)}
                             onDelete={() => setDeleteTarget(u)}
                           />
                         </td>
@@ -812,7 +925,7 @@ export default function UsersPage() {
                       <UserActions
                         user={u}
                         isSelf={isSelf}
-                        onEditRole={() => setRoleTarget(u)}
+                        onEdit={() => setEditTarget(u)}
                         onDelete={() => setDeleteTarget(u)}
                       />
                     </div>

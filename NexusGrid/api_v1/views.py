@@ -2174,10 +2174,40 @@ class UserDetailView(APIView):
             return Response(ser.errors, status=400)
         ser.save()
 
-        # If role changed away from an assignable role, revoke all lab assignments
         new_role = user.role
         revoked_count = 0
-        if old_role != new_role and old_role in ('Lab Incharge', 'Lab Assistant'):
+
+        if 'assigned_labs' in request.data:
+            assigned_labs_input = request.data.get('assigned_labs') or []
+            if new_role in ('Lab Incharge', 'Lab Assistant'):
+                role_type = LabAssignment.ROLE_INCHARGE if new_role == 'Lab Incharge' else LabAssignment.ROLE_ASSISTANT
+                lab_ids = [l for l in assigned_labs_input if isinstance(l, int) or (isinstance(l, str) and str(l).isdigit())]
+                lab_names = [str(l) for l in assigned_labs_input if isinstance(l, str) and not str(l).isdigit()]
+
+                labs = list(Lab.objects.filter(Q(id__in=[int(i) for i in lab_ids]) | Q(lab_name__in=lab_names)))
+                target_lab_ids = {lab.id for lab in labs}
+
+                deleted, _ = LabAssignment.objects.filter(user=user).exclude(lab_id__in=target_lab_ids).delete()
+                revoked_count += deleted
+
+                for lab in labs:
+                    assignment = LabAssignment.objects.filter(user=user, lab=lab).first()
+                    if assignment:
+                        if assignment.role_type != role_type:
+                            assignment.role_type = role_type
+                            assignment.assigned_by = request.user
+                            assignment.save()
+                    else:
+                        LabAssignment.objects.create(
+                            user=user,
+                            lab=lab,
+                            role_type=role_type,
+                            assigned_by=request.user
+                        )
+            else:
+                revoked_count = LabAssignment.objects.filter(user=user).count()
+                LabAssignment.objects.filter(user=user).delete()
+        elif old_role != new_role and old_role in ('Lab Incharge', 'Lab Assistant'):
             revoked_count = LabAssignment.objects.filter(user=user).count()
             LabAssignment.objects.filter(user=user).delete()
 

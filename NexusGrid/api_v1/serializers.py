@@ -30,9 +30,12 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
+    assigned_labs = serializers.ListField(child=serializers.CharField(), required=False, write_only=True)
+
     class Meta:
         model = User
-        fields = ['role', 'email']
+        fields = ['role', 'email', 'assigned_labs']
+
 
 
 class NotificationSerializer(serializers.ModelSerializer):
