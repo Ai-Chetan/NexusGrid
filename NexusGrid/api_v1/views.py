@@ -2007,7 +2007,7 @@ class UptimeMonthlyView(APIView):
             SystemInfo.objects
             .filter(hostname__iexact=hostname)
             .filter(timestamp__gte=cutoff)
-            .filter(boot_time__isnull=False, uptime_seconds__isnull=False)
+            .filter(uptime_seconds__isnull=False)
             .order_by('timestamp')
             .values('timestamp', 'boot_time', 'uptime_seconds')
         )
@@ -2511,6 +2511,16 @@ def _calculate_daily_uptime(snapshots, day_start_ts=None):
         sessions[s['boot_time']].append(s['timestamp'].timestamp())
     total_seconds = 0.0
     for boot_time, timestamps in sessions.items():
+        if boot_time is None:
+            timestamps.sort()
+            acc = 0.0
+            for i in range(1, len(timestamps)):
+                gap = timestamps[i] - timestamps[i-1]
+                if 0 < gap < 300:
+                    acc += gap
+            total_seconds += acc
+            continue
+
         min_seen = min(timestamps)
         max_seen = max(timestamps)
         if day_start_ts is None:
@@ -2532,7 +2542,7 @@ class AnalyticsYearlyView(APIView):
         if err: return err
         snapshots = list(
             SystemInfo.objects
-            .filter(hostname__iexact=hostname, boot_time__isnull=False)
+            .filter(hostname__iexact=hostname)
             .values('timestamp', 'boot_time')
         )
         yearly_data = defaultdict(lambda: defaultdict(list))
@@ -2570,7 +2580,7 @@ class AnalyticsMonthlyView(APIView):
             return Response({'detail': 'Invalid year'}, status=400)
         snapshots = list(
             SystemInfo.objects
-            .filter(hostname__iexact=hostname, timestamp__year=year, boot_time__isnull=False)
+            .filter(hostname__iexact=hostname, timestamp__year=year)
             .values('timestamp', 'boot_time')
         )
         monthly_data = defaultdict(lambda: defaultdict(list))
@@ -2610,7 +2620,7 @@ class AnalyticsDailyView(APIView):
             return Response({'detail': 'Invalid year or month'}, status=400)
         snapshots = list(
             SystemInfo.objects
-            .filter(hostname__iexact=hostname, timestamp__year=year, timestamp__month=month, boot_time__isnull=False)
+            .filter(hostname__iexact=hostname, timestamp__year=year, timestamp__month=month)
             .values('timestamp', 'boot_time')
         )
         daily_data = defaultdict(list)
@@ -2651,7 +2661,7 @@ class AnalyticsIntradayView(APIView):
             return Response({'detail': 'Invalid date format'}, status=400)
         snapshots = list(
             SystemInfo.objects
-            .filter(hostname__iexact=hostname, timestamp__date=dt.date(), boot_time__isnull=False)
+            .filter(hostname__iexact=hostname, timestamp__date=dt.date())
             .order_by('timestamp')
             .values('timestamp', 'boot_time')
         )
@@ -2661,11 +2671,11 @@ class AnalyticsIntradayView(APIView):
             for snap in snapshots:
                 ts = snap['timestamp'].timestamp()
                 if not current_block:
-                    current_block = {'start': ts, 'end': ts, 'boot_time': snap['boot_time']}
+                    current_block = {'start': ts, 'end': ts, 'boot_time': snap['boot_time'] or ts}
                 else:
-                    if snap['boot_time'] != current_block['boot_time'] or (ts - current_block['end']) > 150:
+                    if snap['boot_time'] != current_block.get('original_boot_time') or (ts - current_block['end']) > 300:
                         timeline.append(current_block)
-                        current_block = {'start': ts, 'end': ts, 'boot_time': snap['boot_time']}
+                        current_block = {'start': ts, 'end': ts, 'boot_time': snap['boot_time'] or ts, 'original_boot_time': snap['boot_time']}
                     else:
                         current_block['end'] = ts
             if current_block:
