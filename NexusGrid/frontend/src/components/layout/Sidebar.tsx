@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   LayoutDashboard, Map, AlertTriangle, Package,
-  BarChart3, Activity, Users, LogOut, ChevronRight, ScanLine,
+  BarChart3, Activity, Users, LogOut, ChevronRight, ScanLine, Settings,
 } from 'lucide-react';
 import { layoutApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -22,6 +22,7 @@ const navItems: { to: string; label: string; icon: React.ElementType; allowedRol
   { to: '/app/reports',    label: 'Reports',         icon: BarChart3,   allowedRoles: ['Administrator', 'Lab Assistant'] },
   { to: '/app/monitoring', label: 'Monitoring',      icon: Activity,    allowedRoles: ['Administrator', 'Lab Assistant'] },
   { to: '/app/users',      label: 'User Privileges', icon: Users,        allowedRoles: ['Administrator'] },
+  { to: '/app/admin',      label: 'Admin Settings',  icon: Settings,     allowedRoles: ['Administrator'] },
 ];
 
 interface SidebarProps {

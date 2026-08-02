@@ -12,7 +12,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.pagination import PageNumberPagination
 
 from login_manager.models import User
-from system_layout.models import LayoutItem, Lab, System, LabAssignment, PrivilegesConfig, SYSTEM_TYPES
+from system_layout.models import LayoutItem, Lab, System, LabAssignment, PrivilegesConfig, MonitoringConfig, SYSTEM_TYPES
 from faults.models import FaultReport
 from resources.models import ResourceRequest
 from monitoring.models import SystemInfo, SystemCurrent
@@ -28,6 +28,7 @@ from .serializers import (
     ResourceRequestSerializer, ResourceCreateSerializer, ResourceStatusUpdateSerializer,
     SystemInfoSerializer,
     LabAssignmentSerializer, LabAssignmentCreateSerializer, PrivilegesConfigSerializer,
+    MonitoringConfigSerializer,
 )
 
 
@@ -2372,6 +2373,30 @@ class PrivilegesConfigView(APIView):
             return Response(ser.errors, status=400)
         ser.save()
         return Response(PrivilegesConfigSerializer(config).data)
+
+
+# ─── Monitoring Config ────────────────────────────────────────────────────────
+
+class MonitoringConfigView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        denied = _admin_only(request)
+        if denied:
+            return denied
+        config = MonitoringConfig.get_config()
+        return Response(MonitoringConfigSerializer(config).data)
+
+    def patch(self, request):
+        denied = _admin_only(request)
+        if denied:
+            return denied
+        config = MonitoringConfig.get_config()
+        ser = MonitoringConfigSerializer(config, data=request.data, partial=True)
+        if not ser.is_valid():
+            return Response(ser.errors, status=400)
+        ser.save()
+        return Response(MonitoringConfigSerializer(config).data)
 
 
 # ─── Delete Account ───────────────────────────────────────────────────────────

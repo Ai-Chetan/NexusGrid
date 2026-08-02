@@ -4,6 +4,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from monitoring.models import SystemCurrent
+from system_layout.models import MonitoringConfig
 
 
 class Command(BaseCommand):
@@ -11,15 +12,20 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--timeout-seconds',
+            '--timeout-minutes',
             type=int,
-            default=90,
-            help='Seconds after last_seen_at to mark a host as offline (default: 90).',
+            default=None,
+            help='Minutes after last_seen_at to mark a host as offline. '
+                 'If not provided, uses MonitoringConfig.offline_detection_threshold_minutes.',
         )
 
     def handle(self, *args, **options):
-        timeout_seconds = max(1, int(options['timeout_seconds']))
-        cutoff = timezone.now() - timedelta(seconds=timeout_seconds)
+        timeout_minutes = options['timeout_minutes']
+        if timeout_minutes is None:
+            config = MonitoringConfig.get_config()
+            timeout_minutes = config.offline_detection_threshold_minutes
+        timeout_minutes = max(1, int(timeout_minutes))
+        cutoff = timezone.now() - timedelta(minutes=timeout_minutes)
 
         # Get hostnames that will be marked offline
         offline_hostnames = list(SystemCurrent.objects.filter(

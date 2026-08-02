@@ -7,13 +7,14 @@ from django.views.decorators.http import require_POST
 from django.utils import timezone
 from django.db.models import Q
 from .models import SystemInfo, SystemCurrent
-from system_layout.models import System, LayoutItem, SYSTEM_TYPES
+from system_layout.models import MonitoringConfig, System, LayoutItem, SYSTEM_TYPES
 
 
 @login_required(login_url="/login/")
 def system_status_api(request):
     """Return latest snapshots from the current-state table."""
-    cutoff = timezone.now() - timedelta(minutes=2)
+    config = MonitoringConfig.get_config()
+    cutoff = timezone.now() - timedelta(minutes=config.offline_detection_threshold_minutes)
     
     # Mark systems offline
     offline_hostnames = list(SystemCurrent.objects.filter(
@@ -251,8 +252,9 @@ def ingest_system_info(request):
                 updated_at=timezone.now()
             )
 
-        # ── Auto-sweep stale hosts (2-minute timeout) ───────────────────────
-        stale_cutoff = info.timestamp - timedelta(minutes=2)
+        # ── Auto-sweep stale hosts (config-driven timeout) ────────────────
+        config = MonitoringConfig.get_config()
+        stale_cutoff = info.timestamp - timedelta(minutes=config.offline_detection_threshold_minutes)
         stale_hostnames = list(
             SystemCurrent.objects
             .filter(last_seen_at__lt=stale_cutoff, health_state=SystemCurrent.STATE_ONLINE)

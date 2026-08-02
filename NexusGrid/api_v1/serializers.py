@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.utils import timezone
 from django.db.models import Q
 from login_manager.models import User
-from system_layout.models import LayoutItem, Lab, System, LabAssignment, PrivilegesConfig, SYSTEM_TYPES, ALLOWED_CHILDREN
+from system_layout.models import LayoutItem, Lab, System, LabAssignment, PrivilegesConfig, MonitoringConfig, SYSTEM_TYPES, ALLOWED_CHILDREN
 from faults.models import FaultReport
 from resources.models import ResourceRequest
 from monitoring.models import SystemInfo
@@ -270,6 +270,13 @@ class PrivilegesConfigSerializer(serializers.ModelSerializer):
             'max_labs_per_incharge', 'max_labs_per_assistant',
             'max_incharges_per_lab', 'max_assistants_per_lab',
         ]
+
+
+class MonitoringConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MonitoringConfig
+        fields = ['heartbeat_interval_minutes', 'offline_detection_threshold_minutes', 'max_log_retention_days', 'updated_at']
+        read_only_fields = ['updated_at']
 
 
 class LabUpdateSerializer(serializers.ModelSerializer):

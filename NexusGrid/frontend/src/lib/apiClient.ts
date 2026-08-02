@@ -169,6 +169,12 @@ export const labsApi = {
 // ─── Monitoring ───────────────────────────────────────────────────────────────
 export const monitoringApi = {
   latest: () => apiClient.get('/monitoring/'),
+  getConfig: () => apiClient.get('/monitoring/config/'),
+  updateConfig: (data: {
+    heartbeat_interval_minutes?: number;
+    offline_detection_threshold_minutes?: number;
+    max_log_retention_days?: number;
+  }) => apiClient.patch('/monitoring/config/', data),
 };
 
 // ─── Users ────────────────────────────────────────────────────────────────────

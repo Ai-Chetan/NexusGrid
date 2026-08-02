@@ -64,6 +64,7 @@ urlpatterns = [
     path('monitoring/analytics/monthly/', views.AnalyticsMonthlyView.as_view(), name='api-analytics-monthly'),
     path('monitoring/analytics/daily/', views.AnalyticsDailyView.as_view(), name='api-analytics-daily'),
     path('monitoring/analytics/intraday/', views.AnalyticsIntradayView.as_view(), name='api-analytics-intraday'),
+    path('monitoring/config/', views.MonitoringConfigView.as_view(), name='api-monitoring-config'),
 
     # Users / Privileges
     path('users/', views.UserListView.as_view(), name='api-users-list'),

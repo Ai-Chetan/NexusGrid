@@ -195,6 +195,36 @@ class PrivilegesConfig(models.Model):
         return obj
 
 
+class MonitoringConfig(models.Model):
+    """Singleton row that stores admin-configurable monitoring parameters."""
+    heartbeat_interval_minutes = models.PositiveIntegerField(
+        default=5,
+        help_text="How often (in minutes) each system sends a heartbeat ping.",
+    )
+    offline_detection_threshold_minutes = models.PositiveIntegerField(
+        default=15,
+        help_text="If no heartbeat is received for this many minutes, the system is considered offline.",
+    )
+    max_log_retention_days = models.PositiveIntegerField(
+        default=90,
+        help_text="Automatic purge threshold for monitoring logs older than this many days.",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Monitoring Configuration"
+
+    def __str__(self):
+        return (f"MonitoringConfig (heartbeat={self.heartbeat_interval_minutes}m, "
+                f"offline={self.offline_detection_threshold_minutes}m, "
+                f"retention={self.max_log_retention_days}d)")
+
+    @classmethod
+    def get_config(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
 class LabAssignment(models.Model):
     """
     Records the assignment of a Lab Incharge or Lab Assistant to a specific Lab,

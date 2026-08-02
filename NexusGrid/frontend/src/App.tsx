@@ -13,6 +13,7 @@ import ReportsPage from '@/pages/reports/ReportsPage';
 import MonitoringPage from '@/pages/monitoring/MonitoringPage';
 import SystemDetailPage from '@/pages/system/SystemDetailPage';
 import UsersPage from '@/pages/users/UsersPage';
+import AdminSettingsPage from '@/pages/admin/AdminSettingsPage';
 import ProfilePage from '@/pages/profile/ProfilePage';
 import LoadingScreen from '@/components/common/LoadingScreen';
 
@@ -71,8 +72,9 @@ export default function App() {
           <Route path="monitoring" element={<RoleRoute allowedRoles={['Administrator', 'Lab Assistant']}><MonitoringPage /></RoleRoute>} />
           <Route path="system/:itemId" element={<SystemDetailPage />} />
           <Route path="users" element={<RoleRoute allowedRoles={['Administrator']}><UsersPage /></RoleRoute>} />
+          <Route path="admin" element={<RoleRoute allowedRoles={['Administrator']}><AdminSettingsPage /></RoleRoute>} />
           {/* Admin Controls removed (broadcast lives in notifications); oversight merged into Reports */}
-          <Route path="admin-controls" element={<Navigate to="/app/dashboard" replace />} />
+          <Route path="admin-controls" element={<Navigate to="/app/admin" replace />} />
           <Route path="admin-oversight" element={<Navigate to="/app/reports" replace />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
