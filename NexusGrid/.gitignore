@@ -100,3 +100,5 @@ docs
 agent.log
 uptime_state.json
 **/daily_uptime.json
+# Stale tracked archive
+frontend/frontend.zip
